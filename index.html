@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1e1f22">
+<title>Voxa</title>
+<style>
+:root{--rail:#1e1f22;--side:#2b2d31;--main:#313338;--input:#383a40;--hover:#35373c;--sel:#404249;--text:#dbdee1;--muted:#949ba4;--brand:#5865f2;--green:#23a559;--red:#f23f43;box-sizing:border-box}
+*{box-sizing:inherit;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--rail);color:var(--text);font:15px/1.4 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:active{transform:scale(.94)}
+:focus-visible{outline:2px solid #00a8fc;outline-offset:2px}
+.hide{display:none!important}
+/* login */
+#login{position:fixed;inset:0;display:grid;place-items:center;background:var(--rail);padding:16px;z-index:50}
+.card{width:100%;max-width:400px;background:var(--main);border-radius:8px;padding:28px;text-align:center;animation:pop .3s ease}
+.logo{width:64px;height:64px;border-radius:20px;background:var(--brand);display:grid;place-items:center;font-size:32px;font-weight:800;margin:0 auto 14px;color:#fff}
+.card h1{font-size:24px;margin-bottom:6px}.card p{color:var(--muted);margin-bottom:22px}
+.gbtn{width:100%;display:flex;gap:10px;align-items:center;justify-content:center;background:#fff;color:#1f1f1f;padding:11px;border-radius:4px;font-weight:600;transition:background .15s}
+.gbtn:hover{background:#e9e9e9}
+.note{font-size:12px;color:var(--muted);margin-top:14px}
+/* layout */
+#app{display:flex;height:100%;height:100dvh}
+.rail{width:72px;flex:none;background:var(--rail);display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 0;overflow-y:auto}
+.srv{width:48px;height:48px;border-radius:50%;background:var(--main);display:grid;place-items:center;font-weight:700;position:relative;transition:border-radius .2s,background .2s,color .2s}
+.srv:hover,.srv.on{border-radius:16px;background:var(--brand);color:#fff}
+.srv::before{content:"";position:absolute;left:-12px;width:4px;height:8px;border-radius:0 4px 4px 0;background:#fff;transition:height .2s;opacity:0}
+.srv:hover::before{height:20px;opacity:1}.srv.on::before{height:36px;opacity:1}
+.srv.add{color:var(--green)}.srv.add:hover{background:var(--green);color:#fff}
+.sep{width:32px;height:2px;background:var(--main);border-radius:1px}
+.side{width:240px;flex:none;background:var(--side);display:flex;flex-direction:column;min-height:0}
+.sh{height:48px;padding:0 16px;display:flex;align-items:center;font-weight:700;border-bottom:1px solid #1f2023;box-shadow:0 1px 0 rgba(0,0,0,.1)}
+.chs{flex:1;overflow-y:auto;padding:8px}
+.cat{font-size:12px;font-weight:700;color:var(--muted);padding:14px 4px 4px}
+.ch{display:flex;align-items:center;gap:6px;width:100%;padding:6px 8px;border-radius:4px;color:var(--muted);transition:background .12s,color .12s;text-align:left}
+.ch:hover{background:var(--hover);color:var(--text)}.ch.on{background:var(--sel);color:#fff}
+.ch i{font-style:normal;font-size:18px;width:20px;text-align:center}
+.vu{display:flex;align-items:center;gap:8px;padding:3px 8px 3px 30px;color:var(--muted);font-size:14px;animation:pop .2s}
+.av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;flex:none}
+.sp{box-shadow:0 0 0 2px var(--green);animation:talk 1.1s infinite}
+.vp{background:#232428;border-top:1px solid #1f2023;padding:8px 12px;display:flex;align-items:center;gap:8px;animation:up .25s}
+.vp b{color:var(--green);display:block;font-size:13px}.vp small{color:var(--muted)}
+.vp>div{flex:1;min-width:0}
+.up{height:52px;background:#232428;display:flex;align-items:center;gap:8px;padding:0 8px;padding-bottom:env(safe-area-inset-bottom,0)}
+.up .who{flex:1;min-width:0;line-height:1.2}.up .who small{color:var(--muted);font-size:12px}
+.ib{width:32px;height:32px;border-radius:4px;display:grid;place-items:center;color:var(--muted);font-size:17px;transition:background .12s,color .12s}
+.ib:hover{background:var(--hover);color:var(--text)}.ib.off{color:var(--red)}
+.main{flex:1;min-width:0;background:var(--main);display:flex;flex-direction:column}
+.mh{height:48px;flex:none;padding:0 12px;display:flex;align-items:center;gap:8px;font-weight:700;border-bottom:1px solid #26272b;box-shadow:0 1px 0 rgba(0,0,0,.1);padding-top:env(safe-area-inset-top,0)}
+.mh span{color:var(--muted);font-size:22px;font-weight:400}.menu{display:none}
+.body{flex:1;display:flex;min-height:0}
+.chat{flex:1;display:flex;flex-direction:column;min-width:0}
+.msgs{flex:1;overflow-y:auto;padding:12px 0}
+.m{display:flex;gap:14px;padding:3px 16px;margin-top:14px;animation:slide .22s ease}
+.m:hover{background:rgba(2,2,2,.06)}
+.m .av{width:40px;height:40px;font-size:16px}
+.m b{margin-right:8px}.m time{font-size:12px;color:var(--muted)}.m p{word-break:break-word;white-space:pre-wrap}
+.sys{text-align:center;color:var(--muted);font-size:13px;padding:24px 16px}
+.cin{padding:0 16px 16px;padding-bottom:max(16px,env(safe-area-inset-bottom,0))}
+.cin div{background:var(--input);border-radius:8px;display:flex;align-items:center;padding:0 6px 0 16px;transition:box-shadow .15s}
+.cin div:focus-within{box-shadow:0 0 0 1px var(--brand)}
+.cin input{flex:1;min-width:0;background:none;border:0;color:var(--text);font:inherit;padding:11px 0;outline:0}
+.mem{width:240px;flex:none;background:var(--side);overflow-y:auto;padding:8px}
+.mem .cat{padding-top:18px}.mem .vu{padding-left:8px;color:var(--text)}.mem .vu.off{opacity:.5}
+.dot{position:relative}.dot::after{content:"";position:absolute;right:-2px;bottom:-2px;width:10px;height:10px;border-radius:50%;background:var(--green);border:2px solid var(--side)}
+.off .dot::after{background:#80848e}
+.scrim{display:none}
+@keyframes pop{from{opacity:0;transform:scale(.96)}}
+@keyframes up{from{opacity:0;transform:translateY(8px)}}
+@keyframes slide{from{opacity:0;transform:translateY(6px)}}
+@keyframes talk{50%{box-shadow:0 0 0 4px rgba(35,165,89,.45)}}
+@media(max-width:900px){.mem{display:none}}
+@media(max-width:760px){
+ .menu{display:grid}
+ .rail,.side{position:fixed;top:0;bottom:0;z-index:20;transition:transform .25s ease}
+ .rail{left:0;transform:translateX(-100%)}
+ .side{left:72px;width:min(260px,calc(100vw - 72px));transform:translateX(calc(-100% - 72px))}
+ body.drawer .rail,body.drawer .side{transform:none}
+ .scrim{display:block;position:fixed;inset:0;z-index:15;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .25s}
+ body.drawer .scrim{opacity:1;pointer-events:auto}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="login">
+ <div class="card">
+  <div class="logo">V</div>
+  <h1>Voxa'ya hoş geldin</h1>
+  <p>Arkadaşlarınla yaz, konuş, takıl.</p>
+  <button class="gbtn" id="gbtn"><svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.5 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>Google ile giriş yap</button>
+  <p class="note">Şimdilik deneme girişi: tıklayınca demo hesabıyla girersin.</p>
+ </div>
+</div>
+
+<div id="app" class="hide">
+ <div class="scrim" id="scrim"></div>
+ <nav class="rail" id="rail"></nav>
+ <aside class="side" id="side">
+  <div class="sh" id="sname">Tayfa</div>
+  <div class="chs" id="chs"></div>
+  <div class="vp hide" id="vp">
+   <div><b>Ses bağlandı</b><small id="vname"></small></div>
+   <button class="ib" id="leave" title="Ayrıl" aria-label="Ayrıl">✆</button>
+  </div>
+  <div class="up">
+   <div class="av dot" style="background:#5865f2" id="myav">D</div>
+   <div class="who"><div id="myname">Demo</div><small>Çevrimiçi</small></div>
+   <button class="ib" id="mic" title="Sessize al" aria-label="Mikrofon">🎙</button>
+   <button class="ib" id="deaf" title="Sağırlaştır" aria-label="Kulaklık">🎧</button>
+  </div>
+ </aside>
+ <main class="main">
+  <div class="mh"><button class="ib menu" id="menu" aria-label="Menü">☰</button><span>#</span><div id="mtitle">genel</div></div>
+  <div class="body">
+   <div class="chat">
+    <div class="msgs" id="msgs"></div>
+    <form class="cin" id="form"><div><input id="inp" autocomplete="off" placeholder="#genel kanalına mesaj gönder"><button class="ib" type="submit" aria-label="Gönder">➤</button></div></form>
+   </div>
+   <aside class="mem" id="mem"></aside>
+  </div>
+ </main>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const COL=['#5865f2','#eb459e','#f0b132','#23a559','#ed4245','#9b59b6'];
+const col=n=>COL[[...n].reduce((a,c)=>a+c.charCodeAt(0),0)%COL.length];
+const ME={name:'Demo'};
+const SERVERS=[{id:'tayfa',name:'Tayfa',short:'T'},{id:'oyun',name:'Oyun Odası',short:'O'}];
+const CH={
+ tayfa:{text:['genel','oyun-sohbeti','müzik'],voice:['Genel Ses','Oyun Sesi']},
+ oyun:{text:['duyurular','takım-ara'],voice:['Takım 1','Takım 2']}
+};
+const MSGS={};
+const VUSERS={'Genel Ses':['Ayşe','Mert']};
+const ONLINE=['Ayşe','Mert','Can'],OFFLINE=['Deniz','Elif'];
+let srv='tayfa',ch='genel',voice=null,muted=false,deaf=false;
+
+function av(n,x=''){return `<div class="av ${x}" style="background:${col(n)}">${n[0].toUpperCase()}</div>`}
+function rail(){
+ $('rail').innerHTML=SERVERS.map(s=>`<button class="srv ${s.id===srv?'on':''}" data-s="${s.id}" title="${s.name}">${s.short}</button>`).join('')+'<div class="sep"></div><button class="srv add" title="Sunucu ekle" data-add="1">+</button>';
+}
+function chans(){
+ const c=CH[srv];$('sname').textContent=SERVERS.find(s=>s.id===srv).name;
+ $('chs').innerHTML='<div class="cat">YAZI KANALLARI</div>'+c.text.map(t=>`<button class="ch ${t===ch?'on':''}" data-t="${t}"><i>#</i>${t}</button>`).join('')+
+ '<div class="cat">SES KANALLARI</div>'+c.voice.map(v=>`<button class="ch ${v===voice?'on':''}" data-v="${v}"><i>🔊</i>${v}</button>`+(VUSERS[v]||[]).map(u=>`<div class="vu">${av(u,u===ME.name&&!muted?'sp':'')}${u}</div>`).join('')).join('');
+}
+function members(){
+ $('mem').innerHTML=`<div class="cat">ÇEVRİMİÇİ — ${ONLINE.length+1}</div>`+[ME.name,...ONLINE].map(n=>`<div class="vu">${av(n,'dot')}${n}</div>`).join('')+
+ `<div class="cat">ÇEVRİMDIŞI — ${OFFLINE.length}</div>`+OFFLINE.map(n=>`<div class="vu off">${av(n,'dot')}${n}</div>`).join('');
+}
+function msgs(){
+ const k=srv+'/'+ch,l=MSGS[k]||(MSGS[k]=[{u:'Ayşe',t:'Selam! Voxa\'ya hoş geldiniz 👋',h:'12:00'}]);
+ $('mtitle').textContent=ch;$('inp').placeholder='#'+ch+' kanalına mesaj gönder';
+ $('msgs').innerHTML=`<div class="sys"><b>#${ch}</b> kanalının başlangıcı</div>`+l.map(m=>`<div class="m">${av(m.u)}<div><b style="color:${col(m.u)}">${m.u}</b><time>${m.h}</time><p></p></div></div>`).join('');
+ [...$('msgs').querySelectorAll('p')].forEach((p,i)=>p.textContent=l[i].t);
+ $('msgs').scrollTop=1e9;
+}
+function vpanel(){
+ $('vp').classList.toggle('hide',!voice);$('vname').textContent=voice?voice+' / '+SERVERS.find(s=>s.id===srv).name:'';
+ $('mic').classList.toggle('off',muted);$('deaf').classList.toggle('off',deaf);
+ $('mic').textContent=muted?'🔇':'🎙';
+}
+function leaveVoice(){if(voice){VUSERS[voice]=(VUSERS[voice]||[]).filter(u=>u!==ME.name);voice=null}}
+function all(){rail();chans();members();msgs();vpanel()}
+function drawer(o){document.body.classList.toggle('drawer',o)}
+
+$('gbtn').onclick=()=>{$('login').classList.add('hide');$('app').classList.remove('hide');$('myname').textContent=ME.name;all()};
+$('rail').onclick=e=>{const b=e.target.closest('.srv');if(!b||b.dataset.add)return;srv=b.dataset.s;ch=CH[srv].text[0];all()};
+$('chs').onclick=e=>{
+ const t=e.target.closest('[data-t]'),v=e.target.closest('[data-v]');
+ if(t){ch=t.dataset.t;msgs();chans();drawer(false)}
+ if(v){leaveVoice();voice=v.dataset.v;(VUSERS[voice]=VUSERS[voice]||[]).push(ME.name);chans();vpanel()}
+};
+$('leave').onclick=()=>{leaveVoice();chans();vpanel()};
+$('mic').onclick=()=>{muted=!muted;chans();vpanel()};
+$('deaf').onclick=()=>{deaf=!deaf;if(deaf)muted=true;chans();vpanel()};
+$('form').onsubmit=e=>{
+ e.preventDefault();const v=$('inp').value.trim();if(!v)return;
+ const k=srv+'/'+ch;(MSGS[k]=MSGS[k]||[]).push({u:ME.name,t:v,h:new Date().toLocaleTimeString('tr',{hour:'2-digit',minute:'2-digit'})});
+ $('inp').value='';msgs();
+};
+$('menu').onclick=()=>drawer(true);
+$('scrim').onclick=()=>drawer(false);
+let x0=null;
+addEventListener('touchstart',e=>{x0=e.touches[0].clientX},{passive:true});
+addEventListener('touchend',e=>{
+ if(x0===null)return;const d=e.changedTouches[0].clientX-x0;
+ if(d>70&&x0<40)drawer(true);if(d<-70)drawer(false);x0=null;
+});
+</script>
+</body>
+</html>
