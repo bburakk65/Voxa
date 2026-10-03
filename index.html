@@ -92,7 +92,8 @@ button:active{transform:scale(.94)}
   <h1>Voxa'ya hoş geldin</h1>
   <p>Arkadaşlarınla yaz, konuş, takıl.</p>
   <div id="gbtn" style="display:flex;justify-content:center;min-height:44px"></div>
-  <p class="note">Google hesabınla tek dokunuşla giriş yap.</p>
+  <a class="gbtn" id="dbtn" href="/auth/discord/start" style="background:#5865f2;color:#fff;margin-top:10px;text-decoration:none"><svg width="20" height="15" viewBox="0 0 71 55" fill="#fff"><path d="M60.1 4.9A58.5 58.5 0 0 0 45.5.4a40 40 0 0 0-1.9 3.8 54 54 0 0 0-16.2 0A40 40 0 0 0 25.5.4 58.4 58.4 0 0 0 10.9 4.9C1.6 18.7-.9 32.1.3 45.3a58.8 58.8 0 0 0 17.9 9.1 44 44 0 0 0 3.8-6.2 38 38 0 0 1-6-2.9l1.5-1.1a42 42 0 0 0 35.8 0l1.5 1.1a38 38 0 0 1-6 2.9 44 44 0 0 0 3.8 6.2 58.7 58.7 0 0 0 17.9-9.1C72 29.8 68.1 16.5 60.1 4.9zM23.7 37.3c-3.5 0-6.4-3.2-6.4-7.200s2.800-7.200 6.400-7.200 6.500 3.200 6.400 7.200c0 4-2.800 7.200-6.400 7.200zm23.600 0c-3.500 0-6.400-3.200-6.400-7.200s2.800-7.200 6.400-7.200 6.500 3.200 6.400 7.200c0 4-2.800 7.200-6.400 7.200z"/></svg>Discord ile giriş yap</a>
+  <p class="note">Google ya da Discord hesabınla giriş yap.</p>
  </div>
 </div>
 
@@ -203,6 +204,7 @@ function connect(){
    (HIST[m.ch]=HIST[m.ch]||[]).push(m.msg);
    if(m.ch===key()){const b=$('msgs');b.append(mnode(m.msg));b.scrollTop=1e9}
   }
+  else if(m.t==='session'){try{localStorage.setItem('voxa_user',JSON.stringify({token:m.token}))}catch(e){}TOKEN=m.token}
   else if(m.t==='error'){logout()}
  };
  ws.onclose=()=>{if(TOKEN)setTimeout(connect,2000)};
@@ -234,6 +236,9 @@ addEventListener('touchend',e=>{
 });
 
 addEventListener('load',()=>{
+ const hv=location.hash.match(/vt=([\w.\-]+)/);
+ if(hv){history.replaceState(null,'',location.pathname);const t=hv[1];
+  if(tokOK(t)){try{localStorage.setItem('voxa_user',JSON.stringify({token:t}))}catch(e){}enter(jwt(t),t);return}}
  let s=null;try{s=JSON.parse(localStorage.getItem('voxa_user'))}catch(e){}
  if(s&&s.token&&tokOK(s.token)){enter(jwt(s.token),s.token);return}
  const go=()=>{
