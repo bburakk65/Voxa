@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1e1f22">
 <title>Voxa</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 :root{--rail:#1e1f22;--side:#2b2d31;--main:#313338;--input:#383a40;--hover:#35373c;--sel:#404249;--text:#dbdee1;--muted:#949ba4;--brand:#5865f2;--green:#23a559;--red:#f23f43;box-sizing:border-box}
 *{box-sizing:inherit;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -90,8 +91,8 @@ button:active{transform:scale(.94)}
   <div class="logo">V</div>
   <h1>Voxa'ya hoş geldin</h1>
   <p>Arkadaşlarınla yaz, konuş, takıl.</p>
-  <button class="gbtn" id="gbtn"><svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.5 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>Google ile giriş yap</button>
-  <p class="note">Şimdilik deneme girişi: tıklayınca demo hesabıyla girersin.</p>
+  <div id="gbtn" style="display:flex;justify-content:center;min-height:44px"></div>
+  <p class="note">Google hesabınla tek dokunuşla giriş yap.</p>
  </div>
 </div>
 
@@ -110,6 +111,7 @@ button:active{transform:scale(.94)}
    <div class="who"><div id="myname">Demo</div><small>Çevrimiçi</small></div>
    <button class="ib" id="mic" title="Sessize al" aria-label="Mikrofon">🎙</button>
    <button class="ib" id="deaf" title="Sağırlaştır" aria-label="Kulaklık">🎧</button>
+   <button class="ib" id="out" title="Çıkış yap" aria-label="Çıkış yap">⎋</button>
   </div>
  </aside>
  <main class="main">
@@ -168,7 +170,28 @@ function leaveVoice(){if(voice){VUSERS[voice]=(VUSERS[voice]||[]).filter(u=>u!==
 function all(){rail();chans();members();msgs();vpanel()}
 function drawer(o){document.body.classList.toggle('drawer',o)}
 
-$('gbtn').onclick=()=>{$('login').classList.add('hide');$('app').classList.remove('hide');$('myname').textContent=ME.name;all()};
+const CID='145303300514-6lls1431abkc7l3gth87st2pnehjpumc.apps.googleusercontent.com';
+function enter(u){
+ ME.name=u.name||'Kullanıcı';ME.pic=u.picture||'';
+ $('login').classList.add('hide');$('app').classList.remove('hide');
+ $('myname').textContent=ME.name;const a=$('myav');a.textContent=ME.name[0].toUpperCase();a.style.background=col(ME.name);
+ if(ME.pic){a.textContent='';a.style.background='url('+ME.pic+') center/cover'}
+ all();
+}
+function jwt(t){const p=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');return JSON.parse(decodeURIComponent(escape(atob(p))))}
+function onCred(r){
+ try{const u=jwt(r.credential);try{localStorage.setItem('voxa_user',JSON.stringify({name:u.name,picture:u.picture}))}catch(e){}enter(u)}
+ catch(e){alert('Giriş yapılamadı, tekrar dene.')}
+}
+function initG(){
+ google.accounts.id.initialize({client_id:CID,callback:onCred});
+ google.accounts.id.renderButton($('gbtn'),{theme:'filled_blue',size:'large',text:'signin_with',locale:'tr',width:300});
+}
+addEventListener('load',()=>{
+ let s=null;try{s=JSON.parse(localStorage.getItem('voxa_user'))}catch(e){}
+ if(s)enter(s);else if(window.google)initG();else setTimeout(()=>window.google&&initG(),1500);
+});
+$('out').onclick=()=>{try{localStorage.removeItem('voxa_user')}catch(e){}location.reload()};
 $('rail').onclick=e=>{const b=e.target.closest('.srv');if(!b||b.dataset.add)return;srv=b.dataset.s;ch=CH[srv].text[0];all()};
 $('chs').onclick=e=>{
  const t=e.target.closest('[data-t]'),v=e.target.closest('[data-v]');
