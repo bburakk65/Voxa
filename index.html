@@ -128,38 +128,43 @@ button:active{transform:scale(.94)}
 
 <script>
 const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const COL=['#5865f2','#eb459e','#f0b132','#23a559','#ed4245','#9b59b6'];
-const col=n=>COL[[...n].reduce((a,c)=>a+c.charCodeAt(0),0)%COL.length];
-const ME={name:'Demo'};
+const col=n=>COL[[...String(n)].reduce((a,c)=>a+c.charCodeAt(0),0)%COL.length];
+const CID='145303300514-6lls1431abkc7l3gth87st2pnehjpumc.apps.googleusercontent.com';
+const ME={name:''};
 const SERVERS=[{id:'tayfa',name:'Tayfa',short:'T'},{id:'oyun',name:'Oyun Odası',short:'O'}];
 const CH={
  tayfa:{text:['genel','oyun-sohbeti','müzik'],voice:['Genel Ses','Oyun Sesi']},
  oyun:{text:['duyurular','takım-ara'],voice:['Takım 1','Takım 2']}
 };
-const MSGS={};
-const VUSERS={'Genel Ses':['Ayşe','Mert']};
-const ONLINE=['Ayşe','Mert','Can'],OFFLINE=['Deniz','Elif'];
-let srv='tayfa',ch='genel',voice=null,muted=false,deaf=false;
+let HIST={},ONL=[],VUSERS={},srv='tayfa',ch='genel',voice=null,muted=false,deaf=false,TOKEN=null,ws=null;
+const key=()=>srv+'/'+ch;
+const hm=t=>new Date(t).toLocaleTimeString('tr',{hour:'2-digit',minute:'2-digit'});
 
-function av(n,x=''){return `<div class="av ${x}" style="background:${col(n)}">${n[0].toUpperCase()}</div>`}
+function av(n,x=''){return `<div class="av ${x}" style="background:${col(n)}">${esc(String(n)[0]||'?').toUpperCase()}</div>`}
 function rail(){
  $('rail').innerHTML=SERVERS.map(s=>`<button class="srv ${s.id===srv?'on':''}" data-s="${s.id}" title="${s.name}">${s.short}</button>`).join('')+'<div class="sep"></div><button class="srv add" title="Sunucu ekle" data-add="1">+</button>';
 }
 function chans(){
  const c=CH[srv];$('sname').textContent=SERVERS.find(s=>s.id===srv).name;
  $('chs').innerHTML='<div class="cat">YAZI KANALLARI</div>'+c.text.map(t=>`<button class="ch ${t===ch?'on':''}" data-t="${t}"><i>#</i>${t}</button>`).join('')+
- '<div class="cat">SES KANALLARI</div>'+c.voice.map(v=>`<button class="ch ${v===voice?'on':''}" data-v="${v}"><i>🔊</i>${v}</button>`+(VUSERS[v]||[]).map(u=>`<div class="vu">${av(u,u===ME.name&&!muted?'sp':'')}${u}</div>`).join('')).join('');
+ '<div class="cat">SES KANALLARI</div>'+c.voice.map(v=>`<button class="ch ${v===voice?'on':''}" data-v="${v}"><i>🔊</i>${v}</button>`+(VUSERS[v]||[]).map(u=>`<div class="vu">${av(u,u===ME.name&&!muted?'sp':'')}${esc(u)}</div>`).join('')).join('');
 }
 function members(){
- $('mem').innerHTML=`<div class="cat">ÇEVRİMİÇİ — ${ONLINE.length+1}</div>`+[ME.name,...ONLINE].map(n=>`<div class="vu">${av(n,'dot')}${n}</div>`).join('')+
- `<div class="cat">ÇEVRİMDIŞI — ${OFFLINE.length}</div>`+OFFLINE.map(n=>`<div class="vu off">${av(n,'dot')}${n}</div>`).join('');
+ $('mem').innerHTML=`<div class="cat">ÇEVRİMİÇİ — ${ONL.length}</div>`+ONL.map(u=>`<div class="vu">${av(u.name,'dot')}${esc(u.name)}</div>`).join('');
+}
+function mnode(m){
+ const d=document.createElement('div');d.className='m';
+ d.innerHTML=`${av(m.u)}<div><b style="color:${col(m.u)}">${esc(m.u)}</b><time>${hm(m.ts)}</time><p></p></div>`;
+ d.querySelector('p').textContent=m.t;return d;
 }
 function msgs(){
- const k=srv+'/'+ch,l=MSGS[k]||(MSGS[k]=[{u:'Ayşe',t:'Selam! Voxa\'ya hoş geldiniz 👋',h:'12:00'}]);
+ const box=$('msgs');
  $('mtitle').textContent=ch;$('inp').placeholder='#'+ch+' kanalına mesaj gönder';
- $('msgs').innerHTML=`<div class="sys"><b>#${ch}</b> kanalının başlangıcı</div>`+l.map(m=>`<div class="m">${av(m.u)}<div><b style="color:${col(m.u)}">${m.u}</b><time>${m.h}</time><p></p></div></div>`).join('');
- [...$('msgs').querySelectorAll('p')].forEach((p,i)=>p.textContent=l[i].t);
- $('msgs').scrollTop=1e9;
+ box.innerHTML=`<div class="sys"><b>#${esc(ch)}</b> kanalının başlangıcı</div>`;
+ (HIST[key()]||[]).forEach(m=>box.append(mnode(m)));
+ box.scrollTop=1e9;
 }
 function vpanel(){
  $('vp').classList.toggle('hide',!voice);$('vname').textContent=voice?voice+' / '+SERVERS.find(s=>s.id===srv).name:'';
@@ -170,28 +175,40 @@ function leaveVoice(){if(voice){VUSERS[voice]=(VUSERS[voice]||[]).filter(u=>u!==
 function all(){rail();chans();members();msgs();vpanel()}
 function drawer(o){document.body.classList.toggle('drawer',o)}
 
-const CID='145303300514-6lls1431abkc7l3gth87st2pnehjpumc.apps.googleusercontent.com';
-function enter(u){
- ME.name=u.name||'Kullanıcı';ME.pic=u.picture||'';
+/* --- giriş --- */
+function jwt(t){const p=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');return JSON.parse(decodeURIComponent(escape(atob(p))))}
+function tokOK(t){try{return jwt(t).exp*1000>Date.now()+60000}catch(e){return false}}
+function enter(u,tok){
+ ME.name=u.name||'Kullanıcı';TOKEN=tok;
  $('login').classList.add('hide');$('app').classList.remove('hide');
  $('myname').textContent=ME.name;const a=$('myav');a.textContent=ME.name[0].toUpperCase();a.style.background=col(ME.name);
- if(ME.pic){a.textContent='';a.style.background='url('+ME.pic+') center/cover'}
- all();
+ if(u.picture){a.textContent='';a.style.background='url('+u.picture+') center/cover'}
+ all();connect();
 }
-function jwt(t){const p=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');return JSON.parse(decodeURIComponent(escape(atob(p))))}
 function onCred(r){
- try{const u=jwt(r.credential);try{localStorage.setItem('voxa_user',JSON.stringify({name:u.name,picture:u.picture}))}catch(e){}enter(u)}
+ try{const t=r.credential;const u=jwt(t);try{localStorage.setItem('voxa_user',JSON.stringify({token:t}))}catch(e){}enter(u,t)}
  catch(e){alert('Giriş yapılamadı, tekrar dene.')}
 }
-function initG(){
- google.accounts.id.initialize({client_id:CID,callback:onCred});
- google.accounts.id.renderButton($('gbtn'),{theme:'filled_blue',size:'large',text:'signin_with',locale:'tr',width:300});
+function logout(){try{localStorage.removeItem('voxa_user')}catch(e){}TOKEN=null;if(ws)ws.close();location.reload()}
+
+/* --- canlı bağlantı --- */
+function connect(){
+ ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
+ ws.onopen=()=>ws.send(JSON.stringify({t:'auth',token:TOKEN}));
+ ws.onmessage=e=>{
+  const m=JSON.parse(e.data);
+  if(m.t==='ready'){HIST=m.hist||{};ONL=m.online||[];msgs();members()}
+  else if(m.t==='online'){ONL=m.online||[];members()}
+  else if(m.t==='msg'){
+   (HIST[m.ch]=HIST[m.ch]||[]).push(m.msg);
+   if(m.ch===key()){const b=$('msgs');b.append(mnode(m.msg));b.scrollTop=1e9}
+  }
+  else if(m.t==='error'){logout()}
+ };
+ ws.onclose=()=>{if(TOKEN)setTimeout(connect,2000)};
 }
-addEventListener('load',()=>{
- let s=null;try{s=JSON.parse(localStorage.getItem('voxa_user'))}catch(e){}
- if(s)enter(s);else if(window.google)initG();else setTimeout(()=>window.google&&initG(),1500);
-});
-$('out').onclick=()=>{try{localStorage.removeItem('voxa_user')}catch(e){}location.reload()};
+
+/* --- arayüz olayları --- */
 $('rail').onclick=e=>{const b=e.target.closest('.srv');if(!b||b.dataset.add)return;srv=b.dataset.s;ch=CH[srv].text[0];all()};
 $('chs').onclick=e=>{
  const t=e.target.closest('[data-t]'),v=e.target.closest('[data-v]');
@@ -201,10 +218,11 @@ $('chs').onclick=e=>{
 $('leave').onclick=()=>{leaveVoice();chans();vpanel()};
 $('mic').onclick=()=>{muted=!muted;chans();vpanel()};
 $('deaf').onclick=()=>{deaf=!deaf;if(deaf)muted=true;chans();vpanel()};
+$('out').onclick=logout;
 $('form').onsubmit=e=>{
- e.preventDefault();const v=$('inp').value.trim();if(!v)return;
- const k=srv+'/'+ch;(MSGS[k]=MSGS[k]||[]).push({u:ME.name,t:v,h:new Date().toLocaleTimeString('tr',{hour:'2-digit',minute:'2-digit'})});
- $('inp').value='';msgs();
+ e.preventDefault();const v=$('inp').value.trim();
+ if(!v||!ws||ws.readyState!==1)return;
+ ws.send(JSON.stringify({t:'msg',ch:key(),text:v}));$('inp').value='';
 };
 $('menu').onclick=()=>drawer(true);
 $('scrim').onclick=()=>drawer(false);
@@ -213,6 +231,17 @@ addEventListener('touchstart',e=>{x0=e.touches[0].clientX},{passive:true});
 addEventListener('touchend',e=>{
  if(x0===null)return;const d=e.changedTouches[0].clientX-x0;
  if(d>70&&x0<40)drawer(true);if(d<-70)drawer(false);x0=null;
+});
+
+addEventListener('load',()=>{
+ let s=null;try{s=JSON.parse(localStorage.getItem('voxa_user'))}catch(e){}
+ if(s&&s.token&&tokOK(s.token)){enter(jwt(s.token),s.token);return}
+ const go=()=>{
+  google.accounts.id.initialize({client_id:CID,callback:onCred,auto_select:true});
+  google.accounts.id.renderButton($('gbtn'),{theme:'filled_blue',size:'large',text:'signin_with',locale:'tr',width:300});
+  google.accounts.id.prompt();
+ };
+ if(window.google)go();else setTimeout(()=>window.google&&go(),1500);
 });
 </script>
 </body>
