@@ -345,6 +345,42 @@ body.dmopen #dmcall{display:grid}
 .dmrow{gap:10px}.dmrow span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
 .dmrow .av{width:28px;height:28px;font-size:12px}
 </style>
+<style id="authcss">
+/* ---- KAYIT / GİRİŞ ---- */
+.card{max-height:calc(100dvh - 24px);overflow-y:auto;scrollbar-width:none}.card::-webkit-scrollbar{display:none}
+.card.out{animation:cardOut .45s var(--ease) forwards}
+@keyframes cardOut{to{opacity:0;transform:translateY(-16px) scale(.96)}}
+.atabs{position:relative;display:grid;grid-template-columns:1fr 1fr;background:rgba(255,255,255,.06);border-radius:12px;padding:4px;margin-bottom:16px}
+.atab{position:relative;z-index:1;padding:9px;border-radius:9px;font-weight:600;color:var(--muted);transition:color .25s}.atab.on{color:#fff}
+.aind{position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);border-radius:9px;background:var(--brand);transition:transform .35s var(--ease);box-shadow:0 4px 14px rgba(88,101,242,.4)}
+.atabs.reg .aind{transform:translateX(100%)}
+#aform.swap{animation:fadeUp .35s var(--ease)}
+.af{display:block;text-align:left;margin-bottom:12px;position:relative}
+.af span{display:block;font-size:12px;font-weight:700;color:#b5bac1;margin-bottom:6px;letter-spacing:.3px}
+.af input{width:100%;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;color:#fff;font:inherit;outline:0;transition:border-color .2s,box-shadow .2s}
+.af input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(88,101,242,.25)}
+.af.bad input{border-color:#f23f43;animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.afs{position:absolute;right:12px;top:34px;font-style:normal;font-size:12px;font-weight:600;transition:opacity .2s}
+.afs.ok{color:#3ddc84}.afs.no{color:#ff6b6e}
+.pw{position:relative}.pw input{padding-right:46px}
+.pw button{position:absolute;right:6px;top:6px;width:34px;height:34px;border-radius:8px;opacity:.7;transition:opacity .2s,background .2s}.pw button:hover{opacity:1;background:rgba(255,255,255,.08)}
+.fold{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .35s var(--ease),opacity .3s}
+.fold.open{grid-template-rows:1fr;opacity:1}.fold>div{overflow:hidden;min-height:0}
+.ameter{height:6px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;margin:2px 0 6px}
+.ameter b{display:block;height:100%;width:0;border-radius:3px;transition:width .3s var(--ease),background .3s}
+.amt{display:block;text-align:left;color:var(--muted);font-size:12px;margin-bottom:10px;min-height:14px}
+.aerr{min-height:0;color:#ff6b6e;font-size:13px;text-align:left;margin:0 2px 10px}.aerr:empty{display:none}
+.abtn{width:100%;padding:12px;border-radius:10px;background:linear-gradient(135deg,#5865f2,#7983f5);color:#fff;font-weight:700;font-size:15px;position:relative;overflow:hidden;box-shadow:0 8px 22px rgba(88,101,242,.35);transition:transform .2s,box-shadow .2s,background .3s;display:flex;align-items:center;justify-content:center;gap:8px}
+.abtn:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(88,101,242,.45)}
+.abtn[disabled]{pointer-events:none}.abtn.load .ab-t{opacity:.7}
+.abtn.ok{background:#23a559;box-shadow:0 8px 22px rgba(35,165,89,.35)}
+.spin{display:none;width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;animation:rot .7s linear infinite}
+.abtn.load .spin{display:block}@keyframes rot{to{transform:rotate(360deg)}}
+.adiv{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--muted);font-size:12px}
+.adiv::before,.adiv::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.1)}
+.note a{color:#9aa3ff;text-decoration:none}.note a:hover{text-decoration:underline}
+</style>
 </head>
 <body>
 <div id="login">
@@ -358,9 +394,15 @@ body.dmopen #dmcall{display:grid}
   <div class="logo">V</div>
   <h1>Voxa'ya hoş geldin</h1>
   <p>Arkadaşlarınla yaz, konuş, takıl.</p>
-  
-  <a class="gbtn" id="dbtn" href="/auth/discord/start" onclick="this.style.pointerEvents='none';this.style.opacity='.8';this.lastChild.textContent=' Bağlanılıyor…'" style="background:#5865f2;color:#fff;text-decoration:none"><svg width="20" height="15" viewBox="0 0 71 55" fill="#fff"><path d="M60.1 4.9A58.5 58.5 0 0 0 45.5.4a40 40 0 0 0-1.9 3.8 54 54 0 0 0-16.2 0A40 40 0 0 0 25.5.4 58.4 58.4 0 0 0 10.9 4.9C1.6 18.7-.9 32.1.3 45.3a58.8 58.8 0 0 0 17.9 9.1 44 44 0 0 0 3.8-6.2 38 38 0 0 1-6-2.9l1.5-1.1a42 42 0 0 0 35.8 0l1.5 1.1a38 38 0 0 1-6 2.9 44 44 0 0 0 3.8 6.2 58.7 58.7 0 0 0 17.9-9.1C72 29.8 68.1 16.5 60.1 4.9zM23.7 37.3c-3.5 0-6.4-3.2-6.4-7.200s2.800-7.200 6.400-7.200 6.500 3.200 6.400 7.200c0 4-2.800 7.200-6.400 7.200zm23.600 0c-3.500 0-6.400-3.200-6.400-7.200s2.800-7.200 6.400-7.200 6.500 3.200 6.400 7.200c0 4-2.800 7.200-6.400 7.200z"/></svg>Discord ile giriş yap</a>
-  <p class="note">Discord hesabınla giriş yap.</p>
+  <div class="atabs" role="tablist"><button type="button" class="atab on" data-at="login">Giriş Yap</button><button type="button" class="atab" data-at="reg">Kayıt Ol</button><i class="aind"></i></div>
+  <form id="aform" novalidate>
+   <label class="af"><span>Kullanıcı adı</span><input id="au" name="username" autocomplete="username" maxlength="20" autocapitalize="none" spellcheck="false"><em id="au_s" class="afs"></em></label>
+   <label class="af"><span>Şifre</span><div class="pw"><input id="ap" name="password" type="password" autocomplete="current-password" maxlength="100"><button type="button" id="apeye" aria-label="Şifreyi göster">👁</button></div></label>
+   <div class="fold" id="afold"><div><div class="ameter"><b id="amb"></b></div><small id="amt" class="amt"></small><label class="af"><span>Şifre (tekrar)</span><input id="ap2" type="password" autocomplete="new-password" maxlength="100"></label></div></div>
+   <div id="aerr" class="aerr" role="alert" aria-live="polite"></div>
+   <button class="abtn" id="asub" type="submit"><span class="ab-t">Giriş Yap</span><i class="spin"></i></button>
+  </form>
+  <p class="note">Devam ederek <a href="/sartlar.html">Şartlar</a> ve <a href="/gizlilik.html">Gizlilik Politikası</a>'nı kabul edersin.</p>
   <div class="chips"><span>💬 Canlı sohbet</span><span>🎙 Sesli odalar</span><span>⚡ Ücretsiz</span></div>
  </div>
 </div>
@@ -1148,6 +1190,74 @@ function showRing(from,room){
  ringTone(true);clearTimeout(RINGT);RINGT=setTimeout(hideRing,40000);
  sNotify('Gelen arama',n+' seni arıyor');
 }
+
+/* ===== KAYIT / GİRİŞ ===== */
+const AU={mode:'login',busy:false,ck:null};
+const auUserOK=u=>/^[A-Za-z0-9_.]{3,20}$/.test(u);
+function auStrength(p){let n=0;if(p.length>=8)n++;if(p.length>=12)n++;if(/[a-z]/.test(p)&&/[A-Z]/.test(p))n++;if(/\d/.test(p))n++;if(/[^A-Za-z0-9]/.test(p))n++;return Math.min(4,n)}
+function auMode(m){
+ AU.mode=m;const reg=m==='reg';
+ document.querySelector('.atabs').classList.toggle('reg',reg);
+ document.querySelectorAll('.atab').forEach(b=>b.classList.toggle('on',b.dataset.at===m));
+ $('afold').classList.toggle('open',reg);
+ $('ap').autocomplete=reg?'new-password':'current-password';
+ $('asub').querySelector('.ab-t').textContent=reg?'Hesap Oluştur':'Giriş Yap';
+ $('aerr').textContent='';$('au_s').textContent='';$('au_s').className='afs';
+ document.querySelectorAll('.af').forEach(x=>x.classList.remove('bad'));
+ const f=$('aform');f.classList.remove('swap');void f.offsetWidth;f.classList.add('swap');
+}
+function auBad(id,msg){
+ const w=$(id).closest('.af')||$(id);w.classList.remove('bad');void w.offsetWidth;w.classList.add('bad');
+ $('aerr').textContent=msg;if($(id).focus)$(id).focus();
+}
+function auBusy(on){AU.busy=on;$('asub').disabled=on;$('asub').classList.toggle('load',on)}
+async function auSubmit(){
+ if(AU.busy)return;
+ const reg=AU.mode==='reg',u=$('au').value.trim(),p=$('ap').value;
+ $('aerr').textContent='';document.querySelectorAll('.af').forEach(x=>x.classList.remove('bad'));
+ if(!u)return auBad('au','Kullanıcı adını yaz');
+ if(reg&&!auUserOK(u))return auBad('au','Kullanıcı adı 3-20 karakter olmalı (harf, rakam, _ ve .)');
+ if(!p)return auBad('ap','Şifreni yaz');
+ if(reg){
+  if(p.length<8)return auBad('ap','Şifre en az 8 karakter olmalı');
+  if(p!==$('ap2').value)return auBad('ap2','Şifreler aynı değil');
+ }
+ auBusy(true);
+ let r;
+ try{
+  const res=await fetch('/auth/'+(reg?'register':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+  r=await res.json();
+ }catch(e){auBusy(false);$('aerr').textContent='Bağlantı hatası, internetini kontrol edip tekrar dene';return}
+ if(!r||!r.ok||!r.token){
+  auBusy(false);
+  const f=r&&r.field==='username'?'au':(r&&r.field==='password'?'ap':'ap');
+  auBad(f,(r&&r.msg)||'Bir sorun çıktı, tekrar dene');return;
+ }
+ try{localStorage.setItem('voxa_user',JSON.stringify({token:r.token}))}catch(e){}
+ $('asub').classList.remove('load');$('asub').classList.add('ok');$('asub').querySelector('.ab-t').textContent='Hoş geldin, '+(r.name||u)+' ✓';
+ setTimeout(()=>{const c=document.querySelector('#login .card');if(c)c.classList.add('out');setTimeout(()=>enter(jwt(r.token),r.token),420)},550);
+}
+try{
+ document.querySelectorAll('.atab').forEach(b=>b.addEventListener('click',()=>auMode(b.dataset.at)));
+ $('aform').addEventListener('submit',e=>{e.preventDefault();auSubmit()});
+ $('apeye').addEventListener('click',()=>{const t=$('ap').type==='password'?'text':'password';$('ap').type=t;$('ap2').type=t;$('apeye').style.opacity=t==='text'?'1':''});
+ $('ap').addEventListener('input',()=>{
+  if(AU.mode!=='reg')return;
+  const n=auStrength($('ap').value),L=['Çok zayıf','Zayıf','Orta','İyi','Güçlü'],C=['#f23f43','#f23f43','#f0b132','#5ac26b','#23a559'];
+  $('amb').style.width=($('ap').value?(n+1)*20:0)+'%';$('amb').style.background=C[n];$('amt').textContent=$('ap').value?'Şifre gücü: '+L[n]:'';
+ });
+ $('au').addEventListener('input',()=>{
+  const s=$('au_s');s.textContent='';s.className='afs';clearTimeout(AU.ck);
+  if(AU.mode!=='reg')return;
+  const u=$('au').value.trim();if(u.length<3)return;
+  if(!auUserOK(u)){s.textContent='✗ geçersiz';s.className='afs no';return}
+  AU.ck=setTimeout(async()=>{
+   try{const r=await (await fetch('/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u})})).json();
+    if($('au').value.trim()!==u)return;
+    if(r&&r.ok){s.textContent=r.free?'✓ müsait':'✗ alınmış';s.className='afs '+(r.free?'ok':'no')}}catch(e){}
+  },450);
+ });
+}catch(e){}
 
 /* --- özellikler: mesaj işlemleri, emoji, profil, PWA --- */
 try{
