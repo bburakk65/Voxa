@@ -91,8 +91,17 @@ export default {
   async fetch(req, env) {
     const u = new URL(req.url);
     if (u.pathname === '/ws') return env.HUB.get(env.HUB.idFromName('main')).fetch(req);
-    if (u.pathname === '/auth/discord/start') return discordStart(u);
-    if (u.pathname === '/auth/discord') return discordCallback(req, env, u);
+    if (req.method === 'POST' && ['/auth/login', '/auth/register', '/auth/check'].includes(u.pathname)) {
+      const bad = (msg, s) => new Response(JSON.stringify({ ok: false, msg }), { status: s, headers: { 'Content-Type': 'application/json' } });
+      if (Number(req.headers.get('content-length') || 0) > 2048) return bad('İstek çok büyük', 413);
+      let b; try { b = await req.json(); } catch { return bad('Geçersiz istek', 400); }
+      b.ip = req.headers.get('CF-Connecting-IP') || '';
+      return env.HUB.get(env.HUB.idFromName('main')).fetch('https://hub/internal/' + u.pathname.slice(6), { method: 'POST', body: JSON.stringify(b) });
+    }
+    if (env.ENABLE_DISCORD === '1') {
+      if (u.pathname === '/auth/discord/start') return discordStart(u);
+      if (u.pathname === '/auth/discord') return discordCallback(req, env, u);
+    }
     return new Response('Not found', { status: 404 });
   }
 };
@@ -100,6 +109,11 @@ export default {
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const rcode = (n = 6) => [...crypto.getRandomValues(new Uint8Array(n))].map(x => ALPHA[x % ALPHA.length]).join('');
 const normCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+
+async function pbkdf2(pw, salt) {
+  const k = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
+  return b64u(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 100000 }, k, 256));
+}
 
 export class Hub {
   constructor(state, env) { this.s = state; this.env = env; this.gcache = new Map(); }
@@ -111,6 +125,7 @@ export class Hub {
       this.gcache.delete(id);
       return new Response('ok');
     }
+    if (req.method === 'POST' && ['/internal/login', '/internal/register', '/internal/check'].includes(url.pathname)) return this.authHttp(url.pathname, await req.json());
     if (req.headers.get('Upgrade') !== 'websocket') return new Response('WebSocket bekleniyor', { status: 426 });
     const [client, server] = Object.values(new WebSocketPair());
     this.s.acceptWebSocket(server);
@@ -292,6 +307,54 @@ export class Hub {
       try { w.send(JSON.stringify({ t: 'vstate', rooms: mine })); } catch {}
     }
   }
+  /* ===== KAYIT / GİRİŞ (kullanıcı adı + şifre) ===== */
+  async authHttp(path, b) {
+    const R = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+    const secret = this.env.DISCORD_SECRET;
+    if (!secret) return R({ ok: false, msg: 'Sunucu ayarı eksik (DISCORD_SECRET)' }, 500);
+    const ip = String(b.ip || '').slice(0, 64) || 'x';
+    this.rl = this.rl || new Map();
+    const hit = (key, max, ms) => {
+      const now = Date.now(), a = (this.rl.get(key) || []).filter(t => now - t < ms);
+      if (a.length >= max) { this.rl.set(key, a); return false; }
+      a.push(now); this.rl.set(key, a); return true;
+    };
+    const uname = String(b.username || '').trim(), lower = uname.toLowerCase();
+    const st = this.s.storage;
+    if (path === '/internal/check') {
+      if (!hit('ck:' + ip, 40, 60000)) return R({ ok: false, msg: 'Çok fazla deneme, biraz bekle' }, 429);
+      if (!/^[a-z0-9_.]{3,20}$/.test(lower)) return R({ ok: true, free: false, bad: true });
+      return R({ ok: true, free: !(await st.get('u:' + lower)) });
+    }
+    const pw = String(b.password || '');
+    if (path === '/internal/register') {
+      if (!hit('rg:' + ip, 5, 3600000)) return R({ ok: false, msg: 'Bu bağlantıdan çok fazla kayıt denendi, daha sonra tekrar dene' }, 429);
+      if (!/^[A-Za-z0-9_.]{3,20}$/.test(uname)) return R({ ok: false, field: 'username', msg: 'Kullanıcı adı 3-20 karakter olmalı (harf, rakam, _ ve .)' });
+      if (pw.length < 8 || pw.length > 100) return R({ ok: false, field: 'password', msg: 'Şifre en az 8 karakter olmalı' });
+      if (pw.toLowerCase().includes(lower)) return R({ ok: false, field: 'password', msg: 'Şifre kullanıcı adını içermemeli' });
+      if (await st.get('u:' + lower)) return R({ ok: false, field: 'username', msg: 'Bu kullanıcı adı alınmış' });
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const hash = await pbkdf2(pw, salt);
+      const id = 'l' + rcode(10).toLowerCase();
+      await st.put('u:' + lower, { id, name: uname, salt: b64u(salt), hash, ts: Date.now() });
+      return R({ ok: true, token: await sign(secret, { id, name: uname, picture: '' }), name: uname });
+    }
+    if (path === '/internal/login') {
+      if (!hit('li:' + ip, 20, 600000)) return R({ ok: false, msg: 'Çok fazla deneme, birkaç dakika sonra tekrar dene' }, 429);
+      const fl = (await st.get('lf:' + lower)) || { n: 0, until: 0 };
+      if (fl.until > Date.now()) return R({ ok: false, msg: 'Çok fazla hatalı deneme. 10 dakika sonra tekrar dene.' }, 429);
+      const acc = /^[a-z0-9_.]{3,20}$/.test(lower) ? await st.get('u:' + lower) : null;
+      const h = await pbkdf2(pw.slice(0, 100), acc ? b64(acc.salt) : new Uint8Array(16));
+      if (!acc || !safeEq(h, acc.hash)) {
+        if (acc) { fl.n++; if (fl.n >= 5) { fl.until = Date.now() + 600000; fl.n = 0; } await st.put('lf:' + lower, fl); }
+        return R({ ok: false, msg: 'Kullanıcı adı ya da şifre hatalı' });
+      }
+      if (fl.n || fl.until) await st.delete('lf:' + lower);
+      return R({ ok: true, token: await sign(secret, { id: acc.id, name: acc.name, picture: '' }), name: acc.name });
+    }
+    return R({ ok: false }, 404);
+  }
+
   /* ===== ARKADAŞ SİSTEMİ ===== */
   async g(k) { return (await this.s.storage.get(k)) || []; }
   sendTo(uid, o) {
