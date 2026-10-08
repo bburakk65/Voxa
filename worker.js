@@ -110,6 +110,7 @@ const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const rcode = (n = 6) => [...crypto.getRandomValues(new Uint8Array(n))].map(x => ALPHA[x % ALPHA.length]).join('');
 const normCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
 
+const ADMIN_UNAMES = new Set(['voxaadmin']);
 async function pbkdf2(pw, salt) {
   const k = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
   return b64u(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 100000 }, k, 256));
@@ -140,13 +141,15 @@ export class Hub {
         const u = await unsign(secret, m.token);
         const nick = await this.s.storage.get('n:' + u.id);
         const name = nick || u.name;
-        ws.serializeAttachment({ id: u.id, name, pic: u.picture || '' });
+        const admin = !!u.admin;
+        ws.serializeAttachment({ id: u.id, name, pic: u.picture || '', admin });
         await this.initUser(u.id, name, u.picture || '');
+        await this.setProfile(u.id, { admin });
         const hist0 = (await this.s.storage.get('msgs')) || {};
         const hist = {};
         for (const k of Object.keys(hist0)) { if (await this.canSee(u.id, k)) hist[k] = hist0[k]; }
         const guilds = (await this.s.storage.get('g:' + u.id)) || [];
-        ws.send(JSON.stringify({ t: 'ready', hist, online: this.users(), guilds, me: { name }, social: await this.social(u.id) }));
+        ws.send(JSON.stringify({ t: 'ready', hist, online: this.users(), guilds, servers: await this.guildsOf(u.id), me: { name, admin }, social: await this.social(u.id) }));
         this.bc({ t: 'online', online: this.users() });
         await this.vstate();
         await this.presence(u.id);
@@ -165,6 +168,7 @@ export class Hub {
       }
       const all = (await this.s.storage.get('msgs')) || {};
       const msg = { u: me.name, id: me.id, mid: crypto.randomUUID(), t: text, ts: Date.now() };
+      if (me.admin) msg.adm = 1;
       if (m.reply) {
         const rl = (all[ch] || []).find(x => x.mid === m.reply);
         if (rl) msg.r = { mid: rl.mid, u: rl.u, t: rl.au ? '🎤 Sesli mesaj' : String(rl.t).slice(0, 80) };
@@ -208,7 +212,7 @@ export class Hub {
       await this.presence(me.id);
       for (const x of this.s.getWebSockets()) {
         const a = x.deserializeAttachment();
-        if (a && a.id === me.id) { a.name = name; x.serializeAttachment(a); try { x.send(JSON.stringify({ t: 'me', name })); } catch {} }
+        if (a && a.id === me.id) { a.name = name; x.serializeAttachment(a); try { x.send(JSON.stringify({ t: 'me', name, admin: !!a.admin })); } catch {} }
       }
       this.bc({ t: 'online', online: this.users() });
       await this.vstate();
@@ -221,6 +225,8 @@ export class Hub {
       if (i >= 0) { const rm = l.splice(i, 1)[0]; if (rm && rm.au) await this.s.storage.delete('a:' + rm.mid); await this.s.storage.put('msgs', all); await this.bcCh(ch, { t: 'del', ch, mid: m.mid }); }
     }
     if (typeof m.t === 'string' && m.t.charAt(0) === 'f') { await this.onFriend(ws, me, m); return; }
+    if (typeof m.t === 'string' && m.t.slice(0, 2) === 'sv') { await this.onGuild(ws, me, m); return; }
+    if (typeof m.t === 'string' && m.t.slice(0, 2) === 'ad') { await this.onAdmin(ws, me, m); return; }
     if (m.t === 'vjoin') {
       const room = String(m.room || '').slice(0, 60);
       if (!room || !(await this.canSee(me.id, room))) return;
@@ -246,6 +252,12 @@ export class Hub {
     if (m.t === 'vdeaf') {
       if (me.vr) { me.vd = !!m.deaf; ws.serializeAttachment(me); await this.vstate(); }
     }
+    if (m.t === 'vstream_start') {
+      if (me.vr) { me.vss = true; ws.serializeAttachment(me); await this.vstate(); }
+    }
+    if (m.t === 'vstream_stop') {
+      if (me.vr) { delete me.vss; ws.serializeAttachment(me); await this.vstate(); }
+    }
     if (m.t === 'vsig') {
       if (!me.vr || !m.data || JSON.stringify(m.data).length > 20000) return;
       for (const x of this.s.getWebSockets()) {
@@ -267,6 +279,7 @@ export class Hub {
       await this.s.storage.put('a:' + mid, { data, mime, ch });
       const all = (await this.s.storage.get('msgs')) || {};
       const msg = { u: me.name, id: me.id, mid, t: '', au: { d, m: mime }, ts: Date.now() };
+      if (me.admin) msg.adm = 1;
       const arr = (all[ch] || []).concat(msg);
       const dropped = arr.slice(0, Math.max(0, arr.length - 100));
       all[ch] = arr.slice(-100);
@@ -296,7 +309,7 @@ export class Hub {
     for (const w of this.s.getWebSockets()) {
       if (w.readyState !== 1) continue;
       const a = w.deserializeAttachment();
-      if (a && a.vr) (rooms[a.vr] = rooms[a.vr] || []).push({ id: a.id, name: a.name, m: !!a.vm, d: !!a.vd, p: a.pic || '' });
+      if (a && a.vr) (rooms[a.vr] = rooms[a.vr] || []).push({ id: a.id, name: a.name, m: !!a.vm, d: !!a.vd, ss: !!a.vss, p: a.pic || '' });
     }
     for (const w of this.s.getWebSockets()) {
       if (w.readyState !== 1) continue;
@@ -337,7 +350,7 @@ export class Hub {
       const hash = await pbkdf2(pw, salt);
       const id = 'l' + rcode(10).toLowerCase();
       await st.put('u:' + lower, { id, name: uname, salt: b64u(salt), hash, ts: Date.now() });
-      return R({ ok: true, token: await sign(secret, { id, name: uname, picture: '' }), name: uname });
+      return R({ ok: true, token: await sign(secret, { id, name: uname, picture: '', admin: ADMIN_UNAMES.has(lower) }), name: uname });
     }
     if (path === '/internal/login') {
       if (!hit('li:' + ip, 20, 600000)) return R({ ok: false, msg: 'Çok fazla deneme, birkaç dakika sonra tekrar dene' }, 429);
@@ -350,7 +363,7 @@ export class Hub {
         return R({ ok: false, msg: 'Kullanıcı adı ya da şifre hatalı' });
       }
       if (fl.n || fl.until) await st.delete('lf:' + lower);
-      return R({ ok: true, token: await sign(secret, { id: acc.id, name: acc.name, picture: '' }), name: acc.name });
+      return R({ ok: true, token: await sign(secret, { id: acc.id, name: acc.name, picture: '', admin: ADMIN_UNAMES.has(lower) }), name: acc.name });
     }
     return R({ ok: false }, 404);
   }
@@ -391,7 +404,7 @@ export class Hub {
   async card(id, on) {
     const p = await this.s.storage.get('p:' + id);
     if (!p) return null;
-    return { id, name: p.name, pic: p.pic || '', code: p.code || '', on: (on || this.onlineSet()).has(id) };
+    return { id, name: p.name, pic: p.pic || '', code: p.code || '', on: (on || this.onlineSet()).has(id), admin: !!p.admin };
   }
   roomOf(id) {
     for (const w of this.s.getWebSockets()) {
@@ -577,6 +590,242 @@ export class Hub {
     }
   }
 
+  /* ===== SUNUCU / KANAL / ROL SİSTEMİ ===== */
+  async rateHit(key, max, ms) {
+    this.rl = this.rl || new Map();
+    const now = Date.now(), a = (this.rl.get(key) || []).filter(t => now - t < ms);
+    if (a.length >= max) { this.rl.set(key, a); return false; }
+    a.push(now); this.rl.set(key, a); return true;
+  }
+  isGuildAdmin(sv, uid) {
+    if (sv.owner === uid) return true;
+    const mem = sv.members.find(x => x.id === uid);
+    if (!mem) return false;
+    return (mem.roles || []).some(rid => (sv.roles.find(r => r.id === rid) || {}).admin);
+  }
+  async guildsOf(uid) {
+    const ids = await this.g('ug:' + uid);
+    const out = [];
+    for (const gid of ids) {
+      const sv = await this.s.storage.get('sv:' + gid);
+      if (!sv) continue;
+      const mem = sv.members.find(x => x.id === uid);
+      if (!mem) continue;
+      const admin = this.isGuildAdmin(sv, uid);
+      const channels = sv.channels
+        .filter(c => admin || !c.roles || !c.roles.length || (mem.roles || []).some(rid => c.roles.includes(rid)))
+        .map(c => ({ name: c.name, kind: c.kind, roles: c.roles || [] }));
+      out.push({
+        id: sv.id, name: sv.name, icon: sv.icon || '', owner: sv.owner === uid, admin,
+        myRoles: mem.roles || [],
+        roles: sv.roles.map(r => ({ id: r.id, name: r.name, color: r.color, admin: !!r.admin })),
+        channels, memberCount: sv.members.length
+      });
+    }
+    return out;
+  }
+  async pushGuildsTo(uid) { this.sendTo(uid, { t: 'svservers', list: await this.guildsOf(uid) }); }
+  async broadcastGuild(gid) {
+    const sv = await this.s.storage.get('sv:' + gid);
+    if (!sv) return;
+    for (const mm of sv.members) await this.pushGuildsTo(mm.id);
+  }
+  async deleteGuild(sv) {
+    const st = this.s.storage;
+    const all = (await st.get('msgs')) || {};
+    for (const c of sv.channels) {
+      const ck = 'sv:' + sv.id + '/' + c.name;
+      for (const x of all[ck] || []) { if (x.au) await st.delete('a:' + x.mid); }
+      delete all[ck];
+    }
+    await st.put('msgs', all);
+    for (const inv of sv.invites) await st.delete('svi:' + inv.code);
+    const members = sv.members.slice();
+    await st.delete('sv:' + sv.id);
+    for (const mm of members) await st.put('ug:' + mm.id, (await this.g('ug:' + mm.id)).filter(x => x !== sv.id));
+    const prefix = 'sv:' + sv.id + '/';
+    for (const w of this.s.getWebSockets()) {
+      const a = w.deserializeAttachment();
+      if (a && a.vr && a.vr.startsWith(prefix)) { delete a.vr; delete a.vm; delete a.vd; delete a.vss; w.serializeAttachment(a); }
+    }
+    await this.vstate();
+    for (const mm of members) await this.pushGuildsTo(mm.id);
+  }
+  async onAdmin(ws, me, m) {
+    if (!me.admin) return;
+    const t = m.t, st = this.s.storage;
+    const reply = (type, o) => ws.send(JSON.stringify({ t: type, ...o }));
+    if (t === 'adstats') {
+      const users = await st.list({ prefix: 'u:', limit: 2000 });
+      const servers = await st.list({ prefix: 'sv:', limit: 2000 });
+      reply('adstats', { users: users.size, servers: servers.size, online: this.onlineSet().size });
+    }
+    else if (t === 'adsvlist') {
+      const servers = await st.list({ prefix: 'sv:', limit: 500 });
+      const list = [];
+      for (const sv of servers.values()) {
+        const oc = await this.card(sv.owner);
+        list.push({ id: sv.id, name: sv.name, icon: sv.icon || '', ownerName: oc ? oc.name : '?', memberCount: sv.members.length });
+      }
+      reply('adsvlist', { list });
+    }
+    else if (t === 'adsvdel') {
+      const sv = await st.get('sv:' + String(m.id));
+      if (!sv) return;
+      await this.deleteGuild(sv);
+      reply('adsvdel', { ok: true, id: m.id });
+    }
+  }
+  async onGuild(ws, me, m) {
+    const t = m.t, st = this.s.storage;
+    const reply = (type, o) => ws.send(JSON.stringify({ t: type, ...o }));
+    const clean = (s, n) => String(s || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, n);
+    if (t === 'svcreate') {
+      const fail = msg => reply('svres', { ok: false, msg });
+      const name = clean(m.name, 32);
+      if (!name) return fail('Sunucuya bir ad ver');
+      if (!(await this.rateHit('svc:' + me.id, 5, 3600000))) return fail('Çok fazla sunucu oluşturdun, daha sonra tekrar dene');
+      const mine = await this.g('ug:' + me.id);
+      if (mine.length >= 50) return fail('En fazla 50 sunucuya üye olabilirsin');
+      const id = rcode(10).toLowerCase();
+      const sv = {
+        id, name, icon: clean(m.icon, 4), owner: me.id, roles: [],
+        members: [{ id: me.id, roles: [] }],
+        channels: [{ name: 'genel', kind: 'text', roles: [] }, { name: 'Genel Ses', kind: 'voice', roles: [] }],
+        invites: []
+      };
+      await st.put('sv:' + id, sv);
+      mine.push(id); await st.put('ug:' + me.id, mine);
+      reply('svres', { ok: true, msg: 'Sunucu oluşturuldu', id });
+      await this.pushGuildsTo(me.id);
+    }
+    else if (t === 'svjoin') {
+      const fail = msg => reply('svres', { ok: false, msg });
+      const code = normCode(m.code);
+      if (!code) return fail('Davet kodunu yaz');
+      if (!(await this.rateHit('svj:' + me.id, 20, 600000))) return fail('Çok fazla deneme, biraz bekle');
+      const gid = await st.get('svi:' + code);
+      const sv = gid && await st.get('sv:' + gid);
+      const inv = sv && sv.invites.find(x => x.code === code);
+      if (!sv || !inv) return fail('Geçersiz ya da süresi dolmuş davet kodu');
+      if (inv.exp && inv.exp < Date.now()) return fail('Bu davetin süresi dolmuş');
+      if (inv.max && inv.uses >= inv.max) return fail('Bu davet kullanım sınırına ulaşmış');
+      if (!sv.members.find(x => x.id === me.id)) {
+        if (sv.members.length >= 500) return fail('Sunucu dolu');
+        const mine = await this.g('ug:' + me.id);
+        if (mine.length >= 50) return fail('En fazla 50 sunucuya üye olabilirsin');
+        sv.members.push({ id: me.id, roles: [] });
+        inv.uses = (inv.uses || 0) + 1;
+        await st.put('sv:' + sv.id, sv);
+        mine.push(sv.id); await st.put('ug:' + me.id, mine);
+        await this.broadcastGuild(sv.id);
+      }
+      reply('svres', { ok: true, msg: 'Sunucuya katıldın', id: sv.id });
+      await this.pushGuildsTo(me.id);
+    }
+    else if (t === 'svleave') {
+      const sv = await st.get('sv:' + String(m.id));
+      if (!sv || !sv.members.find(x => x.id === me.id)) return;
+      if (sv.owner === me.id) return reply('svres', { ok: false, msg: 'Sahip olduğun sunucudan ayrılamazsın, silebilirsin' });
+      sv.members = sv.members.filter(x => x.id !== me.id);
+      await st.put('sv:' + sv.id, sv);
+      await st.put('ug:' + me.id, (await this.g('ug:' + me.id)).filter(x => x !== sv.id));
+      await this.pushGuildsTo(me.id);
+      await this.broadcastGuild(sv.id);
+    }
+    else if (t === 'svdelete') {
+      const sv = await st.get('sv:' + String(m.id));
+      if (!sv || sv.owner !== me.id) return;
+      await this.deleteGuild(sv);
+    }
+    else if (t === 'svinvite') {
+      const sv = await st.get('sv:' + String(m.id));
+      const fail = msg => reply('svinvite', { ok: false, msg, id: m.id });
+      if (!sv || !this.isGuildAdmin(sv, me.id)) return fail('Bu işlem için yetkin yok');
+      if (sv.invites.length >= 20) sv.invites.shift();
+      let code = ''; for (let i = 0; i < 8 && !code; i++) { const c = rcode(8); if (!(await st.get('svi:' + c))) code = c; }
+      if (!code) return fail('Bir sorun çıktı, tekrar dene');
+      const max = Number(m.max) > 0 ? Math.min(1000, Math.round(Number(m.max))) : 0;
+      const exp = Number(m.expiresIn) > 0 ? Date.now() + Math.min(2592000000, Number(m.expiresIn)) : 0;
+      sv.invites.push({ code, uses: 0, max, exp, by: me.id });
+      await st.put('sv:' + sv.id, sv);
+      await st.put('svi:' + code, sv.id);
+      reply('svinvite', { ok: true, id: sv.id, code });
+    }
+    else if (t === 'svch_add') {
+      const sv = await st.get('sv:' + String(m.id));
+      const fail = msg => reply('svres', { ok: false, msg, id: m.id });
+      if (!sv || !this.isGuildAdmin(sv, me.id)) return fail('Bu işlem için yetkin yok');
+      const kind = m.kind === 'voice' ? 'voice' : 'text';
+      const name = clean(m.name, 32);
+      if (!name) return fail('Kanala bir ad ver');
+      if (sv.channels.length >= 50) return fail('En fazla 50 kanal olabilir');
+      if (sv.channels.some(c => c.name === name && c.kind === kind)) return fail('Bu isimde bir kanal zaten var');
+      sv.channels.push({ name, kind, roles: [] });
+      await st.put('sv:' + sv.id, sv);
+      await this.broadcastGuild(sv.id);
+    }
+    else if (t === 'svch_del') {
+      const sv = await st.get('sv:' + String(m.id));
+      if (!sv || !this.isGuildAdmin(sv, me.id)) return;
+      const i = sv.channels.findIndex(c => c.name === m.name && c.kind === m.kind);
+      if (i < 0 || sv.channels.length <= 1) return;
+      const [rm] = sv.channels.splice(i, 1);
+      await st.put('sv:' + sv.id, sv);
+      const ck = 'sv:' + sv.id + '/' + rm.name;
+      const all = (await st.get('msgs')) || {};
+      for (const x of all[ck] || []) { if (x.au) await st.delete('a:' + x.mid); }
+      delete all[ck]; await st.put('msgs', all);
+      for (const w of this.s.getWebSockets()) {
+        const a = w.deserializeAttachment();
+        if (a && a.vr === ck) { delete a.vr; delete a.vm; delete a.vd; delete a.vss; w.serializeAttachment(a); }
+      }
+      await this.vstate();
+      await this.broadcastGuild(sv.id);
+    }
+    else if (t === 'svrole_add') {
+      const sv = await st.get('sv:' + String(m.id));
+      if (!sv || sv.owner !== me.id) return;
+      const name = clean(m.name, 24); if (!name) return;
+      if (sv.roles.length >= 25) return;
+      const color = /^#[0-9a-fA-F]{6}$/.test(m.color || '') ? m.color : '#99aab5';
+      sv.roles.push({ id: rcode(6).toLowerCase(), name, color, admin: !!m.admin });
+      await st.put('sv:' + sv.id, sv);
+      await this.broadcastGuild(sv.id);
+    }
+    else if (t === 'svrole_del') {
+      const sv = await st.get('sv:' + String(m.id));
+      if (!sv || sv.owner !== me.id) return;
+      sv.roles = sv.roles.filter(r => r.id !== m.roleId);
+      for (const mm of sv.members) mm.roles = (mm.roles || []).filter(r => r !== m.roleId);
+      for (const c of sv.channels) if (c.roles) c.roles = c.roles.filter(r => r !== m.roleId);
+      await st.put('sv:' + sv.id, sv);
+      await this.broadcastGuild(sv.id);
+      await this.vstate();
+    }
+    else if (t === 'svrole_assign') {
+      const sv = await st.get('sv:' + String(m.id));
+      if (!sv || sv.owner !== me.id) return;
+      const mem = sv.members.find(x => x.id === m.uid);
+      if (!mem || !sv.roles.some(r => r.id === m.roleId)) return;
+      mem.roles = mem.roles || [];
+      const has = mem.roles.includes(m.roleId);
+      if (m.on && !has) mem.roles.push(m.roleId);
+      if (!m.on && has) mem.roles = mem.roles.filter(r => r !== m.roleId);
+      await st.put('sv:' + sv.id, sv);
+      await this.pushGuildsTo(m.uid);
+      await this.vstate();
+    }
+    else if (t === 'svmembers') {
+      const sv = await st.get('sv:' + String(m.id));
+      if (!sv || !sv.members.find(x => x.id === me.id)) return;
+      const on = this.onlineSet();
+      const list = [];
+      for (const mm of sv.members) { const c = await this.card(mm.id, on); if (c) list.push({ ...c, roles: mm.roles || [], owner: mm.id === sv.owner }); }
+      reply('svmembers', { id: sv.id, list });
+    }
+  }
+
   async canSee(uid, ch) {
     ch = String(ch);
     if (ch.startsWith('dm:')) {
@@ -589,14 +838,32 @@ export class Hub {
       if (((await this.s.storage.get('b:' + o)) || []).includes(uid)) return false;
       return true;
     }
-    if (!ch.startsWith('dg:')) return true;
-    const gid = String(ch).slice(3).split('/')[0];
-    let set = this.gcache.get(uid);
-    if (!set) {
-      set = new Set(((await this.s.storage.get('g:' + uid)) || []).map(x => x.id));
-      this.gcache.set(uid, set);
+    if (ch.startsWith('dg:')) {
+      const gid = String(ch).slice(3).split('/')[0];
+      let set = this.gcache.get(uid);
+      if (!set) {
+        set = new Set(((await this.s.storage.get('g:' + uid)) || []).map(x => x.id));
+        this.gcache.set(uid, set);
+      }
+      return set.has(gid);
     }
-    return set.has(gid);
+    if (ch.startsWith('sv:')) {
+      const rest = ch.slice(3), i = rest.indexOf('/');
+      const gid = i < 0 ? rest : rest.slice(0, i), chName = i < 0 ? '' : rest.slice(i + 1);
+      const sv = await this.s.storage.get('sv:' + gid);
+      if (!sv) return false;
+      const mem = sv.members.find(x => x.id === uid);
+      if (!mem) return false;
+      if (sv.owner === uid) return true;
+      const roles = mem.roles || [];
+      if (roles.some(rid => (sv.roles.find(r => r.id === rid) || {}).admin)) return true;
+      if (!chName) return true;
+      const c = sv.channels.find(x => x.name === chName);
+      if (!c) return false;
+      if (!c.roles || !c.roles.length) return true;
+      return roles.some(rid => c.roles.includes(rid));
+    }
+    return true;
   }
   async bcCh(ch, o) {
     const s = JSON.stringify(o);
@@ -618,7 +885,7 @@ export class Hub {
     for (const w of this.s.getWebSockets()) {
       if (w.readyState !== 1) continue;
       const a = w.deserializeAttachment();
-      if (a) o[a.id] = { name: a.name };
+      if (a) o[a.id] = { name: a.name, admin: !!a.admin };
     }
     return Object.values(o);
   }
