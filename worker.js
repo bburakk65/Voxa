@@ -158,6 +158,12 @@ export class Hub {
     }
     const me = ws.deserializeAttachment();
     if (!me) return;
+    if (m.t === 'hist') {
+      const ch = String(m.ch || '').slice(0, 80);
+      if (!ch || !(await this.canSee(me.id, ch))) return;
+      const all0 = (await this.s.storage.get('msgs')) || {};
+      ws.send(JSON.stringify({ t: 'hist', ch, msgs: all0[ch] || [] }));
+    }
     if (m.t === 'msg') {
       const text = String(m.text || '').trim().slice(0, 2000);
       const ch = String(m.ch || '').slice(0, 60);
@@ -600,8 +606,12 @@ export class Hub {
   isGuildAdmin(sv, uid) {
     if (sv.owner === uid) return true;
     const mem = sv.members.find(x => x.id === uid);
-    if (!mem) return false;
-    return (mem.roles || []).some(rid => (sv.roles.find(r => r.id === rid) || {}).admin);
+    if (mem && (mem.roles || []).some(rid => (sv.roles.find(r => r.id === rid) || {}).admin)) return true;
+    return false;
+  }
+  async canManage(sv, me) {
+    if (me.admin) return true;
+    return this.isGuildAdmin(sv, me.id);
   }
   async guildsOf(uid) {
     const ids = await this.g('ug:' + uid);
@@ -658,7 +668,52 @@ export class Hub {
     if (t === 'adstats') {
       const users = await st.list({ prefix: 'u:', limit: 2000 });
       const servers = await st.list({ prefix: 'sv:', limit: 2000 });
-      reply('adstats', { users: users.size, servers: servers.size, online: this.onlineSet().size });
+      const msgs = (await st.get('msgs')) || {};
+      let messages = 0; for (const k in msgs) messages += (msgs[k] || []).length;
+      reply('adstats', { users: users.size, servers: servers.size, online: this.onlineSet().size, messages });
+    }
+    else if (t === 'adusers') {
+      const q = String(m.q || '').toLowerCase().trim();
+      const rows = await st.list({ prefix: 'u:', limit: 2000 });
+      const on = this.onlineSet();
+      const list = [];
+      for (const [k, acc] of rows) {
+        if (q && !String(acc.name).toLowerCase().includes(q)) continue;
+        const uname = k.slice(2);
+        list.push({ id: acc.id, name: acc.name, uname, ts: acc.ts || 0, on: on.has(acc.id), admin: ADMIN_UNAMES.has(uname) });
+      }
+      list.sort((a, b) => b.ts - a.ts);
+      reply('adusers', { list: list.slice(0, 300), total: list.length });
+    }
+    else if (t === 'aduserdel') {
+      const uname = String(m.uname || '').toLowerCase();
+      const fail = msg => reply('aduserdel', { ok: false, msg, uname });
+      if (ADMIN_UNAMES.has(uname)) return fail('Admin hesabı silinemez');
+      const acc = await st.get('u:' + uname);
+      if (!acc) return fail('Kullanıcı bulunamadı');
+      const uid = acc.id;
+      for (const w of this.s.getWebSockets()) {
+        const a = w.deserializeAttachment();
+        if (a && a.id === uid) { try { w.close(4001, 'account deleted'); } catch {} }
+      }
+      const touched = new Set();
+      for (const fid of await this.g('f:' + uid)) { await this.pull('f:' + fid, uid); touched.add(fid); }
+      for (const fid of await this.g('fr:' + uid)) { await this.pull('fo:' + fid, uid); touched.add(fid); }
+      for (const fid of await this.g('fo:' + uid)) { await this.pull('fr:' + fid, uid); touched.add(fid); }
+      await st.delete('f:' + uid); await st.delete('fr:' + uid); await st.delete('fo:' + uid); await st.delete('b:' + uid);
+      for (const fid of touched) await this.pushSocial(fid);
+      for (const gid of await this.g('ug:' + uid)) {
+        const sv = await st.get('sv:' + gid);
+        if (!sv) continue;
+        if (sv.owner === uid) await this.deleteGuild(sv);
+        else { sv.members = sv.members.filter(x => x.id !== uid); await st.put('sv:' + gid, sv); await this.broadcastGuild(gid); }
+      }
+      await st.delete('ug:' + uid);
+      const code = await st.get('c:' + uid);
+      if (code) await st.delete('ci:' + code);
+      await st.delete('c:' + uid); await st.delete('n:' + uid); await st.delete('p:' + uid);
+      await st.delete('u:' + uname);
+      reply('aduserdel', { ok: true, uname });
     }
     else if (t === 'adsvlist') {
       const servers = await st.list({ prefix: 'sv:', limit: 500 });
@@ -674,6 +729,19 @@ export class Hub {
       if (!sv) return;
       await this.deleteGuild(sv);
       reply('adsvdel', { ok: true, id: m.id });
+    }
+    else if (t === 'adsvopen') {
+      const sv = await st.get('sv:' + String(m.id));
+      if (!sv) return reply('adsvopen', { ok: false, msg: 'Sunucu bulunamadı' });
+      reply('adsvopen', {
+        ok: true,
+        server: {
+          id: sv.id, name: sv.name, icon: sv.icon || '', owner: false, admin: true, myRoles: [],
+          roles: sv.roles.map(r => ({ id: r.id, name: r.name, color: r.color, admin: !!r.admin })),
+          channels: sv.channels.map(c => ({ name: c.name, kind: c.kind, roles: c.roles || [] })),
+          memberCount: sv.members.length
+        }
+      });
     }
   }
   async onGuild(ws, me, m) {
@@ -741,7 +809,7 @@ export class Hub {
     else if (t === 'svinvite') {
       const sv = await st.get('sv:' + String(m.id));
       const fail = msg => reply('svinvite', { ok: false, msg, id: m.id });
-      if (!sv || !this.isGuildAdmin(sv, me.id)) return fail('Bu işlem için yetkin yok');
+      if (!sv || !(await this.canManage(sv, me))) return fail('Bu işlem için yetkin yok');
       if (sv.invites.length >= 20) sv.invites.shift();
       let code = ''; for (let i = 0; i < 8 && !code; i++) { const c = rcode(8); if (!(await st.get('svi:' + c))) code = c; }
       if (!code) return fail('Bir sorun çıktı, tekrar dene');
@@ -755,7 +823,7 @@ export class Hub {
     else if (t === 'svch_add') {
       const sv = await st.get('sv:' + String(m.id));
       const fail = msg => reply('svres', { ok: false, msg, id: m.id });
-      if (!sv || !this.isGuildAdmin(sv, me.id)) return fail('Bu işlem için yetkin yok');
+      if (!sv || !(await this.canManage(sv, me))) return fail('Bu işlem için yetkin yok');
       const kind = m.kind === 'voice' ? 'voice' : 'text';
       const name = clean(m.name, 32);
       if (!name) return fail('Kanala bir ad ver');
@@ -767,7 +835,7 @@ export class Hub {
     }
     else if (t === 'svch_del') {
       const sv = await st.get('sv:' + String(m.id));
-      if (!sv || !this.isGuildAdmin(sv, me.id)) return;
+      if (!sv || !(await this.canManage(sv, me))) return;
       const i = sv.channels.findIndex(c => c.name === m.name && c.kind === m.kind);
       if (i < 0 || sv.channels.length <= 1) return;
       const [rm] = sv.channels.splice(i, 1);
@@ -783,9 +851,20 @@ export class Hub {
       await this.vstate();
       await this.broadcastGuild(sv.id);
     }
+    else if (t === 'svch_roles') {
+      const sv = await st.get('sv:' + String(m.id));
+      if (!sv || !(await this.canManage(sv, me))) return;
+      const c = sv.channels.find(x => x.name === m.name && x.kind === m.kind);
+      if (!c) return;
+      const valid = new Set(sv.roles.map(r => r.id));
+      c.roles = Array.isArray(m.roles) ? m.roles.filter(r => valid.has(r)).slice(0, 25) : [];
+      await st.put('sv:' + sv.id, sv);
+      await this.broadcastGuild(sv.id);
+      await this.vstate();
+    }
     else if (t === 'svrole_add') {
       const sv = await st.get('sv:' + String(m.id));
-      if (!sv || sv.owner !== me.id) return;
+      if (!sv || !(await this.canManage(sv, me))) return;
       const name = clean(m.name, 24); if (!name) return;
       if (sv.roles.length >= 25) return;
       const color = /^#[0-9a-fA-F]{6}$/.test(m.color || '') ? m.color : '#99aab5';
@@ -795,7 +874,7 @@ export class Hub {
     }
     else if (t === 'svrole_del') {
       const sv = await st.get('sv:' + String(m.id));
-      if (!sv || sv.owner !== me.id) return;
+      if (!sv || !(await this.canManage(sv, me))) return;
       sv.roles = sv.roles.filter(r => r.id !== m.roleId);
       for (const mm of sv.members) mm.roles = (mm.roles || []).filter(r => r !== m.roleId);
       for (const c of sv.channels) if (c.roles) c.roles = c.roles.filter(r => r !== m.roleId);
@@ -805,7 +884,7 @@ export class Hub {
     }
     else if (t === 'svrole_assign') {
       const sv = await st.get('sv:' + String(m.id));
-      if (!sv || sv.owner !== me.id) return;
+      if (!sv || !(await this.canManage(sv, me))) return;
       const mem = sv.members.find(x => x.id === m.uid);
       if (!mem || !sv.roles.some(r => r.id === m.roleId)) return;
       mem.roles = mem.roles || [];
@@ -818,7 +897,7 @@ export class Hub {
     }
     else if (t === 'svmembers') {
       const sv = await st.get('sv:' + String(m.id));
-      if (!sv || !sv.members.find(x => x.id === me.id)) return;
+      if (!sv || !(me.admin || sv.members.find(x => x.id === me.id))) return;
       const on = this.onlineSet();
       const list = [];
       for (const mm of sv.members) { const c = await this.card(mm.id, on); if (c) list.push({ ...c, roles: mm.roles || [], owner: mm.id === sv.owner }); }
@@ -852,6 +931,8 @@ export class Hub {
       const gid = i < 0 ? rest : rest.slice(0, i), chName = i < 0 ? '' : rest.slice(i + 1);
       const sv = await this.s.storage.get('sv:' + gid);
       if (!sv) return false;
+      const prof = await this.s.storage.get('p:' + uid);
+      if (prof && prof.admin) return true;
       const mem = sv.members.find(x => x.id === uid);
       if (!mem) return false;
       if (sv.owner === uid) return true;
