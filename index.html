@@ -534,7 +534,13 @@ function msgs(){
  $('mtitle').textContent=srv==='home'?dmTitle():ch;$('inp').placeholder=srv==='home'?dmTitle()+' kişisine mesaj gönder':'#'+ch+' kanalına mesaj gönder';
  box.innerHTML=srv==='home'?dmWel():`<div class="wel"><div class="wi">#</div><h2>#${esc(ch)} kanalına hoş geldin</h2><p>Burası #${esc(ch)} kanalının başlangıcı.</p></div>`;
  box.classList.toggle('noanim',NOANIM);
- let prev=null;(HIST[key()]||[]).forEach(m=>{addMsg(box,m,prev);prev=m});
+ const k=key();
+ if(k&&HIST[k]===undefined){
+  const l=document.createElement('p');l.className='hint';l.style.textAlign='center';l.textContent='Geçmiş yükleniyor…';box.append(l);
+  sendWS({t:'hist',ch:k});
+ }else{
+  let prev=null;(HIST[k]||[]).forEach(m=>{addMsg(box,m,prev);prev=m});
+ }
  box.scrollTop=1e9;
  if(UNR[key()]){delete UNR[key()];setTimeout(()=>{chans();rail();utitle()},0)}
 }
@@ -607,6 +613,7 @@ function connect(){
   else if(m.t==='session'){try{localStorage.setItem('voxa_user',JSON.stringify({token:m.token}))}catch(e){}TOKEN=m.token}
   else if(m.t==='social'||m.t==='freq'||m.t==='fnew'||m.t==='fsearch'||m.t==='fres'||m.t==='fprof'||m.t==='frep'||m.t==='merr'||m.t==='vinv'||m.t==='finv'||m.t==='aud'||m.t==='ring'||m.t==='ringx'||m.t==='fringr'){socialMsg(m)}
   else if(m.t==='svservers'||m.t==='svres'||m.t==='svinvite'||m.t==='svmembers'){guildMsg(m)}
+  else if(m.t==='hist'){HIST[m.ch]=m.msgs||[];if(m.ch===key())msgs()}
   else if(m.t==='adstats'||m.t==='adsvlist'||m.t==='adsvdel'){adminMsg(m)}
   else if(m.t==='vstate'||m.t==='vpeers'||m.t==='vsig'){voiceMsg(m)}
   else if(m.t==='error'){logout()}
@@ -1187,14 +1194,19 @@ function fAction(el){
  else if(a==='svjn')openServerJoin();
  else if(a==='svjngo')serverJoinGo();
  else if(a==='mkinv')sendWS({t:'svinvite',id:MGMT.id,max:1});
+ else if(a==='chroles')openChRoles(el.dataset.n,el.dataset.k);
+ else if(a==='chrolesgo'){const boxes=[...document.querySelectorAll('#fdlg [data-crole]')];const roles=boxes.filter(b=>b.checked).map(b=>b.dataset.crole);sendWS({t:'svch_roles',id:MGMT.id,name:CR_N,kind:CR_K,roles});closeF();fT('Kanal izinleri güncellendi')}
  else if(a==='chaddtxt')addChannel('text');
  else if(a==='chaddvoice')addChannel('voice');
  else if(a==='chdel'){const n=el.dataset.n,k=el.dataset.k;svConfirmDlg('Kanalı sil','“'+n+'” kanalını silmek istediğine emin misin?','Sil',()=>sendWS({t:'svch_del',id:MGMT.id,name:n,kind:k}))}
  else if(a==='roleadd')addRole();
  else if(a==='roledel'){const r=el.dataset.r;svConfirmDlg('Rolü sil','Bu rolü silmek istediğine emin misin?','Sil',()=>sendWS({t:'svrole_del',id:MGMT.id,roleId:r}))}
  else if(a==='svdelgo'){const gid=el.dataset.id,nm=MGMT.name;svConfirmDlg('Sunucuyu sil','“'+nm+'” sunucusunu kalıcı olarak silmek istediğine emin misin? Bu geri alınamaz.','Sil',()=>{sendWS({t:'svdelete',id:gid});if(srv==='sv:'+gid){srv='home';ch='';FVIEW=true;all()}})}
+ else if(a==='adsvopen'){sendWS({t:'adsvopen',id:el.dataset.id})}
  else if(a==='adsvdel'){const nm=el.dataset.n,gid=el.dataset.id;svConfirmDlg('Sunucuyu sil (admin)','“'+nm+'” sunucusunu kalıcı olarak silmek istediğine emin misin? Sahibi sen olmasan bile silinir.','Sil',()=>sendWS({t:'adsvdel',id:gid}))}
  else if(a==='adminclose')closeAdmin();
+ else if(a==='adtab'){ADTAB=el.dataset.k;if(ADTAB==='users'&&!ADUSERS)sendWS({t:'adusers',q:ADUQ});adminRender()}
+ else if(a==='aduserdel'){const nm=el.dataset.n,un=el.dataset.uname;svConfirmDlg('Kullanıcıyı sil','“'+nm+'” hesabını kalıcı olarak silmek istediğine emin misin? Arkadaşlıkları ve sunucu üyelikleri de kalkar.','Sil',()=>sendWS({t:'aduserdel',uname:un}))}
  else if(a==='svleavego'){const gid=el.dataset.id,nm=MGMT.name;svConfirmDlg('Sunucudan ayrıl','“'+nm+'” sunucusundan ayrılmak istediğine emin misin?','Ayrıl',()=>{sendWS({t:'svleave',id:gid});if(srv==='sv:'+gid){srv='home';ch='';FVIEW=true;all()}})}
  else if(a==='svok'){const cb=SVCB;SVCB=null;closeF();if(cb)cb()}
  else if(a==='svpgo'){const v=($('svp')||{value:''}).value.trim();const adm=$('svpadm')?$('svpadm').checked:false;const cb=SVPCB;SVPCB=null;closeF();if(v&&cb)cb(v,adm)}
@@ -1215,6 +1227,7 @@ try{
   if(row){const p=findP(row.dataset.id);if(p){profShow(p);sendWS({t:'fprof',id:p.id})}}
  });
  document.addEventListener('input',e=>{
+  if(e.target.id==='aduq'){ADUQ=e.target.value;clearTimeout(ADUT);ADUT=setTimeout(()=>sendWS({t:'adusers',q:ADUQ}),300);return}
   if(e.target.id==='ffq'){FFQ=e.target.value;fList();return}
   if(e.target.id!=='fq')return;
   FQ=e.target.value;FRES=null;fRes();clearTimeout(FT);
@@ -1403,10 +1416,10 @@ try{
 
 
 /* ===== GİZLİ YÖNETİM PANELİ ===== */
-let ADSTATS=null,ADSVLIST=null;
+let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null;
 function openAdmin(){
  if(!ME.admin)return;
- ADSTATS=null;ADSVLIST=null;
+ ADSTATS=null;ADSVLIST=null;ADUSERS=null;ADTAB='dash';ADUQ='';
  sendWS({t:'adstats'});sendWS({t:'adsvlist'});
  $('adminFull').classList.add('on');
  adminRender();
@@ -1414,22 +1427,41 @@ function openAdmin(){
 function closeAdmin(){$('adminFull').classList.remove('on')}
 function adminRender(){
  const el=$('adminFull');if(!el.classList.contains('on'))return;
- const svRow=s2=>`<div class="frow"><div class="fi"><b>${s2.icon?esc(s2.icon)+' ':''}${esc(s2.name)}</b><small>Sahibi: ${esc(s2.ownerName)} · ${s2.memberCount} üye</small></div><button class="ib" data-fa="adsvdel" data-id="${esc(s2.id)}" data-n="${esc(s2.name)}" aria-label="Sil">🗑</button></div>`;
- el.innerHTML=`<div class="vh"><button class="vb" data-fa="adminclose" aria-label="Kapat">${ic(P.down)}</button><div class="vt">Yönetim Paneli</div><span class="gap"></span></div>
- <div class="adbody">
-  <div class="adgrid">
+ const tabBtn=(k,l)=>`<button class="ftab ${ADTAB===k?'on':''}" data-fa="adtab" data-k="${k}">${l}</button>`;
+ const svRow=s2=>`<div class="frow"><div class="fi"><b>${s2.icon?esc(s2.icon)+' ':''}${esc(s2.name)}</b><small>Sahibi: ${esc(s2.ownerName)} · ${s2.memberCount} üye</small></div><button class="fbtn" style="padding:7px 10px;font-size:13px" data-fa="adsvopen" data-id="${esc(s2.id)}">Katıl/Yönet</button><button class="ib" data-fa="adsvdel" data-id="${esc(s2.id)}" data-n="${esc(s2.name)}" aria-label="Sil">🗑</button></div>`;
+ const uRow=u2=>`<div class="frow">${av(u2.name,u2.on?'dot':'dot offl')}<div class="fi"><b>${esc(u2.name)}${admTag(u2.admin)}</b><small>${u2.on?'Çevrimiçi':'Çevrimdışı'} · ${new Date(u2.ts).toLocaleDateString('tr')} kayıt</small></div>${u2.admin?'':`<button class="ib" data-fa="aduserdel" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Sil">🗑</button>`}</div>`;
+ let body='';
+ if(ADTAB==='dash'){
+  body=`<div class="adgrid">
    <div class="adstat"><b>${ADSTATS?ADSTATS.users:'…'}</b><small>Kullanıcı</small></div>
    <div class="adstat"><b>${ADSTATS?ADSTATS.online:'…'}</b><small>Çevrimiçi</small></div>
    <div class="adstat"><b>${ADSTATS?ADSTATS.servers:'…'}</b><small>Sunucu</small></div>
+   <div class="adstat"><b>${ADSTATS?ADSTATS.messages:'…'}</b><small>Mesaj</small></div>
   </div>
   <div class="fsec" style="padding-left:16px">TÜM SUNUCULAR</div>
-  <div style="padding:0 16px">${ADSVLIST?(ADSVLIST.length?ADSVLIST.map(svRow).join(''):'<p class="hint">Hiç sunucu yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>
- </div>`;
+  <div style="padding:0 16px">${ADSVLIST?(ADSVLIST.length?ADSVLIST.map(svRow).join(''):'<p class="hint">Hiç sunucu yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
+ }else if(ADTAB==='users'){
+  body=`<div class="fsearch" style="padding:4px 16px 10px"><input id="aduq" value="${esc(ADUQ)}" placeholder="Kullanıcı ara" autocomplete="off"></div>
+  <div style="padding:0 16px">${ADUSERS?(ADUSERS.length?ADUSERS.map(uRow).join(''):'<p class="hint">Sonuç yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
+ }
+ el.innerHTML=`<div class="vh"><button class="vb" data-fa="adminclose" aria-label="Kapat">${ic(P.down)}</button><div class="vt">Yönetim Paneli</div><span class="gap"></span></div>
+ <div class="ftabs" style="padding:10px 16px 0">${tabBtn('dash','Dashboard')}${tabBtn('users','Kullanıcılar')}</div>
+ <div class="adbody">${body}</div>`;
 }
 function adminMsg(m){
  if(m.t==='adstats'){ADSTATS=m;adminRender()}
  else if(m.t==='adsvlist'){ADSVLIST=m.list||[];adminRender()}
  else if(m.t==='adsvdel'){fT('Sunucu silindi');ADSVLIST=(ADSVLIST||[]).filter(s2=>s2.id!==m.id);adminRender();sendWS({t:'adstats'})}
+ else if(m.t==='adusers'){ADUSERS=m.list||[];adminRender()}
+ else if(m.t==='adsvopen'){
+  if(!m.ok){fT(m.msg||'Sunucu açılamadı');return}
+  const i=MYSV.findIndex(x=>x.id===m.server.id);
+  if(i>=0)MYSV[i]=m.server;else MYSV.push(m.server);
+  closeAdmin();
+  srv='sv:'+m.server.id;ch=(m.server.channels.find(c=>c.kind==='text')||{}).name||'';
+  all();drawer(false);
+ }
+ else if(m.t==='aduserdel'){if(m.ok){fT('Kullanıcı silindi');ADUSERS=(ADUSERS||[]).filter(u2=>u2.uname!==m.uname);adminRender();sendWS({t:'adstats'})}else fT(m.msg||'Silinemedi')}
 }
 /* ===== SUNUCU / KANAL / ROL UI ===== */
 function openServerAdd(){
@@ -1463,6 +1495,15 @@ function svPromptDlg(title,placeholder,extra,cb){
  SVPCB=cb;
  fDlg(`<div class="fcard"><h3>${esc(title)}</h3><label class="af"><span>${esc(placeholder)}</span><input id="svp" maxlength="32" autocomplete="off"></label>${extra||''}<div class="row2"><button class="fbtn no" data-fa="close">Vazgeç</button><button class="fbtn" data-fa="svpgo">Oluştur</button></div></div>`);
 }
+let CR_N='',CR_K='';
+function openChRoles(name,kind){
+ CR_N=name;CR_K=kind;
+ const s2=MYSV.find(x=>x.id===MGMT.id)||MGMT;
+ const c=s2.channels.find(x=>x.name===name&&x.kind===kind);
+ const cur=(c&&c.roles)||[];
+ const rows=s2.roles.map(r=>`<label style="display:flex;align-items:center;gap:10px;padding:9px 0;font-size:15px"><input type="checkbox" data-crole="${esc(r.id)}" ${cur.includes(r.id)?'checked':''} style="width:18px;height:18px">${esc(r.name)}</label>`).join('');
+ fDlg(`<div class="fcard"><h3>${esc(name)} — Kimler görsün?</h3><p>Hiçbiri işaretli değilse herkese açık olur.</p>${rows||'<p class="hint">Önce bir rol oluştur.</p>'}<div class="row2" style="margin-top:12px"><button class="fbtn no" data-fa="close">Vazgeç</button><button class="fbtn" data-fa="chrolesgo">Kaydet</button></div></div>`);
+}
 function addChannel(kind){
  svPromptDlg(kind==='voice'?'Yeni Ses Kanalı':'Yeni Metin Kanalı','Kanal adı','',n=>{sendWS({t:'svch_add',id:MGMT.id,name:n,kind})});
 }
@@ -1473,7 +1514,7 @@ function mgmtRender(){
  if(!MGMT)return;
  const s2=MYSV.find(x=>x.id===MGMT.id);if(!s2){closeF();return}
  MGMT=s2;
- const chRow=c=>`<div class="frow"><div class="fi"><b>${c.kind==='voice'?'🔊':'#'} ${esc(c.name)}</b><small>${c.roles&&c.roles.length?'Kısıtlı':'Herkese açık'}</small></div>${s2.channels.length>1?`<button class="ib" data-fa="chdel" data-n="${esc(c.name)}" data-k="${c.kind}" aria-label="Sil">🗑</button>`:''}</div>`;
+ const chRow=c=>`<div class="frow"><div class="fi"><b>${c.kind==='voice'?'🔊':'#'} ${esc(c.name)}</b><small>${c.roles&&c.roles.length?'Kısıtlı: '+c.roles.map(rid=>esc((s2.roles.find(r=>r.id===rid)||{}).name||'?')).join(', '):'Herkese açık'}</small></div>${s2.roles.length?`<button class="ib" data-fa="chroles" data-n="${esc(c.name)}" data-k="${c.kind}" aria-label="Rol">🔑</button>`:''}${s2.channels.length>1?`<button class="ib" data-fa="chdel" data-n="${esc(c.name)}" data-k="${c.kind}" aria-label="Sil">🗑</button>`:''}</div>`;
  const roleRow=r=>`<div class="frow"><div class="fi"><b style="color:${esc(r.color)}">${esc(r.name)}</b><small>${r.admin?'Yönetici yetkisi':'Üye'}</small></div><button class="ib" data-fa="roledel" data-r="${esc(r.id)}" aria-label="Sil">🗑</button></div>`;
  const memRow=mm=>{const cur=(s2.roles.find(r=>(mm.roles||[]).includes(r.id))||{}).id||'';
   return `<div class="frow">${fav(mm,1)}<div class="fi"><b>${esc(mm.name)}</b><small>${mm.owner?'Sahip':(cur?(s2.roles.find(r=>r.id===cur)||{}).name:'Üye')}</small></div>${(!mm.owner&&s2.roles.length)?`<select data-fa="roleassign" data-u="${esc(mm.id)}" data-old="${esc(cur)}" style="background:var(--input);color:#fff;border:0;border-radius:8px;padding:6px"><option value="">Rol yok</option>${s2.roles.map(r=>`<option value="${esc(r.id)}" ${cur===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}</select>`:''}</div>`};
