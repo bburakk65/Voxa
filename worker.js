@@ -141,15 +141,15 @@ export class Hub {
         const u = await unsign(secret, m.token);
         const nick = await this.s.storage.get('n:' + u.id);
         const name = nick || u.name;
-        const admin = !!u.admin;
-        ws.serializeAttachment({ id: u.id, name, pic: u.picture || '', admin });
+        const { admin, mainAdmin } = await this.adminFlags(u.id);
+        ws.serializeAttachment({ id: u.id, name, pic: u.picture || '', admin, mainAdmin });
         await this.initUser(u.id, name, u.picture || '');
         await this.setProfile(u.id, { admin });
         const hist0 = (await this.s.storage.get('msgs')) || {};
         const hist = {};
         for (const k of Object.keys(hist0)) { if (await this.canSee(u.id, k)) hist[k] = hist0[k]; }
         const guilds = (await this.s.storage.get('g:' + u.id)) || [];
-        ws.send(JSON.stringify({ t: 'ready', hist, online: this.users(), guilds, servers: await this.guildsOf(u.id), me: { name, admin }, social: await this.social(u.id) }));
+        ws.send(JSON.stringify({ t: 'ready', hist, online: this.users(), guilds, servers: await this.guildsOf(u.id), me: { name, admin, mainAdmin }, social: await this.social(u.id) }));
         this.bc({ t: 'online', online: this.users() });
         await this.vstate();
         await this.presence(u.id);
@@ -218,7 +218,7 @@ export class Hub {
       await this.presence(me.id);
       for (const x of this.s.getWebSockets()) {
         const a = x.deserializeAttachment();
-        if (a && a.id === me.id) { a.name = name; x.serializeAttachment(a); try { x.send(JSON.stringify({ t: 'me', name, admin: !!a.admin })); } catch {} }
+        if (a && a.id === me.id) { a.name = name; x.serializeAttachment(a); try { x.send(JSON.stringify({ t: 'me', name, admin: !!a.admin, mainAdmin: !!a.mainAdmin })); } catch {} }
       }
       this.bc({ t: 'online', online: this.users() });
       await this.vstate();
@@ -661,6 +661,29 @@ export class Hub {
     await this.vstate();
     for (const mm of members) await this.pushGuildsTo(mm.id);
   }
+  async adminFlags(uid) {
+    const mainAcc = await this.s.storage.get('u:voxaadmin');
+    const mainAdmin = !!(mainAcc && mainAcc.id === uid);
+    const promoted = (await this.g('admins')).includes(uid);
+    return { admin: mainAdmin || promoted, mainAdmin };
+  }
+  async updateAdminFlags(uid) {
+    const flags = await this.adminFlags(uid);
+    for (const w of this.s.getWebSockets()) {
+      const a = w.deserializeAttachment();
+      if (a && a.id === uid) {
+        a.admin = flags.admin; a.mainAdmin = flags.mainAdmin;
+        w.serializeAttachment(a);
+        try { w.send(JSON.stringify({ t: 'me', name: a.name, admin: flags.admin, mainAdmin: flags.mainAdmin })); } catch {}
+      }
+    }
+    return flags;
+  }
+  async logAdmin(action, by, target, ok, msg) {
+    const log = await this.g('adlog');
+    log.push({ ts: Date.now(), action, by: by ? { id: by.id, name: by.name } : null, target: target || null, ok: !!ok, msg: msg || '' });
+    await this.s.storage.put('adlog', log.slice(-200));
+  }
   async onAdmin(ws, me, m) {
     if (!me.admin) return;
     const t = m.t, st = this.s.storage;
@@ -692,6 +715,7 @@ export class Hub {
       const acc = await st.get('u:' + uname);
       if (!acc) return fail('Kullanıcı bulunamadı');
       const uid = acc.id;
+      if ((await this.g('admins')).includes(uid)) return fail('Önce bu kullanıcının admin yetkisini kaldırmalısın');
       for (const w of this.s.getWebSockets()) {
         const a = w.deserializeAttachment();
         if (a && a.id === uid) { try { w.close(4001, 'account deleted'); } catch {} }
@@ -742,6 +766,55 @@ export class Hub {
           memberCount: sv.members.length
         }
       });
+    }
+    else if (t === 'adadmins') {
+      if (!me.mainAdmin) return;
+      const mainAcc = await st.get('u:voxaadmin');
+      const ids = await this.g('admins');
+      const list = [];
+      for (const id of ids) { const c = await this.card(id); if (c) list.push(c); }
+      const log = (await this.g('adlog')).slice(-30).reverse();
+      reply('adadmins', {
+        main: mainAcc ? { id: mainAcc.id, name: mainAcc.name, uname: 'voxaadmin' } : null,
+        list, log
+      });
+    }
+    else if (t === 'adpromote') {
+      const fail = msg => { reply('adpromote', { ok: false, msg }); return this.logAdmin('promote', me, { uname: String(m.uname || '') }, false, msg); };
+      if (!me.mainAdmin) { await this.logAdmin('promote', me, { uname: String(m.uname || '') }, false, 'yetkisiz deneme'); return; }
+      if (!(await this.rateHit('adpr:' + me.id, 30, 600000))) return fail('Çok fazla işlem, biraz bekle');
+      const uname = String(m.uname || '').toLowerCase().trim();
+      if (!uname) return fail('Kullanıcı adını yaz');
+      if (ADMIN_UNAMES.has(uname)) return fail('Bu kullanıcı zaten ana yönetici');
+      const acc = await st.get('u:' + uname);
+      if (!acc) return fail('Kullanıcı bulunamadı');
+      const ids = await this.g('admins');
+      if (ids.includes(acc.id)) return fail('Bu kullanıcı zaten admin');
+      ids.push(acc.id);
+      await st.put('admins', ids);
+      await this.logAdmin('promote', me, { id: acc.id, name: acc.name, uname }, true, '');
+      await this.updateAdminFlags(acc.id);
+      reply('adpromote', { ok: true, msg: acc.name + ' artık admin' });
+      await this.pushAdAdmins();
+    }
+    else if (t === 'addemote') {
+      const uid = String(m.id || '');
+      const fail = msg => { reply('addemote', { ok: false, msg, id: uid }); return this.logAdmin('demote', me, { id: uid }, false, msg); };
+      if (!me.mainAdmin) { await this.logAdmin('demote', me, { id: uid }, false, 'yetkisiz deneme'); return; }
+      const ids = await this.g('admins');
+      if (!ids.includes(uid)) return fail('Bu kullanıcı zaten admin değil');
+      const c = await this.card(uid);
+      await st.put('admins', ids.filter(x => x !== uid));
+      await this.logAdmin('demote', me, { id: uid, name: c ? c.name : uid }, true, '');
+      await this.updateAdminFlags(uid);
+      reply('addemote', { ok: true, id: uid });
+      await this.pushAdAdmins();
+    }
+  }
+  async pushAdAdmins() {
+    for (const w of this.s.getWebSockets()) {
+      const a = w.deserializeAttachment();
+      if (a && a.mainAdmin) { try { await this.onAdmin(w, a, { t: 'adadmins' }); } catch {} }
     }
   }
   async onGuild(ws, me, m) {
