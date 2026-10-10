@@ -857,19 +857,24 @@ export class Hub {
     }
     else if (t === 'admsgclearall') {
       if (!me.admin) return reply('admsgclearall', { ok: false, msg: 'Bu işlem için yönetici yetkisi gerekli' });
-      const all = (await st.get('msgs')) || {};
-      let removedCount = 0;
-      for (const key of Object.keys(all)) {
-        const list = Array.isArray(all[key]) ? all[key] : [];
-        removedCount += list.length;
-        for (const item of list) if (item && item.au && item.mid) await st.delete('a:' + item.mid);
-        all[key] = [];
-        await this.bcCh(key, { t: 'clear', ch: key });
-      }
-      // Remove the whole message map so empty channel arrays cannot leave stale dashboard counts.
-      await st.put('msgs', {});
-      reply('admsgclearall', { ok: true, messages: 0, removed: removedCount });
-      await this.logAdmin('msgclearall', me, { ch: 'all' }, true, removedCount + ' mesaj temizlendi');
+      // Serialize bulk clear with single-message deletions to avoid stale read/modify/write races.
+      const runClear = async () => {
+        const all = (await st.get('msgs')) || {};
+        let removedCount = 0;
+        for (const key of Object.keys(all)) {
+          const list = Array.isArray(all[key]) ? all[key] : [];
+          removedCount += list.length;
+          for (const item of list) if (item && item.au && item.mid) await st.delete('a:' + item.mid);
+          await this.bcCh(key, { t: 'clear', ch: key });
+        }
+        // Remove every channel key, including empty arrays, then report the authoritative total.
+        await st.put('msgs', {});
+        reply('admsgclearall', { ok: true, messages: 0, removed: removedCount });
+        await this.logAdmin('msgclearall', me, { ch: 'all' }, true, removedCount + ' mesaj temizlendi');
+      };
+      const task = this.msgDeleteQueue.then(runClear, runClear);
+      this.msgDeleteQueue = task.catch(() => {});
+      await task;
     }
     else if (t === 'admsgdel') {
       // Serialize admin deletions: rapid consecutive clicks must not overwrite each other's storage updates.
@@ -885,16 +890,18 @@ export class Hub {
         const i = list.findIndex(x => x && String(x.mid) === mid);
         if (i < 0) {
           let messages = 0;
-          for (const key of Object.keys(all)) messages += Array.isArray(all[key]) ? all[key].length : 0;
+          for (const key of Object.keys(all)) if (Array.isArray(all[key])) messages += all[key].length;
           return reply('admsgdel', { ok: false, msg: 'Mesaj bulunamadı; liste ve sayaç yenilendi', mid, ch, messages });
         }
         const removed = list[i];
-        all[ch] = list.filter(x => x && String(x.mid) !== mid);
+        const remaining = list.filter(x => x && String(x.mid) !== mid);
+        if (remaining.length) all[ch] = remaining;
+        else delete all[ch]; // Empty channels must not remain in the stored message map.
         if (removed.au) await st.delete('a:' + removed.mid);
         await st.put('msgs', all);
         await this.bcCh(ch, { t: 'del', ch, mid });
         let totalMessages = 0;
-        for (const key of Object.keys(all)) totalMessages += Array.isArray(all[key]) ? all[key].length : 0;
+        for (const key of Object.keys(all)) if (Array.isArray(all[key])) totalMessages += all[key].length;
         // Reply with the persisted total before logging; the client can update the counter immediately.
         reply('admsgdel', { ok: true, mid, ch, total: all[ch].length, messages: totalMessages });
         await this.logAdmin('msgdel', me, { mid, ch, sender: removed.u }, true, String(m.reason || '').slice(0, 120));

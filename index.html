@@ -404,6 +404,61 @@ body.dmopen #dmcall{display:grid}
 .adiv::before,.adiv::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.1)}
 .note a{color:#9aa3ff;text-decoration:none}.note a:hover{text-decoration:underline}
 </style>
+<style id="voxa-responsive-polish">
+/* Voxa responsive visual polish — presentation only; preserves existing app logic */
+:root{--vx-border:rgba(255,255,255,.075);--vx-glass:rgba(255,255,255,.035);--vx-shadow:0 16px 42px rgba(0,0,0,.18)}
+html{background:#0d0e12;scrollbar-gutter:stable}
+body{background:radial-gradient(ellipse at 65% -20%,rgba(88,101,242,.09),transparent 48%),var(--rail);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button,input,textarea{touch-action:manipulation}
+button{transition:background-color .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease,transform .18s ease}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid #8b95ff;outline-offset:3px}
+#app{min-width:0;isolation:isolate}
+.rail{border-right:1px solid rgba(255,255,255,.035);padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom))}
+.side{border-right:1px solid var(--vx-border);box-shadow:8px 0 28px rgba(0,0,0,.08)}
+.sh,.mh{background:rgba(20,21,26,.74);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid var(--vx-border);box-shadow:none}
+.sh{height:56px;letter-spacing:.1px}
+.mh{height:56px;padding-left:clamp(12px,1.5vw,24px);padding-right:clamp(12px,1.5vw,24px)}
+.main{background:linear-gradient(145deg,rgba(34,35,42,.98),rgba(25,26,31,.99));min-width:0}
+.ch{min-height:36px;border:1px solid transparent;border-radius:8px;padding:7px 10px}
+.ch:hover{border-color:rgba(255,255,255,.045)}.ch.on{box-shadow:inset 2px 0 #8992ff;background:linear-gradient(90deg,rgba(88,101,242,.2),rgba(88,101,242,.07));color:#fff}
+.srv{box-shadow:0 3px 10px rgba(0,0,0,.12)}.srv.on{box-shadow:0 6px 18px rgba(88,101,242,.3)}
+.ib{width:36px;height:36px;border-radius:9px}.ib:hover{box-shadow:inset 0 0 0 1px var(--vx-border)}
+.up,.vp{background:rgba(16,17,21,.72);border-top:1px solid var(--vx-border)}
+.up{min-height:58px;height:auto;padding-top:8px;padding-bottom:max(8px,env(safe-area-inset-bottom))}
+.m{padding:7px clamp(12px,1.5vw,24px);margin-top:8px;border-radius:8px;animation:slide .18s ease both}
+.m:hover{background:rgba(255,255,255,.035)}.m p{line-height:1.55}
+.m .del{border:1px solid rgba(242,63,67,.24);background:#24252c;border-radius:8px;padding:5px 10px;box-shadow:0 5px 18px rgba(0,0,0,.2)}
+.cin{padding-left:clamp(12px,1.5vw,24px);padding-right:clamp(12px,1.5vw,24px)}
+.cin div{min-height:48px;border:1px solid rgba(255,255,255,.045);box-shadow:0 8px 26px rgba(0,0,0,.1)}
+.cin input{font-size:15px;min-height:44px}
+#login{padding:clamp(16px,4vw,40px)}.card{width:min(100%,420px);border-color:rgba(255,255,255,.12);box-shadow:0 28px 90px rgba(0,0,0,.42),inset 0 1px rgba(255,255,255,.06)}
+.gbtn{min-height:46px;border-radius:10px}.logo{box-shadow:0 10px 30px rgba(88,101,242,.35)}
+#toast{max-width:min(92vw,420px);border:1px solid rgba(255,255,255,.1);box-shadow:var(--vx-shadow);backdrop-filter:blur(18px)}
+/* Large displays: improve breathing room without enlarging or distorting media */
+@media(min-width:1400px){.side{width:260px}.mem{width:260px}.msgs{padding-top:18px;padding-bottom:18px}.m{padding-top:8px;padding-bottom:8px}.cin{padding-bottom:20px}}
+@media(min-width:1920px){.side{width:280px}.mem{width:280px}.sh,.mh{height:62px}.m{padding-left:28px;padding-right:28px}.cin{padding-left:28px;padding-right:28px}}
+@media(max-width:760px){
+ html,body{width:100%;height:100%;height:100dvh;overscroll-behavior:none}
+ #app{height:100%;height:100dvh;min-height:0}
+ .main{width:100%;height:100%;min-height:0}
+ .mh{height:calc(52px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top);gap:10px}
+ .menu{width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.045)}
+ .msgs{padding-top:8px;padding-bottom:8px;overscroll-behavior:contain}
+ .m{gap:10px;padding:7px 12px;margin-top:5px;border-radius:0}
+ .m .av{width:34px;height:34px;font-size:14px}
+ .m .del{display:block;position:static;margin-left:auto;align-self:flex-start;opacity:.82;padding:5px 8px}
+ .cin{padding:0 10px max(10px,env(safe-area-inset-bottom))}
+ .cin div{padding-left:12px;border-radius:12px;min-height:46px}
+ .cin input{font-size:16px}
+ .scrim{z-index:30}.rail{z-index:32;padding-top:max(12px,env(safe-area-inset-top))}.side{z-index:31;padding-top:env(safe-area-inset-top)}
+ .up{padding-bottom:max(8px,env(safe-area-inset-bottom))}
+ .card{padding:clamp(22px,7vw,34px) clamp(18px,6vw,28px);border-radius:22px}
+}
+@media(max-width:380px){.m{gap:8px;padding-left:9px;padding-right:9px}.m .av{width:30px;height:30px}.mh{padding-left:8px;padding-right:8px}.cin{padding-left:7px;padding-right:7px}}
+@media(hover:none){.m .del{opacity:.9}.srv:hover,.ch:hover,.ib:hover{transform:none}}
+@media(prefers-reduced-motion:reduce){html:focus-within{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
+</style>
+
 </head>
 <body>
 <div id="login">
@@ -1202,7 +1257,7 @@ function fAction(el){
  else if(a==='adunban'){svConfirmDlg('Yasağı kaldır','“'+el.dataset.n+'” kullanıcısının yasağını kaldırmak istediğine emin misin?','Kaldır',()=>sendWS({t:'adunban',uname:el.dataset.uname}))}
  else if(a==='admchpick'){ADMVIEW=el.dataset.ch==='r'?'reports':'pick';ADMCH='';if(ADMVIEW==='reports'&&!ADREPORTS)sendWS({t:'adreports'});adminRender()}
  else if(a==='admopench'){ADMVIEW='pick';ADMCH=el.dataset.ch;ADMCHL=el.dataset.l;ADMQ='';ADMSGS=null;sendWS({t:'admsgs',ch:ADMCH});adminRender()}
- else if(a==='admchback'){ADMCH='';ADMSGS=null;adminRender()}
+ else if(a==='admchback'){ADMCH='';ADMSGS=null;ADMSGCHS=null;sendWS({t:'admsgchannels'});adminRender()}
  else if(a==='admsgdel'){const ch=el.dataset.ch,mid=el.dataset.mid,nm=el.dataset.n;svConfirmDlg('Mesajı sil','“'+nm+'” kullanıcısının mesajını silmek istediğine emin misin?','Sil',()=>sendWS({t:'admsgdel',ch,mid}))}
  else if(a==='admsgclearall'){svConfirmDlg('Tüm mesajları sil','Tüm kanallardaki mesajlar kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?','Tümünü sil',()=>sendWS({t:'admsgclearall'}))}
  else if(a==='admjump'){ADTAB='msgs';ADMVIEW='pick';ADMCH=el.dataset.ch;ADMCHL=el.dataset.ch.split('/').slice(1).join('/')||el.dataset.ch;ADMQ='';ADMSGS=null;sendWS({t:'admsgs',ch:ADMCH});adminRender()}
@@ -1471,7 +1526,7 @@ const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Y
    const real=(ADSVLIST||[]).map(s2=>srvChs('sv:'+s2.id,s2.name,s2.channels||[])).join('');
    body=`<div class="ftabs" style="padding:4px 16px 10px">${chPill('','Kanallar',true)}${chPill('r','Şikayetler',false)}</div>
    <div class="fsec" style="padding-left:16px">BİR KANAL SEÇ</div>
-   <div style="padding:0 16px 10px"><button class="fbtn no" style="width:100%" data-fa="admsgclearall">Tüm kanallardaki mesajları sil</button><small class="hint">Dashboard sayacı tüm kanallardaki mesajların toplamıdır.</small></div>
+   <div style="padding:0 16px 10px"><button class="fbtn no" style="width:100%" data-fa="admsgclearall">Tüm kanallardaki mesajları sil</button><small class="hint">Sayaç kayıtlı mesajların toplamıdır. Boş kanallar listelenmez.</small></div>
    <div style="padding:0 16px">${ADMSGCHS===null?'<p class="hint">Mesaj bulunan kanallar yükleniyor…</p>':(built+real)||'<p class="hint">Henüz mesaj bulunan kanal yok.</p>'}</div>`;
   }else{
    const mRow=mm=>`<div class="frow" style="align-items:flex-start"><div class="fi"><b style="color:${col(mm.u)}">${esc(mm.u)}</b> <small style="color:var(--muted)">${new Date(mm.ts).toLocaleString('tr')}</small><br>${mm.au?'<small>🎤 Sesli mesaj</small>':`<small>${esc(String(mm.t).slice(0,300))}</small>`}</div><button class="ib" data-fa="admsgdel" data-ch="${esc(ADMCH)}" data-mid="${esc(mm.mid)}" data-n="${esc(mm.u)}" aria-label="Sil">🗑</button></div>`;
@@ -1545,7 +1600,7 @@ function adminMsg(m){
     sendWS({t:'admsgs',ch:m.ch,q:ADMQ});
    }else adminRender();
    sendWS({t:'adstats'});
-   if(ADTAB==='msgs'&&!ADMCH){ADMSGCHS=null;sendWS({t:'admsgchannels'});}
+   if(ADTAB==='msgs'){ADMSGCHS=null;sendWS({t:'admsgchannels'});}
   }else{
    if(ADSTATS && Number.isFinite(m.messages)) ADSTATS.messages=m.messages;
    fT(m.msg||'Mesaj silinemedi');
