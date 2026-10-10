@@ -459,6 +459,34 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 @media(prefers-reduced-motion:reduce){html:focus-within{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 </style>
 
+
+<style id="live-chat-polish">
+/* Voxa live chat polish — visual-only enhancements; existing message protocol retained */
+.conn-status{display:inline-flex;align-items:center;gap:7px;margin-left:auto;padding:5px 10px;border:1px solid rgba(255,255,255,.08);border-radius:999px;background:rgba(255,255,255,.035);font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
+.conn-status::before{content:"";width:7px;height:7px;border-radius:50%;background:#f0b132;box-shadow:0 0 0 3px rgba(240,177,50,.12)}
+.conn-status[data-state="live"]{color:#b9f4d0;border-color:rgba(35,165,89,.22);background:rgba(35,165,89,.07)}
+.conn-status[data-state="live"]::before{background:#23a559;box-shadow:0 0 0 3px rgba(35,165,89,.14);animation:connPulse 2.2s ease-out infinite}
+.conn-status[data-state="retry"]{color:#ffd88a}
+.conn-status[data-state="off"]{color:#ffb4b6}
+@keyframes connPulse{0%{box-shadow:0 0 0 0 rgba(35,165,89,.32)}70%,100%{box-shadow:0 0 0 6px rgba(35,165,89,0)}}
+.m{animation:messageEnter .24s var(--ease, ease-out) both;will-change:opacity,transform}
+@keyframes messageEnter{from{opacity:0;transform:translateY(7px) scale(.995)}to{opacity:1;transform:translateY(0) scale(1)}}
+.m .mb{min-width:0;flex:1}
+.m p{line-height:1.58;overflow-wrap:anywhere}
+.m .mtb{opacity:0;transform:translateY(3px);transition:opacity .16s ease,transform .16s ease}
+.m:hover .mtb,.m:focus-within .mtb{opacity:1;transform:none}
+#typ{display:flex;align-items:center;gap:5px;min-height:18px}
+#typ:not(:empty)::after{content:"";width:4px;height:4px;border-radius:50%;background:currentColor;box-shadow:6px 0 currentColor,12px 0 currentColor;margin-left:8px;animation:typingDots 1s ease-in-out infinite}
+@keyframes typingDots{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-2px)}}
+.ch,.srv,.ib,.rx,.mtb button{transition:transform .16s var(--ease, ease-out),background-color .16s ease,color .16s ease,box-shadow .16s ease}
+.ch:active,.srv:active,.ib:active,.rx:active,.mtb button:active{transform:scale(.95)}
+.cin div{transition:box-shadow .18s ease,border-color .18s ease,transform .18s ease}
+.cin div:focus-within{box-shadow:0 0 0 1px rgba(88,101,242,.8),0 0 0 5px rgba(88,101,242,.12);transform:translateY(-1px)}
+.vu{transition:background .16s ease,transform .16s ease}.vu:hover{background:rgba(255,255,255,.035);transform:translateX(2px)}
+@media(max-width:760px){.conn-status{font-size:10px;padding:4px 8px;gap:5px}.mh{gap:7px}.m{margin:2px 3px;padding:8px 9px;gap:10px}.m .av{width:36px;height:36px}.cin{padding-left:9px;padding-right:9px}.cin div{padding-left:12px}.mtb{opacity:1!important;transform:none!important}}
+@media(prefers-reduced-motion:reduce){.conn-status::before,#typ:not(:empty)::after{animation:none!important}.m{animation:none!important;will-change:auto}.m .mtb,.cin div,.vu{transition:none!important}}
+</style>
+
 </head>
 <body>
 <div id="login">
@@ -504,7 +532,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
   </div>
  </aside>
  <main class="main">
-  <div class="mh"><button class="ib menu" id="menu" aria-label="Menü">☰</button><span>#</span><div id="mtitle">genel</div></div>
+  <div class="mh"><button class="ib menu" id="menu" aria-label="Menü">☰</button><span>#</span><div id="mtitle">genel</div><div class="conn-status" id="connStatus" data-state="retry" role="status" aria-live="polite">Bağlanıyor</div></div>
   <div class="body">
    <div class="chat">
     <div class="msgs" id="msgs"></div>
@@ -638,15 +666,23 @@ function enter(u,tok){
  if(u.picture){a.textContent='';a.style.background='url('+u.picture+') center/cover'}
  all();connect();
 }
-function logout(){try{localStorage.removeItem('voxa_user')}catch(e){}TOKEN=null;if(ws)ws.close();location.reload()}
+function logout(){userClosed=true;if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null}try{localStorage.removeItem('voxa_user')}catch(e){}TOKEN=null;if(ws)ws.close();location.reload()}
 
 /* --- canlı bağlantı --- */
+let reconnectDelay=1000, reconnectTimer=null, userClosed=false;
+function connectionState(state,label){
+ const el=$('connStatus');if(!el)return;el.dataset.state=state;el.textContent=label;
+}
 function connect(){
- ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
- ws.onopen=()=>ws.send(JSON.stringify({t:'auth',token:TOKEN}));
+ if(!TOKEN||userClosed)return;
+ if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null}
+ connectionState('retry','Bağlanıyor');
+ try{ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws')}
+ catch(err){connectionState('off','Bağlantı yok');scheduleReconnect();return}
+ ws.onopen=()=>{reconnectDelay=1000;connectionState('retry','Doğrulanıyor');ws.send(JSON.stringify({t:'auth',token:TOKEN}))};
  ws.onmessage=e=>{
-  const m=JSON.parse(e.data);
-  if(m.t==='ready'){if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;ME.mainAdmin=!!m.me.mainAdmin;profUI()}HIST=m.hist||{};ONL=m.online||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
+  let m;try{m=JSON.parse(e.data)}catch(err){return}
+  if(m.t==='ready'){connectionState('live','Canlı');if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;ME.mainAdmin=!!m.me.mainAdmin;profUI()}HIST=m.hist||{};ONL=m.online||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
   else if(m.t==='online'){ONL=m.online||[];members()}
   else if(m.t==='msg'){
    const L=(HIST[m.ch]=HIST[m.ch]||[]);const prev=L[L.length-1];L.push(m.msg);delete TY[m.msg.u];typ();
@@ -667,10 +703,12 @@ function connect(){
   else if(m.t==='hist'){HIST[m.ch]=m.msgs||[];if(m.ch===key())msgs()}
   else if(m.t==='adstats'||m.t==='adsvlist'||m.t==='adsvdel'||m.t==='adusers'||m.t==='aduserdel'||m.t==='adsvopen'||m.t==='adadmins'||m.t==='adlogs'||m.t==='adpromote'||m.t==='addemote'||m.t==='admute'||m.t==='adunmute'||m.t==='adban'||m.t==='adunban'||m.t==='modstate'||m.t==='admsgs'||m.t==='admsgdel'||m.t==='adreports'||m.t==='adreportclear'){adminMsg(m)}
   else if(m.t==='vstate'||m.t==='vpeers'||m.t==='vsig'){voiceMsg(m)}
-  else if(m.t==='error'){logout()}
+  else if(m.t==='error'){fT(m.msg||'İşlem tamamlanamadı')}
  };
- ws.onclose=()=>{if(window.voiceReset)voiceReset();if(TOKEN)setTimeout(connect,2000)};
+ ws.onerror=()=>connectionState('off','Bağlantı sorunu');
+ ws.onclose=()=>{if(window.voiceReset)voiceReset();if(TOKEN&&!userClosed){connectionState('retry','Yeniden bağlanıyor');scheduleReconnect()}};
 }
+function scheduleReconnect(){if(!TOKEN||userClosed||reconnectTimer)return;const wait=reconnectDelay;reconnectDelay=Math.min(15000,Math.round(reconnectDelay*1.7));reconnectTimer=setTimeout(()=>{reconnectTimer=null;connect()},wait)}
 
 /* --- arayüz olayları --- */
 $('rail').onclick=e=>{const b=e.target.closest('.srv');if(!b)return;if(b.dataset.add){openServerAdd();return}if(b.dataset.admin){openAdmin();return}srv=b.dataset.s;if(srv==='home'){ch='';FVIEW=true}else ch=chOf(srv).text[0]||'';all()};
