@@ -254,22 +254,25 @@ export class Hub {
     if (typeof m.t === 'string' && m.t.slice(0, 2) === 'ad') { await this.onAdmin(ws, me, m); return; }
     if (m.t === 'vjoin') {
       const room = String(m.room || '').slice(0, 60);
-      if (!room || !(await this.canSee(me.id, room))) return;
+      if (!room || !(await this.isVoiceRoom(me.id, room))) return;
       const muteUntilJ = await this.s.storage.get('mute:' + me.id);
       if (muteUntilJ && muteUntilJ > Date.now()) { ws.send(JSON.stringify({ t: 'merr', ch: room, msg: 'Susturuldun, sesli odaya giremezsin' })); return; }
-      me.vr = room; me.vm = !!m.muted; me.vd = !!m.deaf; ws.serializeAttachment(me);
-      const peers = [];
+      // Her WebSocket oturumuna ayrı bir kimlik ver; aynı hesap farklı sekmelerde
+      // açık kalabilir ve ses sinyalleri yanlış sekmeye yönlendirilmez.
+      delete me.vss;
+      me.vr = room; me.vsid = crypto.randomUUID(); me.vm = !!m.muted; me.vd = !!m.deaf; ws.serializeAttachment(me);
+      const peerMap = new Map();
       for (const x of this.s.getWebSockets()) {
         if (x === ws || x.readyState !== 1) continue;
         const a = x.deserializeAttachment();
-        if (a && a.vr === room && a.id !== me.id) peers.push({ id: a.id, name: a.name });
+        if (a && a.vr === room && a.vsid && a.id !== me.id) peerMap.set(a.vsid, { id: a.id, sid: a.vsid, name: a.name, pic: a.pic || '' });
       }
-      ws.send(JSON.stringify({ t: 'vpeers', room, peers }));
+      ws.send(JSON.stringify({ t: 'vpeers', room, sid: me.vsid, peers: [...peerMap.values()] }));
       await this.vstate();
       await this.presence(me.id);
     }
     if (m.t === 'vleave') {
-      delete me.vr; delete me.vm; delete me.vd; ws.serializeAttachment(me);
+      delete me.vr; delete me.vsid; delete me.vm; delete me.vd; delete me.vss; ws.serializeAttachment(me);
       await this.vstate();
       await this.presence(me.id);
     }
@@ -286,12 +289,13 @@ export class Hub {
       if (me.vr) { delete me.vss; ws.serializeAttachment(me); await this.vstate(); }
     }
     if (m.t === 'vsig') {
-      if (!me.vr || !m.data || JSON.stringify(m.data).length > 20000) return;
+      if (!me.vr || !me.vsid || typeof m.to !== 'string' || !m.to || !m.data || JSON.stringify(m.data).length > 20000) return;
       if (!(await this.rateHit('vsig:' + me.id, 60, 10000))) return;
+      // Hedef kullanıcı adı değil, hedef WebSocket'in tekil ses oturumu kimliğidir.
       for (const x of this.s.getWebSockets()) {
         if (x.readyState !== 1) continue;
         const a = x.deserializeAttachment();
-        if (a && a.id === m.to && a.vr === me.vr) { try { x.send(JSON.stringify({ t: 'vsig', from: me.id, data: m.data })); } catch {} }
+        if (a && a.vsid === m.to && a.vr === me.vr) { try { x.send(JSON.stringify({ t: 'vsig', from: me.vsid, data: m.data })); } catch {} break; }
       }
     }
     if (m.t === 'vmsg') {
@@ -362,7 +366,7 @@ export class Hub {
     for (const w of this.s.getWebSockets()) {
       if (w.readyState !== 1) continue;
       const a = w.deserializeAttachment();
-      if (a && a.vr) (rooms[a.vr] = rooms[a.vr] || []).push({ id: a.id, name: a.name, m: !!a.vm, d: !!a.vd, ss: !!a.vss, p: a.pic || '' });
+      if (a && a.vr) (rooms[a.vr] = rooms[a.vr] || []).push({ id: a.id, sid: a.vsid || a.id, name: a.name, m: !!a.vm, d: !!a.vd, ss: !!a.vss, p: a.pic || '' });
     }
     for (const w of this.s.getWebSockets()) {
       if (w.readyState !== 1) continue;
@@ -1211,13 +1215,17 @@ export class Hub {
       return true;
     }
     if (ch.startsWith('dg:')) {
-      const gid = String(ch).slice(3).split('/')[0];
+      const rest = String(ch).slice(3), i = rest.indexOf('/');
+      const gid = i < 0 ? rest : rest.slice(0, i);
+      const channel = i < 0 ? '' : rest.slice(i + 1);
       let set = this.gcache.get(uid);
       if (!set) {
         set = new Set(((await this.s.storage.get('g:' + uid)) || []).map(x => x.id));
         this.gcache.set(uid, set);
       }
-      return set.has(gid);
+      // Discord sunucularında arayüzün sunduğu kanallar dışındaki sahte oda
+      // adlarına mesaj yazılmasını veya ses odası açılmasını engelle.
+      return set.has(gid) && ['genel', 'sohbet', 'Sesli Oda'].includes(channel);
     }
     if (ch.startsWith('sv:')) {
       const rest = ch.slice(3), i = rest.indexOf('/');
@@ -1237,7 +1245,30 @@ export class Hub {
       if (!c.roles || !c.roles.length) return true;
       return roles.some(rid => c.roles.includes(rid));
     }
-    return true;
+    // Varsayılan sunucularda da istemcinin uydurduğu kanal isimlerini kabul etme.
+    const i = ch.indexOf('/');
+    if (i < 1) return false;
+    const server = ch.slice(0, i), channel = ch.slice(i + 1);
+    const builtIn = {
+      tayfa: ['genel', 'oyun-sohbeti', 'müzik', 'Genel Ses', 'Oyun Sesi'],
+      oyun: ['duyurular', 'takım-ara', 'Takım 1', 'Takım 2']
+    };
+    if (Object.prototype.hasOwnProperty.call(builtIn, server)) return builtIn[server].includes(channel);
+    return false;
+  }
+  async isVoiceRoom(uid, room) {
+    room = String(room || '');
+    if (room.startsWith('dm:')) return /\/call$/.test(room) && await this.canSee(uid, room);
+    if (!(await this.canSee(uid, room))) return false;
+    const i = room.indexOf('/');
+    if (i < 1) return false;
+    const server = room.slice(0, i), channel = room.slice(i + 1);
+    if (server.startsWith('sv:')) {
+      const sv = await this.s.storage.get('sv:' + server.slice(3));
+      return !!(sv && sv.channels.some(c => c.kind === 'voice' && c.name === channel));
+    }
+    if (server.startsWith('dg:')) return channel === 'Sesli Oda';
+    return ({ tayfa: ['Genel Ses', 'Oyun Sesi'], oyun: ['Takım 1', 'Takım 2'] }[server] || []).includes(channel);
   }
   async bcCh(ch, o) {
     const s = JSON.stringify(o);
