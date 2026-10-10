@@ -307,6 +307,27 @@ export class Hub {
       if (!rec || !(await this.canSee(me.id, rec.ch))) return ws.send(JSON.stringify({ t: 'aud', mid, err: 1 }));
       ws.send(JSON.stringify({ t: 'aud', mid, data: rec.data, mime: rec.mime }));
     }
+    if (m.t === 'reportmsg') {
+      const ch = String(m.ch || '').slice(0, 80);
+      const mid = String(m.mid || '');
+      const fail = msg => ws.send(JSON.stringify({ t: 'reportmsg', ok: false, msg }));
+      if (!ch || !mid) return;
+      if (ch.startsWith('dm:')) return fail('Özel mesajlar şikayet edilemez, kişiyi engelleyebilirsin');
+      if (!(await this.canSee(me.id, ch))) return;
+      if (!(await this.rateHit('rpm:' + me.id, 20, 3600000))) return fail('Çok fazla şikayet, biraz bekle');
+      const all = (await this.s.storage.get('msgs')) || {};
+      const msg = (all[ch] || []).find(x => x.mid === mid);
+      if (!msg) return fail('Mesaj bulunamadı');
+      const reports = await this.g('msgreports');
+      if (reports.some(r => r.mid === mid && r.by === me.id)) return fail('Bu mesajı zaten şikayet ettin');
+      reports.push({
+        id: crypto.randomUUID(), ts: Date.now(), by: me.id, byName: me.name,
+        reason: String(m.reason || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 120),
+        ch, mid, sender: msg.u, senderId: msg.id, snippet: msg.au ? '[Sesli mesaj]' : String(msg.t || '').slice(0, 200)
+      });
+      await this.s.storage.put('msgreports', reports.slice(-500));
+      ws.send(JSON.stringify({ t: 'reportmsg', ok: true }));
+    }
     if (m.t === 'typing') {
       const ch = String(m.ch || '').slice(0, 60);
       if (await this.canSee(me.id, ch)) {
@@ -775,6 +796,44 @@ export class Hub {
       await this.logAdmin('unban', me, { id: acc.id, name: acc.name, uname }, true, '');
       reply('adunban', { ok: true, uname });
     }
+    else if (t === 'admsgs') {
+      const ch = String(m.ch || '').slice(0, 80);
+      if (!ch) return;
+      if (ch.startsWith('dm:')) return reply('admsgs', { ok: false, msg: 'Özel mesajlar buradan görüntülenemez', ch });
+      const all = (await st.get('msgs')) || {};
+      let list = all[ch] || [];
+      const q = String(m.q || '').toLowerCase().trim();
+      if (q) list = list.filter(x => String(x.u).toLowerCase().includes(q) || String(x.t || '').toLowerCase().includes(q));
+      reply('admsgs', { ok: true, ch, list: list.slice(-300), total: (all[ch] || []).length });
+    }
+    else if (t === 'admsgdel') {
+      const ch = String(m.ch || '').slice(0, 80);
+      const mid = String(m.mid || '');
+      const fail = msg => reply('admsgdel', { ok: false, msg, mid });
+      if (!ch || !mid) return;
+      if (ch.startsWith('dm:')) return fail('Özel mesajlar buradan silinemez');
+      const all = (await st.get('msgs')) || {};
+      const list = all[ch] || [];
+      const i = list.findIndex(x => x.mid === mid);
+      if (i < 0) return fail('Mesaj bulunamadı');
+      const removed = list.splice(i, 1)[0];
+      if (removed.au) await st.delete('a:' + removed.mid);
+      await st.put('msgs', all);
+      await this.bcCh(ch, { t: 'del', ch, mid });
+      await this.logAdmin('msgdel', me, { mid, ch, sender: removed.u }, true, String(m.reason || '').slice(0, 120));
+      reply('admsgdel', { ok: true, mid, ch });
+    }
+    else if (t === 'adreports') {
+      const list = (await this.g('msgreports')).slice(-200).reverse();
+      reply('adreports', { list });
+    }
+    else if (t === 'adreportclear') {
+      const id = String(m.id || '');
+      const reports = await this.g('msgreports');
+      await this.s.storage.put('msgreports', reports.filter(r => r.id !== id));
+      await this.logAdmin('reportclear', me, { id }, true, '');
+      reply('adreportclear', { ok: true, id });
+    }
     else if (t === 'aduserdel') {
       const uname = String(m.uname || '').toLowerCase().trim();
       const fail = msg => reply('aduserdel', { ok: false, msg, uname });
@@ -812,7 +871,7 @@ export class Hub {
       const list = [];
       for (const sv of servers.values()) {
         const oc = await this.card(sv.owner);
-        list.push({ id: sv.id, name: sv.name, icon: sv.icon || '', ownerName: oc ? oc.name : '?', memberCount: sv.members.length });
+        list.push({ id: sv.id, name: sv.name, icon: sv.icon || '', ownerName: oc ? oc.name : '?', memberCount: sv.members.length, channels: sv.channels.map(c => ({ name: c.name, kind: c.kind })) });
       }
       reply('adsvlist', { list });
     }

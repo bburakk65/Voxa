@@ -508,7 +508,7 @@ function mnode(m,prev){
  Object.keys(m.rx||{}).forEach(e=>{const ids=m.rx[e];if(!ids||!ids.length)return;const b=document.createElement('button');b.className='rx'+(ids.includes(ME.id)?' on':'');b.dataset.e=e;b.textContent=e+' '+ids.length;rx.append(b)});
  if(m.mid){
   const tb=document.createElement('div');tb.className='mtb';
-  tb.innerHTML='<button data-k="react" title="Tepki">😀</button><button data-k="reply" title="Yanıtla">↩</button>'+(m.id===ME.id?(m.au?'':'<button data-k="edit" title="Düzenle">✎</button>')+'<button data-k="del" title="Sil">🗑</button>':'');
+  tb.innerHTML='<button data-k="react" title="Tepki">😀</button><button data-k="reply" title="Yanıtla">↩</button>'+(m.id===ME.id?(m.au?'':'<button data-k="edit" title="Düzenle">✎</button>')+'<button data-k="del" title="Sil">🗑</button>':'<button data-k="report" title="Şikayet Et">🚩</button>');
   d.append(tb);
  }
  return d;
@@ -603,7 +603,7 @@ function connect(){
   else if(m.t==='social'||m.t==='freq'||m.t==='fnew'||m.t==='fsearch'||m.t==='fres'||m.t==='fprof'||m.t==='frep'||m.t==='merr'||m.t==='vinv'||m.t==='finv'||m.t==='aud'||m.t==='ring'||m.t==='ringx'||m.t==='fringr'){socialMsg(m)}
   else if(m.t==='svservers'||m.t==='svres'||m.t==='svinvite'||m.t==='svmembers'){guildMsg(m)}
   else if(m.t==='hist'){HIST[m.ch]=m.msgs||[];if(m.ch===key())msgs()}
-  else if(m.t==='adstats'||m.t==='adsvlist'||m.t==='adsvdel'||m.t==='adusers'||m.t==='aduserdel'||m.t==='adsvopen'||m.t==='adadmins'||m.t==='adpromote'||m.t==='addemote'||m.t==='admute'||m.t==='adunmute'||m.t==='adban'||m.t==='adunban'||m.t==='modstate'){adminMsg(m)}
+  else if(m.t==='adstats'||m.t==='adsvlist'||m.t==='adsvdel'||m.t==='adusers'||m.t==='aduserdel'||m.t==='adsvopen'||m.t==='adadmins'||m.t==='adpromote'||m.t==='addemote'||m.t==='admute'||m.t==='adunmute'||m.t==='adban'||m.t==='adunban'||m.t==='modstate'||m.t==='admsgs'||m.t==='admsgdel'||m.t==='adreports'||m.t==='adreportclear'){adminMsg(m)}
   else if(m.t==='vstate'||m.t==='vpeers'||m.t==='vsig'){voiceMsg(m)}
   else if(m.t==='error'){logout()}
  };
@@ -1094,6 +1094,7 @@ function socialMsg(m){
  else if(m.t==='fprof'){if(PROF&&PROF.id===m.id){if(m.none){closeF();fT('Kullanıcı bulunamadı')}else{const q=Object.assign({},findP(m.id)||{},m);PROF=q;profShow(q)}}}
  else if(m.t==='frep'){fT('Bildirimin alındı, teşekkürler')}
  else if(m.t==='merr'){fT(m.msg||'Mesaj gönderilemedi')}
+ else if(m.t==='reportmsg'){fT(m.ok?'Şikayetin alındı, teşekkürler':(m.msg||'Şikayet gönderilemedi'))}
  else if(m.t==='aud'){if(m.err){fT('Sesli mesaj bulunamadı');vmUi(m.mid,false)}else vmGot(m)}
  else if(m.t==='ring'){if(m.from)showRing(m.from,m.room)}
  else if(m.t==='ringx'){const n=m.from?dn(findP(m.from.id)||m.from):'Biri';if(RING&&m.from&&RING.id===m.from.id){hideRing();fT('Cevapsız arama: '+n)}else if(CALL&&CALL.out&&m.from&&CALL.id===m.from.id){endCall();fT(n+' aramayı reddetti')}}
@@ -1192,9 +1193,15 @@ function fAction(el){
  else if(a==='adban')openBanDlg(el.dataset.uname,el.dataset.n);
  else if(a==='bango'){const rs=($('banreason')||{value:''}).value.trim();sendWS({t:'adban',uname:MUTE_UN,reason:rs});closeF()}
  else if(a==='adunban'){svConfirmDlg('Yasağı kaldır','“'+el.dataset.n+'” kullanıcısının yasağını kaldırmak istediğine emin misin?','Kaldır',()=>sendWS({t:'adunban',uname:el.dataset.uname}))}
+ else if(a==='admchpick'){ADMVIEW=el.dataset.ch==='r'?'reports':'pick';ADMCH='';if(ADMVIEW==='reports'&&!ADREPORTS)sendWS({t:'adreports'});adminRender()}
+ else if(a==='admopench'){ADMVIEW='pick';ADMCH=el.dataset.ch;ADMCHL=el.dataset.l;ADMQ='';ADMSGS=null;sendWS({t:'admsgs',ch:ADMCH});adminRender()}
+ else if(a==='admchback'){ADMCH='';ADMSGS=null;adminRender()}
+ else if(a==='admsgdel'){const ch=el.dataset.ch,mid=el.dataset.mid,nm=el.dataset.n;svConfirmDlg('Mesajı sil','“'+nm+'” kullanıcısının mesajını silmek istediğine emin misin?','Sil',()=>sendWS({t:'admsgdel',ch,mid}))}
+ else if(a==='admjump'){ADTAB='msgs';ADMVIEW='pick';ADMCH=el.dataset.ch;ADMCHL=el.dataset.ch.split('/').slice(1).join('/')||el.dataset.ch;ADMQ='';ADMSGS=null;sendWS({t:'admsgs',ch:ADMCH});adminRender()}
+ else if(a==='adreportclear')sendWS({t:'adreportclear',id:el.dataset.id});
  else if(a==='adsvdel'){const nm=el.dataset.n,gid=el.dataset.id;svConfirmDlg('Sunucuyu sil (admin)','“'+nm+'” sunucusunu kalıcı olarak silmek istediğine emin misin? Sahibi sen olmasan bile silinir.','Sil',()=>sendWS({t:'adsvdel',id:gid}))}
  else if(a==='adminclose')closeAdmin();
- else if(a==='adtab'){ADTAB=el.dataset.k;if(ADTAB==='users'&&!ADUSERS)sendWS({t:'adusers',q:ADUQ});if(ADTAB==='admins'&&ME.mainAdmin)sendWS({t:'adadmins'});adminRender()}
+ else if(a==='adtab'){ADTAB=el.dataset.k;if(ADTAB==='users'&&!ADUSERS)sendWS({t:'adusers',q:ADUQ});if(ADTAB==='admins'&&ME.mainAdmin)sendWS({t:'adadmins'});if(ADTAB==='msgs'){ADMVIEW='pick';ADMCH='';if(!ADSVLIST)sendWS({t:'adsvlist'})}adminRender()}
  else if(a==='aduserdel'){const nm=el.dataset.n,un=el.dataset.uname;svConfirmDlg('Kullanıcıyı sil','“'+nm+'” hesabını kalıcı olarak silmek istediğine emin misin? Arkadaşlıkları ve sunucu üyelikleri de kalkar.','Sil',()=>sendWS({t:'aduserdel',uname:un}))}
  else if(a==='svleavego'){const gid=el.dataset.id,nm=MGMT.name;svConfirmDlg('Sunucudan ayrıl','“'+nm+'” sunucusundan ayrılmak istediğine emin misin?','Ayrıl',()=>{sendWS({t:'svleave',id:gid});if(srv==='sv:'+gid){srv='home';ch='';FVIEW=true;all()}})}
  else if(a==='svok'){const cb=SVCB;SVCB=null;closeF();if(cb)cb()}
@@ -1216,6 +1223,7 @@ try{
   if(row){const p=findP(row.dataset.id);if(p){profShow(p);sendWS({t:'fprof',id:p.id})}}
  });
  document.addEventListener('input',e=>{
+  if(e.target.id==='admq'){ADMQ=e.target.value;clearTimeout(ADMQT);ADMQT=setTimeout(()=>sendWS({t:'admsgs',ch:ADMCH,q:ADMQ}),300);return}
   if(e.target.id==='adpromoq'){ADPROMOQ=e.target.value;return}
   if(e.target.id==='aduq'){ADUQ=e.target.value;clearTimeout(ADUT);ADUT=setTimeout(()=>sendWS({t:'adusers',q:ADUQ}),300);return}
   if(e.target.id==='ffq'){FFQ=e.target.value;fList();return}
@@ -1406,7 +1414,7 @@ try{
 
 
 /* ===== GİZLİ YÖNETİM PANELİ ===== */
-let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADPROMOQ='',MUTE_UN='';
+let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADPROMOQ='',MUTE_UN='',ADMVIEW='pick',ADMCH='',ADMCHL='',ADMQ='',ADMQT=null,ADMSGS=null,ADREPORTS=null;
 function openAdmin(){
  if(!ME.admin)return;
  ADSTATS=null;ADSVLIST=null;ADUSERS=null;ADTAB='dash';ADUQ='';
@@ -1436,6 +1444,25 @@ const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Y
  }else if(ADTAB==='users'){
   body=`<div class="fsearch" style="padding:4px 16px 10px"><input id="aduq" value="${esc(ADUQ)}" placeholder="Kullanıcı ara" autocomplete="off"></div>
   <div style="padding:0 16px">${ADUSERS?(ADUSERS.length?ADUSERS.map(uRow).join(''):'<p class="hint">Sonuç yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
+}else if(ADTAB==='msgs'){
+  const chPill=(id,label,active)=>`<button class="ftab ${active?'on':''}" data-fa="admchpick" data-ch="${esc(id)}" data-l="${esc(label)}" style="margin:3px">#${esc(label)}</button>`;
+  if(ADMVIEW==='reports'){
+   const repRow=r2=>`<div class="frow" style="align-items:flex-start"><div class="fi"><b>#${esc(r2.ch.split('/').slice(1).join('/')||r2.ch)}</b> — ${esc(r2.sender)}<br><small style="color:var(--muted)">${esc(r2.snippet)}</small><br><small>🚩 ${esc(r2.byName)}${r2.reason?' · '+esc(r2.reason):''} · ${new Date(r2.ts).toLocaleString('tr')}</small></div><div class="fact" style="flex-direction:column;gap:4px"><button class="ib" data-fa="admjump" data-ch="${esc(r2.ch)}" data-mid="${esc(r2.mid)}" aria-label="Git">👁</button><button class="ib" data-fa="adreportclear" data-id="${esc(r2.id)}" aria-label="Kapat">✕</button></div></div>`;
+   body=`<div class="ftabs" style="padding:4px 16px 10px">${chPill('','Kanallar',false)}${chPill('r','Şikayetler',true)}</div>
+   <div style="padding:0 16px">${ADREPORTS?(ADREPORTS.length?ADREPORTS.map(repRow).join(''):'<p class="hint">Şikayet yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
+  }else if(!ADMCH){
+   const srvChs=(sid,sname,chs)=>chs.filter(c=>c.kind==='text').map(c=>`<button class="fmi" data-fa="admopench" data-ch="${esc(sid+'/'+c.name)}" data-l="${esc(sname+' · #'+c.name)}">#${esc(c.name)} <small style="color:var(--muted)">— ${esc(sname)}</small></button>`).join('');
+   const built=SERVERS.map(s2=>srvChs(s2.id,s2.name,CH[s2.id].text.map(n=>({name:n,kind:'text'})))).join('');
+   const real=(ADSVLIST||[]).map(s2=>srvChs('sv:'+s2.id,s2.name,s2.channels||[])).join('');
+   body=`<div class="ftabs" style="padding:4px 16px 10px">${chPill('','Kanallar',true)}${chPill('r','Şikayetler',false)}</div>
+   <div class="fsec" style="padding-left:16px">BİR KANAL SEÇ</div>
+   <div style="padding:0 16px">${built}${real||'<p class="hint">Sunucu yükleniyor…</p>'}</div>`;
+  }else{
+   const mRow=mm=>`<div class="frow" style="align-items:flex-start"><div class="fi"><b style="color:${col(mm.u)}">${esc(mm.u)}</b> <small style="color:var(--muted)">${new Date(mm.ts).toLocaleString('tr')}</small><br>${mm.au?'<small>🎤 Sesli mesaj</small>':`<small>${esc(String(mm.t).slice(0,300))}</small>`}</div><button class="ib" data-fa="admsgdel" data-ch="${esc(ADMCH)}" data-mid="${esc(mm.mid)}" data-n="${esc(mm.u)}" aria-label="Sil">🗑</button></div>`;
+   body=`<div class="fhead" style="padding:8px 16px 0"><button class="ib" data-fa="admchback" aria-label="Geri">←</button><b>#${esc(ADMCHL)}</b></div>
+   <div class="fsearch" style="padding:6px 16px 10px"><input id="admq" value="${esc(ADMQ)}" placeholder="Kullanıcı adı ya da metinde ara" autocomplete="off"></div>
+   <div style="padding:0 16px">${ADMSGS?(ADMSGS.ok===false?`<p class="hint">${esc(ADMSGS.msg||'Görüntülenemiyor')}</p>`:(ADMSGS.list.length?[...ADMSGS.list].reverse().map(mRow).join(''):'<p class="hint">Mesaj yok.</p>')):'<p class="hint">Yükleniyor…</p>'}</div>`;
+  }
  }else if(ADTAB==='admins'&&ME.mainAdmin){
   body=`<div class="fsearch" style="padding:4px 16px 2px"><input id="adpromoq" value="${esc(ADPROMOQ)}" placeholder="Admin yapmak için kullanıcı adı yaz" autocomplete="off"><button class="fbtn" style="margin-top:8px;width:100%" data-fa="adpromogo">Admin Yap</button></div>
   <div class="fsec" style="padding-left:16px">ANA YÖNETİCİ</div>
@@ -1446,7 +1473,7 @@ const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Y
   <div style="padding:0 16px">${ADADMINS?(ADADMINS.log.length?ADADMINS.log.map(logRow).join(''):'<p class="hint">Kayıt yok.</p>'):''}</div>`;
  }
  el.innerHTML=`<div class="vh"><button class="vb" data-fa="adminclose" aria-label="Kapat">${ic(P.down)}</button><div class="vt">Yönetim Paneli</div><span class="gap"></span></div>
- <div class="ftabs" style="padding:10px 16px 0">${tabBtn('dash','Dashboard')}${tabBtn('users','Kullanıcılar')}${ME.mainAdmin?tabBtn('admins','Yöneticiler'):''}</div>
+ <div class="ftabs" style="padding:10px 16px 0">${tabBtn('dash','Dashboard')}${tabBtn('users','Kullanıcılar')}${tabBtn('msgs','Mesajlar')}${ME.mainAdmin?tabBtn('admins','Yöneticiler'):''}</div>
  <div class="adbody">${body}</div>`;
 }
 function adminMsg(m){
@@ -1475,6 +1502,10 @@ function adminMsg(m){
  else if(m.t==='adban'){fT(m.ok?'Kullanıcı yasaklandı':(m.msg||'İşlem başarısız'));if(m.ok&&ADTAB==='users')sendWS({t:'adusers',q:ADUQ})}
  else if(m.t==='adunban'){fT(m.ok?'Yasak kaldırıldı':(m.msg||'İşlem başarısız'));if(m.ok&&ADTAB==='users')sendWS({t:'adusers',q:ADUQ})}
  else if(m.t==='modstate'){if(m.banned){fT('Hesabın yasaklandı')}else if(m.muted){fT('Susturuldun')}else{fT('Susturman kaldırıldı')}}
+ else if(m.t==='admsgs'){if(m.ch===ADMCH)ADMSGS=m;adminRender()}
+ else if(m.t==='admsgdel'){fT(m.ok?'Mesaj silindi':(m.msg||'Silinemedi'));if(m.ok&&ADMSGS&&ADMSGS.list)ADMSGS.list=ADMSGS.list.filter(x=>x.mid!==m.mid);adminRender()}
+ else if(m.t==='adreports'){ADREPORTS=m.list||[];adminRender()}
+ else if(m.t==='adreportclear'){if(m.ok){ADREPORTS=(ADREPORTS||[]).filter(x=>x.id!==m.id);fT('Şikayet kapatıldı');adminRender()}}
 }
 /* ===== SUNUCU / KANAL / ROL UI ===== */
 function openServerAdd(){
@@ -1580,6 +1611,7 @@ try{
    else if(a==='reply'){REPLY={mid,u:msg.u};EDIT=null;bar();$('inp').focus()}
    else if(a==='edit'){EDIT=mid;REPLY=null;$('inp').value=msg.t;bar();$('inp').focus()}
    else if(a==='react')openPick(em=>sendWS({t:'react',ch:key(),mid,emoji:em}));
+   else if(a==='report'){svConfirmDlg('Mesajı şikayet et','“'+(msg.au?'[Sesli mesaj]':msg.t)+'” mesajını şikayet etmek istediğine emin misin?','Şikayet Et',()=>{sendWS({t:'reportmsg',ch:key(),mid});});}
    node.classList.remove('sel');return;
   }
   if(e.target.closest('a'))return;
