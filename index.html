@@ -1204,11 +1204,12 @@ function fAction(el){
  else if(a==='admopench'){ADMVIEW='pick';ADMCH=el.dataset.ch;ADMCHL=el.dataset.l;ADMQ='';ADMSGS=null;sendWS({t:'admsgs',ch:ADMCH});adminRender()}
  else if(a==='admchback'){ADMCH='';ADMSGS=null;adminRender()}
  else if(a==='admsgdel'){const ch=el.dataset.ch,mid=el.dataset.mid,nm=el.dataset.n;svConfirmDlg('Mesajı sil','“'+nm+'” kullanıcısının mesajını silmek istediğine emin misin?','Sil',()=>sendWS({t:'admsgdel',ch,mid}))}
+ else if(a==='admsgclearall'){svConfirmDlg('Tüm mesajları sil','Tüm kanallardaki mesajlar kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?','Tümünü sil',()=>sendWS({t:'admsgclearall'}))}
  else if(a==='admjump'){ADTAB='msgs';ADMVIEW='pick';ADMCH=el.dataset.ch;ADMCHL=el.dataset.ch.split('/').slice(1).join('/')||el.dataset.ch;ADMQ='';ADMSGS=null;sendWS({t:'admsgs',ch:ADMCH});adminRender()}
  else if(a==='adreportclear')sendWS({t:'adreportclear',id:el.dataset.id});
  else if(a==='adsvdel'){const nm=el.dataset.n,gid=el.dataset.id;svConfirmDlg('Sunucuyu sil (admin)','“'+nm+'” sunucusunu kalıcı olarak silmek istediğine emin misin? Sahibi sen olmasan bile silinir.','Sil',()=>sendWS({t:'adsvdel',id:gid}))}
  else if(a==='adminclose')closeAdmin();
- else if(a==='adtab'){ADTAB=el.dataset.k;if(ADTAB==='users'&&!ADUSERS)sendWS({t:'adusers',q:ADUQ});if(ADTAB==='admins'&&ME.mainAdmin)sendWS({t:'adadmins'});if(ADTAB==='logs')sendWS({t:'adlogs'});if(ADTAB==='msgs'){ADMVIEW='pick';ADMCH='';if(!ADSVLIST)sendWS({t:'adsvlist'})}adminRender()}
+ else if(a==='adtab'){ADTAB=el.dataset.k;if(ADTAB==='users'&&!ADUSERS)sendWS({t:'adusers',q:ADUQ});if(ADTAB==='admins'&&ME.mainAdmin)sendWS({t:'adadmins'});if(ADTAB==='logs')sendWS({t:'adlogs'});if(ADTAB==='msgs'){ADMVIEW='pick';ADMCH='';ADMSGCHS=null;sendWS({t:'admsgchannels'});if(!ADSVLIST)sendWS({t:'adsvlist'})}adminRender()}
  else if(a==='aduserdel'){const nm=el.dataset.n,un=el.dataset.uname;svConfirmDlg('Kullanıcıyı sil','“'+nm+'” hesabını kalıcı olarak silmek istediğine emin misin? Arkadaşlıkları ve sunucu üyelikleri de kalkar.','Sil',()=>sendWS({t:'aduserdel',uname:un}))}
  else if(a==='svleavego'){const gid=el.dataset.id,nm=MGMT.name;svConfirmDlg('Sunucudan ayrıl','“'+nm+'” sunucusundan ayrılmak istediğine emin misin?','Ayrıl',()=>{sendWS({t:'svleave',id:gid});if(srv==='sv:'+gid){srv='home';ch='';FVIEW=true;all()}})}
  else if(a==='svok'){const cb=SVCB;SVCB=null;closeF();if(cb)cb()}
@@ -1426,7 +1427,7 @@ try{
 
 
 /* ===== GİZLİ YÖNETİM PANELİ ===== */
-let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADLOGS=null,ADLOGQ='',ADPROMOQ='',MUTE_UN='',ADMVIEW='pick',ADMCH='',ADMCHL='',ADMQ='',ADMQT=null,ADMSGS=null,ADREPORTS=null;
+let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADLOGS=null,ADLOGQ='',ADPROMOQ='',MUTE_UN='',ADMVIEW='pick',ADMCH='',ADMCHL='',ADMQ='',ADMQT=null,ADMSGS=null,ADREPORTS=null,ADMSGCHS=null;
 let ADMSGCOUNT_EXPECTED=null,ADMSGCOUNT_AT=0;
 function openAdmin(){
  if(!ME.admin)return;
@@ -1440,7 +1441,7 @@ function adminRender(){
  const el=$('adminFull');if(!el.classList.contains('on'))return;
  const tabBtn=(k,l)=>`<button class="ftab ${ADTAB===k?'on':''}" data-fa="adtab" data-k="${k}">${l}</button>`;
  const adminRow=u2=>`<div class="frow">${av(u2.name,'dot')}<div class="fi"><b>${esc(u2.name)}${admTag(true)}</b><small>Voxa ID: ${esc(u2.code||'')}</small></div><button class="fbtn no" style="padding:7px 10px;font-size:13px" data-fa="addemote" data-id="${esc(u2.id)}" data-n="${esc(u2.name)}">Yetkiyi Kaldır</button></div>`;
- const actionName=a=>({'promote':'Admin yetkisi verildi','demote':'Admin yetkisi kaldırıldı','mute':'Kullanıcı susturuldu','unmute':'Susturma kaldırıldı','ban':'Kullanıcı yasaklandı','unban':'Yasak kaldırıldı','msgdel':'Mesaj silindi','userdel':'Kullanıcı silindi','svdel':'Sunucu silindi','reportclear':'Şikâyet kapatıldı'}[a]||String(a||'İşlem').replace(/[_-]/g,' '));
+ const actionName=a=>({'promote':'Admin yetkisi verildi','demote':'Admin yetkisi kaldırıldı','mute':'Kullanıcı susturuldu','unmute':'Susturma kaldırıldı','ban':'Kullanıcı yasaklandı','unban':'Yasak kaldırıldı','msgdel':'Mesaj silindi','msgclearall':'Tüm mesajlar silindi','userdel':'Kullanıcı silindi','svdel':'Sunucu silindi','reportclear':'Şikâyet kapatıldı'}[a]||String(a||'İşlem').replace(/[_-]/g,' '));
  const logRow=l2=>`<div class="frow logitem" style="padding:10px 8px;align-items:flex-start"><div class="logmark ${l2.ok?'good':'bad'}">${l2.ok?'✓':'!'}</div><div class="fi"><b>${esc(actionName(l2.action))}</b><small>${esc((l2.by&&l2.by.name)||'Bilinmeyen yönetici')} → ${esc((l2.target&& (l2.target.name||l2.target.uname||l2.target.ch||l2.target.id))||'—')}${l2.msg?' · '+esc(l2.msg):''}</small><small>${new Date(l2.ts||Date.now()).toLocaleString('tr')}</small></div></div>`;
  const svRow=s2=>`<div class="frow"><div class="fi"><b>${s2.icon?esc(s2.icon)+' ':''}${esc(s2.name)}</b><small>Sahibi: ${esc(s2.ownerName)} · ${s2.memberCount} üye</small></div><button class="fbtn no" style="padding:7px 10px;font-size:13px" data-fa="adsvopen" data-mode="manage" data-id="${esc(s2.id)}">Yönet</button><button class="fbtn" style="padding:7px 10px;font-size:13px" data-fa="adsvopen" data-mode="join" data-id="${esc(s2.id)}">Katıl</button><button class="ib" data-fa="adsvdel" data-id="${esc(s2.id)}" data-n="${esc(s2.name)}" aria-label="Sil">🗑</button></div>`;
 const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Yasaklı</span>':(u2.muted?'<span style="color:#f0b132;font-weight:700">🔇 Susturuldu ('+Math.max(1,Math.ceil((u2.muted-Date.now())/60000))+' dk)</span>':'');
@@ -1465,12 +1466,13 @@ const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Y
    body=`<div class="ftabs" style="padding:4px 16px 10px">${chPill('','Kanallar',false)}${chPill('r','Şikayetler',true)}</div>
    <div style="padding:0 16px">${ADREPORTS?(ADREPORTS.length?ADREPORTS.map(repRow).join(''):'<p class="hint">Şikayet yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
   }else if(!ADMCH){
-   const srvChs=(sid,sname,chs)=>chs.filter(c=>c.kind==='text').map(c=>`<button class="fmi" data-fa="admopench" data-ch="${esc(sid+'/'+c.name)}" data-l="${esc(sname+' · #'+c.name)}">#${esc(c.name)} <small style="color:var(--muted)">— ${esc(sname)}</small></button>`).join('');
+   const srvChs=(sid,sname,chs)=>chs.filter(c=>c.kind==='text' && Array.isArray(ADMSGCHS) && ADMSGCHS.includes(sid+'/'+c.name)).map(c=>`<button class="fmi" data-fa="admopench" data-ch="${esc(sid+'/'+c.name)}" data-l="${esc(sname+' · #'+c.name)}">#${esc(c.name)} <small style="color:var(--muted)">— ${esc(sname)}</small></button>`).join('');
    const built=SERVERS.map(s2=>srvChs(s2.id,s2.name,CH[s2.id].text.map(n=>({name:n,kind:'text'})))).join('');
    const real=(ADSVLIST||[]).map(s2=>srvChs('sv:'+s2.id,s2.name,s2.channels||[])).join('');
    body=`<div class="ftabs" style="padding:4px 16px 10px">${chPill('','Kanallar',true)}${chPill('r','Şikayetler',false)}</div>
    <div class="fsec" style="padding-left:16px">BİR KANAL SEÇ</div>
-   <div style="padding:0 16px">${built}${real||'<p class="hint">Sunucu yükleniyor…</p>'}</div>`;
+   <div style="padding:0 16px 10px"><button class="fbtn no" style="width:100%" data-fa="admsgclearall">Tüm kanallardaki mesajları sil</button><small class="hint">Dashboard sayacı tüm kanallardaki mesajların toplamıdır.</small></div>
+   <div style="padding:0 16px">${ADMSGCHS===null?'<p class="hint">Mesaj bulunan kanallar yükleniyor…</p>':(built+real)||'<p class="hint">Henüz mesaj bulunan kanal yok.</p>'}</div>`;
   }else{
    const mRow=mm=>`<div class="frow" style="align-items:flex-start"><div class="fi"><b style="color:${col(mm.u)}">${esc(mm.u)}</b> <small style="color:var(--muted)">${new Date(mm.ts).toLocaleString('tr')}</small><br>${mm.au?'<small>🎤 Sesli mesaj</small>':`<small>${esc(String(mm.t).slice(0,300))}</small>`}</div><button class="ib" data-fa="admsgdel" data-ch="${esc(ADMCH)}" data-mid="${esc(mm.mid)}" data-n="${esc(mm.u)}" aria-label="Sil">🗑</button></div>`;
    body=`<div class="fhead" style="padding:8px 16px 0"><button class="ib" data-fa="admchback" aria-label="Geri">←</button><b>#${esc(ADMCHL)}</b></div>
@@ -1525,6 +1527,11 @@ function adminMsg(m){
  else if(m.t==='adunban'){fT(m.ok?'Yasak kaldırıldı':(m.msg||'İşlem başarısız'));if(m.ok&&ADTAB==='users')sendWS({t:'adusers',q:ADUQ})}
  else if(m.t==='modstate'){if(m.banned){fT('Hesabın yasaklandı')}else if(m.muted){fT('Susturuldun')}else{fT('Susturman kaldırıldı')}}
  else if(m.t==='admsgs'){if(m.ch===ADMCH)ADMSGS=m;adminRender()}
+ else if(m.t==='admsgchannels'){ADMSGCHS=Array.isArray(m.channels)?m.channels:[];adminRender()}
+ else if(m.t==='admsgclearall'){
+  if(m.ok){ADMSGCOUNT_EXPECTED=0;ADMSGCOUNT_AT=Date.now();if(ADSTATS)ADSTATS.messages=0;ADMSGS=null;fT('Tüm mesajlar silindi ('+(m.removed||0)+')');adminRender();sendWS({t:'adstats'});ADMSGCHS=null;sendWS({t:'admsgchannels'});if(ADMCH)sendWS({t:'admsgs',ch:ADMCH,q:ADMQ})}
+  else fT(m.msg||'Mesajlar silinemedi');
+ }
  else if(m.t==='admsgdel'){
   if(m.ok){
    // Silme onaylanır onaylanmaz dashboard sayacını yerinde güncelle.
@@ -1538,6 +1545,7 @@ function adminMsg(m){
     sendWS({t:'admsgs',ch:m.ch,q:ADMQ});
    }else adminRender();
    sendWS({t:'adstats'});
+   if(ADTAB==='msgs'&&!ADMCH){ADMSGCHS=null;sendWS({t:'admsgchannels'});}
   }else{
    if(ADSTATS && Number.isFinite(m.messages)) ADSTATS.messages=m.messages;
    fT(m.msg||'Mesaj silinemedi');

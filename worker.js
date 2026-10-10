@@ -840,6 +840,11 @@ export class Hub {
       await this.logAdmin('unban', me, { id: acc.id, name: acc.name, uname }, true, '');
       reply('adunban', { ok: true, uname });
     }
+    else if (t === 'admsgchannels') {
+      const all = (await st.get('msgs')) || {};
+      const channels = Object.keys(all).filter(ch => !ch.startsWith('dm:') && Array.isArray(all[ch]) && all[ch].length > 0);
+      reply('admsgchannels', { channels });
+    }
     else if (t === 'admsgs') {
       const ch = String(m.ch || '').slice(0, 80);
       if (!ch) return;
@@ -849,6 +854,22 @@ export class Hub {
       const q = String(m.q || '').toLowerCase().trim();
       if (q) list = list.filter(x => String(x.u).toLowerCase().includes(q) || String(x.t || '').toLowerCase().includes(q));
       reply('admsgs', { ok: true, ch, list: list.slice(-300), total: (all[ch] || []).length });
+    }
+    else if (t === 'admsgclearall') {
+      if (!me.admin) return reply('admsgclearall', { ok: false, msg: 'Bu işlem için yönetici yetkisi gerekli' });
+      const all = (await st.get('msgs')) || {};
+      let removedCount = 0;
+      for (const key of Object.keys(all)) {
+        const list = Array.isArray(all[key]) ? all[key] : [];
+        removedCount += list.length;
+        for (const item of list) if (item && item.au && item.mid) await st.delete('a:' + item.mid);
+        all[key] = [];
+        await this.bcCh(key, { t: 'clear', ch: key });
+      }
+      // Remove the whole message map so empty channel arrays cannot leave stale dashboard counts.
+      await st.put('msgs', {});
+      reply('admsgclearall', { ok: true, messages: 0, removed: removedCount });
+      await this.logAdmin('msgclearall', me, { ch: 'all' }, true, removedCount + ' mesaj temizlendi');
     }
     else if (t === 'admsgdel') {
       // Serialize admin deletions: rapid consecutive clicks must not overwrite each other's storage updates.
