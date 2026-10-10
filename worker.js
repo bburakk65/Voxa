@@ -772,7 +772,7 @@ export class Hub {
       const users = await st.list({ prefix: 'u:', limit: 2000 });
       const servers = await st.list({ prefix: 'sv:', limit: 2000 });
       const msgs = (await st.get('msgs')) || {};
-      let messages = 0; for (const k in msgs) messages += (msgs[k] || []).length;
+      let messages = 0; for (const k of Object.keys(msgs)) messages += Array.isArray(msgs[k]) ? msgs[k].length : 0;
       reply('adstats', { users: users.size, servers: servers.size, online: this.onlineSet().size, messages });
     }
     else if (t === 'adusers') {
@@ -903,7 +903,7 @@ export class Hub {
         let totalMessages = 0;
         for (const key of Object.keys(all)) if (Array.isArray(all[key])) totalMessages += all[key].length;
         // Reply with the persisted total before logging; the client can update the counter immediately.
-        reply('admsgdel', { ok: true, mid, ch, total: all[ch].length, messages: totalMessages });
+        reply('admsgdel', { ok: true, mid, ch, total: remaining.length, messages: totalMessages, channelEmpty: remaining.length === 0 });
         await this.logAdmin('msgdel', me, { mid, ch, sender: removed.u }, true, String(m.reason || '').slice(0, 120));
       };
       const task = this.msgDeleteQueue.then(runDelete, runDelete);

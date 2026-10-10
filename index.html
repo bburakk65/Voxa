@@ -288,10 +288,20 @@ html,body{font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif
 .logmark.good{color:#4ade80;background:rgba(74,222,128,.12)}.logmark.bad{color:#fb7185;background:rgba(251,113,133,.12)}
 .logitem .fi b{font-size:13px}.logitem .fi small{display:block;line-height:1.45;white-space:normal;overflow-wrap:anywhere}
 @media(prefers-reduced-motion:reduce){#adminFull .adbody,.frow{animation:none!important;transition:none!important}}
-.adgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:4px 16px 18px}
-.adstat{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px 8px;text-align:center}
-.adstat b{display:block;font-size:22px;font-weight:800}
-.adstat small{color:var(--muted);font-size:11px}
+#adminFull .vh{flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.07)}
+#adminFull .ftabs{padding-left:16px;padding-right:16px;gap:8px}
+#adminFull .ftab{min-height:40px;justify-content:center}
+#adminFull .adbody{overscroll-behavior:contain;scrollbar-gutter:stable}
+.adgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:8px 16px 20px}
+.adstat{position:relative;overflow:hidden;min-width:0;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:17px 12px;text-align:left;box-shadow:0 8px 22px rgba(0,0,0,.08);transition:transform .18s,border-color .18s,background .18s}
+.adstat::after{content:"";position:absolute;right:-18px;top:-24px;width:66px;height:66px;border-radius:50%;background:rgba(88,101,242,.12);pointer-events:none}
+.adstat b{position:relative;z-index:1;display:block;font-size:clamp(20px,2vw,27px);font-weight:800;letter-spacing:-.5px;line-height:1.25;font-variant-numeric:tabular-nums}
+.adstat small{position:relative;z-index:1;display:block;margin-top:6px;color:var(--muted);font-size:12px;font-weight:600}
+#adminFull .frow{border:1px solid transparent}
+#adminFull .frow:hover{border-color:rgba(255,255,255,.07);background:rgba(255,255,255,.035)}
+#adminFull .ib,#adminFull .fbtn{min-height:38px}
+@media(max-width:760px){.adgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:8px 12px 16px}.adstat{padding:14px 12px;border-radius:14px}#adminFull .ftabs{padding-left:12px;padding-right:12px;gap:5px}#adminFull .ftab{padding:8px 11px;font-size:13px;min-height:38px}}
+@media(max-width:360px){.adgrid{grid-template-columns:minmax(0,1fr)}#adminFull .ftab{padding:7px 9px;font-size:12px}}
 </style>
 <style id="admincss">.adminTag{display:inline-block;background:#000;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:6px;letter-spacing:.3px;vertical-align:middle;border:1px solid rgba(255,255,255,.25)}.srv.adm{background:linear-gradient(135deg,#ed4245,#f0b132);box-shadow:0 0 0 3px rgba(237,66,69,.35),0 6px 16px rgba(237,66,69,.35);animation:admpulse 2.4s ease-in-out infinite}.srv.adm:hover{transform:translateY(-1px) scale(1.04)}@keyframes admpulse{0%,100%{box-shadow:0 0 0 3px rgba(237,66,69,.35),0 6px 16px rgba(237,66,69,.35)}50%{box-shadow:0 0 0 6px rgba(237,66,69,.12),0 6px 20px rgba(237,66,69,.45)}}</style>
 <style id="sharecss">
@@ -532,7 +542,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
   </div>
  </aside>
  <main class="main">
-  <div class="mh"><button class="ib menu" id="menu" aria-label="Menü">☰</button><span>#</span><div id="mtitle">genel</div><div class="conn-status" id="connStatus" data-state="retry" role="status" aria-live="polite">Bağlanıyor</div></div>
+  <div class="mh"><button class="ib menu" id="menu" aria-label="Menü">☰</button><span>#</span><div id="mtitle">genel</div></div>
   <div class="body">
    <div class="chat">
     <div class="msgs" id="msgs"></div>
@@ -568,8 +578,8 @@ function rail(){
 }
 const SV=()=>[{id:'home',name:'Arkadaşlar',short:'👥'},...SERVERS,...GUILDS.map(g=>({id:'dg:'+g.id,name:g.name,short:(g.name||'?')[0].toUpperCase(),icon:g.icon,gid:g.id})),...MYSV.map(s2=>({id:'sv:'+s2.id,name:s2.name,short:(s2.name||'?')[0].toUpperCase(),icon:s2.icon||'',gid:null}))];
 const chOf=id=>{if(id&&id.startsWith('sv:')){const s2=MYSV.find(x=>'sv:'+x.id===id);return s2?{text:s2.channels.filter(c=>c.kind==='text').map(c=>c.name),voice:s2.channels.filter(c=>c.kind==='voice').map(c=>c.name)}:{text:[],voice:[]}}return CH[id]||{text:['genel','sohbet'],voice:['Sesli Oda']}};
-function typ(){const n=Object.keys(TY).filter(k=>TY[k]>Date.now());$('typ').textContent=n.length?n.join(', ')+' yazıyor…':''}
-setInterval(typ,1000);
+function typ(){const now=Date.now();for(const name of Object.keys(TY))if(TY[name]<=now)delete TY[name];const names=Object.keys(TY);const el=$('typ');if(!el)return;el.textContent=names.length?(names.length===1?names[0]+' yazıyor…':names.length===2?names.join(' ve ')+' yazıyor…':names.slice(0,2).join(', ')+' ve '+(names.length-2)+' kişi daha yazıyor…'):''}
+setInterval(typ,500);
 function members(){
  $('mem').innerHTML=`<div class="cat">ÇEVRİMİÇİ — ${ONL.length}</div>`+ONL.map(u=>`<div class="vu">${av(u.name,'dot')}${esc(u.name)}${admTag(u.admin)}</div>`).join('');
 }
@@ -671,7 +681,7 @@ function logout(){userClosed=true;if(reconnectTimer){clearTimeout(reconnectTimer
 /* --- canlı bağlantı --- */
 let reconnectDelay=1000, reconnectTimer=null, userClosed=false;
 function connectionState(state,label){
- const el=$('connStatus');if(!el)return;el.dataset.state=state;el.textContent=label;
+ // Bağlantı durumu başlığın sağında gösterilmiyor; yeniden bağlanma mantığı korunur.
 }
 function connect(){
  if(!TOKEN||userClosed)return;
@@ -685,7 +695,7 @@ function connect(){
   if(m.t==='ready'){connectionState('live','Canlı');if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;ME.mainAdmin=!!m.me.mainAdmin;profUI()}HIST=m.hist||{};ONL=m.online||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
   else if(m.t==='online'){ONL=m.online||[];members()}
   else if(m.t==='msg'){
-   const L=(HIST[m.ch]=HIST[m.ch]||[]);const prev=L[L.length-1];L.push(m.msg);delete TY[m.msg.u];typ();
+   const L=(HIST[m.ch]=HIST[m.ch]||[]);const prev=L[L.length-1];L.push(m.msg);if(m.msg&&m.msg.u)delete TY[m.msg.u];typ();
    if(m.ch===key()){const b=$('msgs');const nb=b.scrollHeight-b.scrollTop-b.clientHeight<120||m.msg.id===ME.id;addMsg(b,m.msg,prev);if(nb)b.scrollTop=1e9}
    if(m.msg.id!==ME.id&&(m.ch!==key()||document.hidden)){if(m.ch!==key()){UNR[m.ch]=(UNR[m.ch]||0)+1;chans();rail()}utitle();ping()}
   }
@@ -696,7 +706,7 @@ function connect(){
    HIST[m.ch]=(HIST[m.ch]||[]).filter(x=>x.mid!==m.mid);
    if(m.ch===key()){const n=document.querySelector('[data-mid="'+m.mid+'"]');if(n)n.remove()}
   }
-  else if(m.t==='typing'){if(m.ch===key()){TY[m.name]=Date.now()+3000;typ()}}
+  else if(m.t==='typing'){if(m.ch===key()&&m.name&&m.name!==ME.name){TY[m.name]=Date.now()+3000;typ()}}
   else if(m.t==='session'){try{localStorage.setItem('voxa_user',JSON.stringify({token:m.token}))}catch(e){}TOKEN=m.token}
   else if(m.t==='social'||m.t==='freq'||m.t==='fnew'||m.t==='fsearch'||m.t==='fres'||m.t==='fprof'||m.t==='frep'||m.t==='merr'||m.t==='vinv'||m.t==='finv'||m.t==='aud'||m.t==='ring'||m.t==='ringx'||m.t==='fringr'){socialMsg(m)}
   else if(m.t==='svservers'||m.t==='svres'||m.t==='svinvite'||m.t==='svmembers'){guildMsg(m)}
@@ -720,7 +730,8 @@ $('form').onsubmit=e=>{
  else sendWS({t:'msg',ch:key(),text:v,reply:REPLY?REPLY.mid:undefined});
  REPLY=null;$('inp').value='';bar();
 };
-$('inp').oninput=()=>{const n=Date.now();if(key()&&n-lastT>2000&&ws&&ws.readyState===1){lastT=n;ws.send(JSON.stringify({t:'typing',ch:key()}))}};
+$('inp').oninput=()=>{const n=Date.now();if($('inp').value.trim()&&key()&&n-lastT>1200&&ws&&ws.readyState===1){lastT=n;ws.send(JSON.stringify({t:'typing',ch:key()}))}};
+$('inp').addEventListener('blur',()=>{if(!$('inp').value.trim())typ()});
 $('menu').onclick=()=>drawer(true);
 $('scrim').onclick=()=>drawer(false);
 let x0=null;
@@ -1638,7 +1649,7 @@ function adminMsg(m){
     sendWS({t:'admsgs',ch:m.ch,q:ADMQ});
    }else adminRender();
    sendWS({t:'adstats'});
-   if(ADTAB==='msgs'){ADMSGCHS=null;sendWS({t:'admsgchannels'});}
+   if(ADTAB==='msgs'){if(m.channelEmpty && Array.isArray(ADMSGCHS))ADMSGCHS=ADMSGCHS.filter(c=>c!==m.ch);ADMSGCHS=null;sendWS({t:'admsgchannels'});}
   }else{
    if(ADSTATS && Number.isFinite(m.messages)) ADSTATS.messages=m.messages;
    fT(m.msg||'Mesaj silinemedi');
