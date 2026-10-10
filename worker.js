@@ -139,6 +139,8 @@ export class Hub {
         const secret = this.env.DISCORD_SECRET;
         if (!secret || !String(m.token).startsWith('v1.')) throw new Error('auth');
         const u = await unsign(secret, m.token);
+        const ban = await this.s.storage.get('ban:' + u.id);
+        if (ban) { ws.send(JSON.stringify({ t: 'error', msg: 'Bu hesap yasaklandı' + (ban.reason ? ': ' + ban.reason : '') })); ws.close(4003, 'banned'); return; }
         const nick = await this.s.storage.get('n:' + u.id);
         const name = nick || u.name;
         const { admin, mainAdmin } = await this.adminFlags(u.id);
@@ -168,6 +170,8 @@ export class Hub {
       const text = String(m.text || '').trim().slice(0, 2000);
       const ch = String(m.ch || '').slice(0, 60);
       if (!text || !ch) return;
+      const muteUntil = await this.s.storage.get('mute:' + me.id);
+      if (muteUntil && muteUntil > Date.now()) { ws.send(JSON.stringify({ t: 'merr', ch, msg: 'Susturuldun, ' + Math.ceil((muteUntil - Date.now()) / 60000) + ' dk sonra tekrar yazabilirsin' })); return; }
       if (!(await this.canSee(me.id, ch))) {
         if (ch.startsWith('dm:')) ws.send(JSON.stringify({ t: 'merr', ch, msg: 'Bu kişiye şu an mesaj gönderemezsin' }));
         return;
@@ -236,6 +240,8 @@ export class Hub {
     if (m.t === 'vjoin') {
       const room = String(m.room || '').slice(0, 60);
       if (!room || !(await this.canSee(me.id, room))) return;
+      const muteUntilJ = await this.s.storage.get('mute:' + me.id);
+      if (muteUntilJ && muteUntilJ > Date.now()) { ws.send(JSON.stringify({ t: 'merr', ch: room, msg: 'Susturuldun, sesli odaya giremezsin' })); return; }
       me.vr = room; me.vm = !!m.muted; me.vd = !!m.deaf; ws.serializeAttachment(me);
       const peers = [];
       for (const x of this.s.getWebSockets()) {
@@ -277,6 +283,8 @@ export class Hub {
       const data = String(m.data || '');
       const err = msg => ws.send(JSON.stringify({ t: 'merr', ch, msg }));
       if (!ch || !data) return;
+      const muteUntilV = await this.s.storage.get('mute:' + me.id);
+      if (muteUntilV && muteUntilV > Date.now()) return err('Susturuldun, sesli mesaj gönderemezsin');
       if (data.length > 400000 || !/^[A-Za-z0-9+/=]+$/.test(data)) return err('Sesli mesaj çok uzun ya da bozuk');
       if (!(await this.canSee(me.id, ch))) return err('Buraya sesli mesaj gönderemezsin');
       const mime = /^audio\/(webm|mp4|ogg)/.test(String(m.mime)) ? String(m.mime).split(';')[0] : 'audio/webm';
@@ -369,6 +377,8 @@ export class Hub {
         return R({ ok: false, msg: 'Kullanıcı adı ya da şifre hatalı' });
       }
       if (fl.n || fl.until) await st.delete('lf:' + lower);
+      const ban = await st.get('ban:' + acc.id);
+      if (ban) return R({ ok: false, msg: 'Bu hesap yasaklandı' + (ban.reason ? ': ' + ban.reason : '') });
       return R({ ok: true, token: await sign(secret, { id: acc.id, name: acc.name, picture: '', admin: ADMIN_UNAMES.has(lower) }), name: acc.name });
     }
     return R({ ok: false }, 404);
@@ -679,15 +689,21 @@ export class Hub {
     }
     return flags;
   }
+  async notifyMod(uid, muteUntil, banned) {
+    for (const w of this.s.getWebSockets()) {
+      const a = w.deserializeAttachment();
+      if (a && a.id === uid) { try { w.send(JSON.stringify({ t: 'modstate', muted: muteUntil || 0, banned: !!banned })); } catch {} }
+    }
+  }
   async logAdmin(action, by, target, ok, msg) {
     const log = await this.g('adlog');
     log.push({ ts: Date.now(), action, by: by ? { id: by.id, name: by.name } : null, target: target || null, ok: !!ok, msg: msg || '' });
     await this.s.storage.put('adlog', log.slice(-200));
   }
   async onAdmin(ws, me, m) {
-    if (!me.admin) return;
     const t = m.t, st = this.s.storage;
     const reply = (type, o) => ws.send(JSON.stringify({ t: type, ...o }));
+    if (t !== 'adadmins' && t !== 'adpromote' && t !== 'addemote' && !me.admin) return;
     if (t === 'adstats') {
       const users = await st.list({ prefix: 'u:', limit: 2000 });
       const servers = await st.list({ prefix: 'sv:', limit: 2000 });
@@ -703,13 +719,64 @@ export class Hub {
       for (const [k, acc] of rows) {
         if (q && !String(acc.name).toLowerCase().includes(q)) continue;
         const uname = k.slice(2);
-        list.push({ id: acc.id, name: acc.name, uname, ts: acc.ts || 0, on: on.has(acc.id), admin: ADMIN_UNAMES.has(uname) });
+        const muteUntil = await st.get('mute:' + acc.id);
+        const banRec = await st.get('ban:' + acc.id);
+        list.push({
+          id: acc.id, name: acc.name, uname, ts: acc.ts || 0, on: on.has(acc.id), admin: ADMIN_UNAMES.has(uname),
+          muted: !!(muteUntil && muteUntil > Date.now()) ? muteUntil : 0,
+          banned: !!banRec
+        });
       }
       list.sort((a, b) => b.ts - a.ts);
       reply('adusers', { list: list.slice(0, 300), total: list.length });
     }
+    else if (t === 'admute') {
+      const uname = String(m.uname || '').toLowerCase().trim();
+      const fail = async msg => { reply('admute', { ok: false, msg, uname }); await this.logAdmin('mute', me, { uname }, false, msg); };
+      const acc = await st.get('u:' + uname);
+      if (!acc) return fail('Kullanıcı bulunamadı');
+      if (ADMIN_UNAMES.has(uname) || (await this.g('admins')).includes(acc.id)) return fail('Admin susturulamaz');
+      const ms = Math.min(7 * 86400000, Math.max(60000, Math.round(Number(m.ms) || 0)));
+      const until = Date.now() + ms;
+      await st.put('mute:' + acc.id, until);
+      await this.logAdmin('mute', me, { id: acc.id, name: acc.name, uname }, true, Math.round(ms / 60000) + ' dk');
+      await this.notifyMod(acc.id, until, !!(await st.get('ban:' + acc.id)));
+      reply('admute', { ok: true, uname, until });
+    }
+    else if (t === 'adunmute') {
+      const uname = String(m.uname || '').toLowerCase().trim();
+      const acc = await st.get('u:' + uname);
+      if (!acc) return reply('adunmute', { ok: false, msg: 'Kullanıcı bulunamadı', uname });
+      await st.delete('mute:' + acc.id);
+      await this.logAdmin('unmute', me, { id: acc.id, name: acc.name, uname }, true, '');
+      await this.notifyMod(acc.id, 0, !!(await st.get('ban:' + acc.id)));
+      reply('adunmute', { ok: true, uname });
+    }
+    else if (t === 'adban') {
+      const uname = String(m.uname || '').toLowerCase().trim();
+      const fail = async msg => { reply('adban', { ok: false, msg, uname }); await this.logAdmin('ban', me, { uname }, false, msg); };
+      const acc = await st.get('u:' + uname);
+      if (!acc) return fail('Kullanıcı bulunamadı');
+      if (ADMIN_UNAMES.has(uname) || (await this.g('admins')).includes(acc.id)) return fail('Admin yasaklanamaz');
+      const reason = String(m.reason || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 120);
+      await st.put('ban:' + acc.id, { ts: Date.now(), by: me.id, byName: me.name, reason });
+      await this.logAdmin('ban', me, { id: acc.id, name: acc.name, uname }, true, reason);
+      for (const w of this.s.getWebSockets()) {
+        const a = w.deserializeAttachment();
+        if (a && a.id === acc.id) { try { w.send(JSON.stringify({ t: 'error', msg: 'Bu hesap yasaklandı' + (reason ? ': ' + reason : '') })); w.close(4003, 'banned'); } catch {} }
+      }
+      reply('adban', { ok: true, uname });
+    }
+    else if (t === 'adunban') {
+      const uname = String(m.uname || '').toLowerCase().trim();
+      const acc = await st.get('u:' + uname);
+      if (!acc) return reply('adunban', { ok: false, msg: 'Kullanıcı bulunamadı', uname });
+      await st.delete('ban:' + acc.id);
+      await this.logAdmin('unban', me, { id: acc.id, name: acc.name, uname }, true, '');
+      reply('adunban', { ok: true, uname });
+    }
     else if (t === 'aduserdel') {
-      const uname = String(m.uname || '').toLowerCase();
+      const uname = String(m.uname || '').toLowerCase().trim();
       const fail = msg => reply('aduserdel', { ok: false, msg, uname });
       if (ADMIN_UNAMES.has(uname)) return fail('Admin hesabı silinemez');
       const acc = await st.get('u:' + uname);
@@ -736,6 +803,7 @@ export class Hub {
       const code = await st.get('c:' + uid);
       if (code) await st.delete('ci:' + code);
       await st.delete('c:' + uid); await st.delete('n:' + uid); await st.delete('p:' + uid);
+      await st.delete('mute:' + uid); await st.delete('ban:' + uid);
       await st.delete('u:' + uname);
       reply('aduserdel', { ok: true, uname });
     }

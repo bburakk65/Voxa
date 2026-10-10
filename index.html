@@ -461,7 +461,7 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 const admTag=on=>on?' <span class="adminTag">Admin</span>':'';
 const COL=['#5865f2','#eb459e','#f0b132','#23a559','#ed4245','#9b59b6'];
 const col=n=>COL[[...String(n)].reduce((a,c)=>a+c.charCodeAt(0),0)%COL.length];
-const ME={name:'',id:'',admin:false};
+const ME={name:'',id:'',admin:false,mainAdmin:false};
 const MOBILE=/Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent||'');
 const SERVERS=[{id:'tayfa',name:'Tayfa',short:'T'},{id:'oyun',name:'Oyun Odası',short:'O'}];
 const CH={
@@ -584,7 +584,7 @@ function connect(){
  ws.onopen=()=>ws.send(JSON.stringify({t:'auth',token:TOKEN}));
  ws.onmessage=e=>{
   const m=JSON.parse(e.data);
-  if(m.t==='ready'){if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;profUI()}HIST=m.hist||{};ONL=m.online||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
+  if(m.t==='ready'){if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;ME.mainAdmin=!!m.me.mainAdmin;profUI()}HIST=m.hist||{};ONL=m.online||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
   else if(m.t==='online'){ONL=m.online||[];members()}
   else if(m.t==='msg'){
    const L=(HIST[m.ch]=HIST[m.ch]||[]);const prev=L[L.length-1];L.push(m.msg);delete TY[m.msg.u];typ();
@@ -593,7 +593,7 @@ function connect(){
   }
   else if(m.t==='edit'){const x=(HIST[m.ch]||[]).find(y=>y.mid===m.mid);if(x){x.t=m.text;x.e=true;if(m.ch===key())rerender()}}
   else if(m.t==='react'){const x=(HIST[m.ch]||[]).find(y=>y.mid===m.mid);if(x){x.rx=m.rx;if(m.ch===key())rerender()}}
-  else if(m.t==='me'){ME.name=m.name;ME.admin=!!m.admin;profUI();rail()}
+  else if(m.t==='me'){ME.name=m.name;const wasAdmin=ME.admin;ME.admin=!!m.admin;ME.mainAdmin=!!m.mainAdmin;profUI();rail();if(wasAdmin&&!ME.admin)closeAdmin();}
   else if(m.t==='del'){
    HIST[m.ch]=(HIST[m.ch]||[]).filter(x=>x.mid!==m.mid);
    if(m.ch===key()){const n=document.querySelector('[data-mid="'+m.mid+'"]');if(n)n.remove()}
@@ -603,7 +603,7 @@ function connect(){
   else if(m.t==='social'||m.t==='freq'||m.t==='fnew'||m.t==='fsearch'||m.t==='fres'||m.t==='fprof'||m.t==='frep'||m.t==='merr'||m.t==='vinv'||m.t==='finv'||m.t==='aud'||m.t==='ring'||m.t==='ringx'||m.t==='fringr'){socialMsg(m)}
   else if(m.t==='svservers'||m.t==='svres'||m.t==='svinvite'||m.t==='svmembers'){guildMsg(m)}
   else if(m.t==='hist'){HIST[m.ch]=m.msgs||[];if(m.ch===key())msgs()}
-  else if(m.t==='adstats'||m.t==='adsvlist'||m.t==='adsvdel'){adminMsg(m)}
+  else if(m.t==='adstats'||m.t==='adsvlist'||m.t==='adsvdel'||m.t==='adusers'||m.t==='aduserdel'||m.t==='adsvopen'||m.t==='adadmins'||m.t==='adpromote'||m.t==='addemote'||m.t==='admute'||m.t==='adunmute'||m.t==='adban'||m.t==='adunban'||m.t==='modstate'){adminMsg(m)}
   else if(m.t==='vstate'||m.t==='vpeers'||m.t==='vsig'){voiceMsg(m)}
   else if(m.t==='error'){logout()}
  };
@@ -1184,9 +1184,17 @@ function fAction(el){
  else if(a==='roledel'){const r=el.dataset.r;svConfirmDlg('Rolü sil','Bu rolü silmek istediğine emin misin?','Sil',()=>sendWS({t:'svrole_del',id:MGMT.id,roleId:r}))}
  else if(a==='svdelgo'){const gid=el.dataset.id,nm=MGMT.name;svConfirmDlg('Sunucuyu sil','“'+nm+'” sunucusunu kalıcı olarak silmek istediğine emin misin? Bu geri alınamaz.','Sil',()=>{sendWS({t:'svdelete',id:gid});if(srv==='sv:'+gid){srv='home';ch='';FVIEW=true;all()}})}
  else if(a==='adsvopen'){ADOPENMODE=el.dataset.mode||'join';sendWS({t:'adsvopen',id:el.dataset.id})}
+ else if(a==='adpromogo'){const u2=ADPROMOQ.trim();if(!u2){fT('Kullanıcı adını yaz');return}sendWS({t:'adpromote',uname:u2})}
+ else if(a==='addemote'){const nm=el.dataset.n,uid=el.dataset.id;svConfirmDlg('Yetkiyi kaldır','“'+nm+'” kullanıcısının admin yetkisini kaldırmak istediğine emin misin?','Kaldır',()=>sendWS({t:'addemote',id:uid}))}
+ else if(a==='admute')openMuteDlg(el.dataset.uname,el.dataset.n);
+ else if(a==='mutego'){const ms=Number(el.dataset.ms);sendWS({t:'admute',uname:MUTE_UN,ms});closeF()}
+ else if(a==='adunmute'){svConfirmDlg('Susturmayı kaldır','“'+el.dataset.n+'” kullanıcısının susturmasını kaldırmak istediğine emin misin?','Kaldır',()=>sendWS({t:'adunmute',uname:el.dataset.uname}))}
+ else if(a==='adban')openBanDlg(el.dataset.uname,el.dataset.n);
+ else if(a==='bango'){const rs=($('banreason')||{value:''}).value.trim();sendWS({t:'adban',uname:MUTE_UN,reason:rs});closeF()}
+ else if(a==='adunban'){svConfirmDlg('Yasağı kaldır','“'+el.dataset.n+'” kullanıcısının yasağını kaldırmak istediğine emin misin?','Kaldır',()=>sendWS({t:'adunban',uname:el.dataset.uname}))}
  else if(a==='adsvdel'){const nm=el.dataset.n,gid=el.dataset.id;svConfirmDlg('Sunucuyu sil (admin)','“'+nm+'” sunucusunu kalıcı olarak silmek istediğine emin misin? Sahibi sen olmasan bile silinir.','Sil',()=>sendWS({t:'adsvdel',id:gid}))}
  else if(a==='adminclose')closeAdmin();
- else if(a==='adtab'){ADTAB=el.dataset.k;if(ADTAB==='users'&&!ADUSERS)sendWS({t:'adusers',q:ADUQ});adminRender()}
+ else if(a==='adtab'){ADTAB=el.dataset.k;if(ADTAB==='users'&&!ADUSERS)sendWS({t:'adusers',q:ADUQ});if(ADTAB==='admins'&&ME.mainAdmin)sendWS({t:'adadmins'});adminRender()}
  else if(a==='aduserdel'){const nm=el.dataset.n,un=el.dataset.uname;svConfirmDlg('Kullanıcıyı sil','“'+nm+'” hesabını kalıcı olarak silmek istediğine emin misin? Arkadaşlıkları ve sunucu üyelikleri de kalkar.','Sil',()=>sendWS({t:'aduserdel',uname:un}))}
  else if(a==='svleavego'){const gid=el.dataset.id,nm=MGMT.name;svConfirmDlg('Sunucudan ayrıl','“'+nm+'” sunucusundan ayrılmak istediğine emin misin?','Ayrıl',()=>{sendWS({t:'svleave',id:gid});if(srv==='sv:'+gid){srv='home';ch='';FVIEW=true;all()}})}
  else if(a==='svok'){const cb=SVCB;SVCB=null;closeF();if(cb)cb()}
@@ -1208,6 +1216,7 @@ try{
   if(row){const p=findP(row.dataset.id);if(p){profShow(p);sendWS({t:'fprof',id:p.id})}}
  });
  document.addEventListener('input',e=>{
+  if(e.target.id==='adpromoq'){ADPROMOQ=e.target.value;return}
   if(e.target.id==='aduq'){ADUQ=e.target.value;clearTimeout(ADUT);ADUT=setTimeout(()=>sendWS({t:'adusers',q:ADUQ}),300);return}
   if(e.target.id==='ffq'){FFQ=e.target.value;fList();return}
   if(e.target.id!=='fq')return;
@@ -1397,7 +1406,7 @@ try{
 
 
 /* ===== GİZLİ YÖNETİM PANELİ ===== */
-let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null,ADOPENMODE='join';
+let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADPROMOQ='',MUTE_UN='';
 function openAdmin(){
  if(!ME.admin)return;
  ADSTATS=null;ADSVLIST=null;ADUSERS=null;ADTAB='dash';ADUQ='';
@@ -1409,8 +1418,11 @@ function closeAdmin(){$('adminFull').classList.remove('on')}
 function adminRender(){
  const el=$('adminFull');if(!el.classList.contains('on'))return;
  const tabBtn=(k,l)=>`<button class="ftab ${ADTAB===k?'on':''}" data-fa="adtab" data-k="${k}">${l}</button>`;
+ const adminRow=u2=>`<div class="frow">${av(u2.name,'dot')}<div class="fi"><b>${esc(u2.name)}${admTag(true)}</b><small>Voxa ID: ${esc(u2.code||'')}</small></div><button class="fbtn no" style="padding:7px 10px;font-size:13px" data-fa="addemote" data-id="${esc(u2.id)}" data-n="${esc(u2.name)}">Yetkiyi Kaldır</button></div>`;
+ const logRow=l2=>`<div class="frow" style="padding:7px 0"><div class="fi"><small>${l2.ok?'✅':'❌'} <b>${l2.action==='promote'?'Admin yapıldı':'Yetki kaldırıldı'}</b> — ${esc((l2.by&&l2.by.name)||'?')} → ${esc((l2.target&&l2.target.name)||(l2.target&&l2.target.uname)||'?')}${l2.msg?' ('+esc(l2.msg)+')':''}<br>${new Date(l2.ts).toLocaleString('tr')}</small></div></div>`;
  const svRow=s2=>`<div class="frow"><div class="fi"><b>${s2.icon?esc(s2.icon)+' ':''}${esc(s2.name)}</b><small>Sahibi: ${esc(s2.ownerName)} · ${s2.memberCount} üye</small></div><button class="fbtn no" style="padding:7px 10px;font-size:13px" data-fa="adsvopen" data-mode="manage" data-id="${esc(s2.id)}">Yönet</button><button class="fbtn" style="padding:7px 10px;font-size:13px" data-fa="adsvopen" data-mode="join" data-id="${esc(s2.id)}">Katıl</button><button class="ib" data-fa="adsvdel" data-id="${esc(s2.id)}" data-n="${esc(s2.name)}" aria-label="Sil">🗑</button></div>`;
- const uRow=u2=>`<div class="frow">${av(u2.name,u2.on?'dot':'dot offl')}<div class="fi"><b>${esc(u2.name)}${admTag(u2.admin)}</b><small>${u2.on?'Çevrimiçi':'Çevrimdışı'} · ${new Date(u2.ts).toLocaleDateString('tr')} kayıt</small></div>${u2.admin?'':`<button class="ib" data-fa="aduserdel" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Sil">🗑</button>`}</div>`;
+const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Yasaklı</span>':(u2.muted?'<span style="color:#f0b132;font-weight:700">🔇 Susturuldu ('+Math.max(1,Math.ceil((u2.muted-Date.now())/60000))+' dk)</span>':'');
+ const uRow=u2=>`<div class="frow">${av(u2.name,u2.on?'dot':'dot offl')}<div class="fi"><b>${esc(u2.name)}${admTag(u2.admin)}</b><small>${modStatus(u2)?modStatus(u2)+' · ':''}${u2.on?'Çevrimiçi':'Çevrimdışı'} · ${new Date(u2.ts).toLocaleDateString('tr')} kayıt</small></div>${u2.admin?'':`<div class="fact">${u2.banned?`<button class="ib" data-fa="adunban" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Yasağı kaldır">✅</button>`:`<button class="ib" data-fa="adban" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Yasakla">⛔</button>`}${u2.muted?`<button class="ib" data-fa="adunmute" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Susturmayı kaldır">🔊</button>`:`<button class="ib" data-fa="admute" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Sustur">🔇</button>`}<button class="ib" data-fa="aduserdel" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Sil">🗑</button></div>`}</div>`;
  let body='';
  if(ADTAB==='dash'){
   body=`<div class="adgrid">
@@ -1424,9 +1436,17 @@ function adminRender(){
  }else if(ADTAB==='users'){
   body=`<div class="fsearch" style="padding:4px 16px 10px"><input id="aduq" value="${esc(ADUQ)}" placeholder="Kullanıcı ara" autocomplete="off"></div>
   <div style="padding:0 16px">${ADUSERS?(ADUSERS.length?ADUSERS.map(uRow).join(''):'<p class="hint">Sonuç yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
+ }else if(ADTAB==='admins'&&ME.mainAdmin){
+  body=`<div class="fsearch" style="padding:4px 16px 2px"><input id="adpromoq" value="${esc(ADPROMOQ)}" placeholder="Admin yapmak için kullanıcı adı yaz" autocomplete="off"><button class="fbtn" style="margin-top:8px;width:100%" data-fa="adpromogo">Admin Yap</button></div>
+  <div class="fsec" style="padding-left:16px">ANA YÖNETİCİ</div>
+  <div style="padding:0 16px">${ADADMINS&&ADADMINS.main?`<div class="frow">${av(ADADMINS.main.name,'dot')}<div class="fi"><b>${esc(ADADMINS.main.name)}${admTag(true)}</b><small>Kaldırılamaz</small></div></div>`:'<p class="hint">Yükleniyor…</p>'}</div>
+  <div class="fsec" style="padding-left:16px">YETKİLENDİRİLMİŞ ADMİNLER</div>
+  <div style="padding:0 16px">${ADADMINS?(ADADMINS.list.length?ADADMINS.list.map(adminRow).join(''):'<p class="hint">Henüz yetkilendirilmiş admin yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>
+  <div class="fsec" style="padding-left:16px">SON İŞLEMLER</div>
+  <div style="padding:0 16px">${ADADMINS?(ADADMINS.log.length?ADADMINS.log.map(logRow).join(''):'<p class="hint">Kayıt yok.</p>'):''}</div>`;
  }
  el.innerHTML=`<div class="vh"><button class="vb" data-fa="adminclose" aria-label="Kapat">${ic(P.down)}</button><div class="vt">Yönetim Paneli</div><span class="gap"></span></div>
- <div class="ftabs" style="padding:10px 16px 0">${tabBtn('dash','Dashboard')}${tabBtn('users','Kullanıcılar')}</div>
+ <div class="ftabs" style="padding:10px 16px 0">${tabBtn('dash','Dashboard')}${tabBtn('users','Kullanıcılar')}${ME.mainAdmin?tabBtn('admins','Yöneticiler'):''}</div>
  <div class="adbody">${body}</div>`;
 }
 function adminMsg(m){
@@ -1447,6 +1467,14 @@ function adminMsg(m){
   }
  }
  else if(m.t==='aduserdel'){if(m.ok){fT('Kullanıcı silindi');ADUSERS=(ADUSERS||[]).filter(u2=>u2.uname!==m.uname);adminRender();sendWS({t:'adstats'})}else fT(m.msg||'Silinemedi')}
+ else if(m.t==='adadmins'){ADADMINS=m;adminRender()}
+ else if(m.t==='adpromote'){fT(m.msg||(m.ok?'Tamam':'İşlem başarısız'));if(m.ok){ADPROMOQ='';sendWS({t:'adadmins'})}}
+ else if(m.t==='addemote'){fT(m.ok?'Yetki kaldırıldı':(m.msg||'İşlem başarısız'));if(m.ok)sendWS({t:'adadmins'})}
+ else if(m.t==='admute'){fT(m.ok?'Kullanıcı susturuldu':(m.msg||'İşlem başarısız'));if(m.ok&&ADTAB==='users')sendWS({t:'adusers',q:ADUQ})}
+ else if(m.t==='adunmute'){fT(m.ok?'Susturma kaldırıldı':(m.msg||'İşlem başarısız'));if(m.ok&&ADTAB==='users')sendWS({t:'adusers',q:ADUQ})}
+ else if(m.t==='adban'){fT(m.ok?'Kullanıcı yasaklandı':(m.msg||'İşlem başarısız'));if(m.ok&&ADTAB==='users')sendWS({t:'adusers',q:ADUQ})}
+ else if(m.t==='adunban'){fT(m.ok?'Yasak kaldırıldı':(m.msg||'İşlem başarısız'));if(m.ok&&ADTAB==='users')sendWS({t:'adusers',q:ADUQ})}
+ else if(m.t==='modstate'){if(m.banned){fT('Hesabın yasaklandı')}else if(m.muted){fT('Susturuldun')}else{fT('Susturman kaldırıldı')}}
 }
 /* ===== SUNUCU / KANAL / ROL UI ===== */
 function openServerAdd(){
@@ -1475,6 +1503,15 @@ function serverJoinGo(){
 function svConfirmDlg(title,body,okLabel,cb){
  SVCB=cb;
  fDlg(`<div class="fcard"><h3>${esc(title)}</h3><p>${esc(body)}</p><div class="row2"><button class="fbtn no" data-fa="close">İptal</button><button class="fbtn red" data-fa="svok">${esc(okLabel)}</button></div></div>`);
+}
+function openMuteDlg(uname,name){
+ MUTE_UN=uname;
+ const opt=(ms,l)=>`<button class="fmi" data-fa="mutego" data-ms="${ms}">${l}</button>`;
+ fDlg(`<div class="fcard"><h3>${esc(name)} kullanıcısını sustur</h3><p>Ne kadar süre için?</p>${opt(300000,'5 dakika')}${opt(900000,'15 dakika')}${opt(3600000,'1 saat')}${opt(86400000,'1 gün')}${opt(604800000,'7 gün (en fazla)')}<div class="row2" style="margin-top:10px"><button class="fbtn no" data-fa="close">Vazgeç</button></div></div>`);
+}
+function openBanDlg(uname,name){
+ MUTE_UN=uname;
+ fDlg(`<div class="fcard"><h3>${esc(name)} kullanıcısını yasakla</h3><p>Bu kişi siteye giriş yapamaz hale gelir. İstersen bir sebep yaz.</p><label class="af"><span>Sebep (opsiyonel)</span><input id="banreason" maxlength="120" autocomplete="off"></label><div class="row2"><button class="fbtn no" data-fa="close">Vazgeç</button><button class="fbtn red" data-fa="bango">Yasakla</button></div></div>`);
 }
 function svPromptDlg(title,placeholder,extra,cb){
  SVPCB=cb;
