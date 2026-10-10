@@ -1427,6 +1427,7 @@ try{
 
 /* ===== GİZLİ YÖNETİM PANELİ ===== */
 let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADLOGS=null,ADLOGQ='',ADPROMOQ='',MUTE_UN='',ADMVIEW='pick',ADMCH='',ADMCHL='',ADMQ='',ADMQT=null,ADMSGS=null,ADREPORTS=null;
+let ADMSGCOUNT_EXPECTED=null,ADMSGCOUNT_AT=0;
 function openAdmin(){
  if(!ME.admin)return;
  ADSTATS=null;ADSVLIST=null;ADUSERS=null;ADLOGS=null;ADTAB='dash';ADUQ='';
@@ -1491,7 +1492,13 @@ const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Y
  <div class="adbody">${body}</div>`;
 }
 function adminMsg(m){
- if(m.t==='adstats'){ADSTATS=m;adminRender()}
+ if(m.t==='adstats'){
+  // A delayed stats response must not overwrite the newer count received from a message deletion.
+  if(ADMSGCOUNT_EXPECTED!==null && Date.now()-ADMSGCOUNT_AT<5000 && Number.isFinite(m.messages) && m.messages>ADMSGCOUNT_EXPECTED){
+   ADSTATS={...m,messages:ADMSGCOUNT_EXPECTED};
+  }else{ADSTATS=m;if(ADMSGCOUNT_EXPECTED!==null && Date.now()-ADMSGCOUNT_AT>=5000)ADMSGCOUNT_EXPECTED=null;}
+  adminRender();
+ }
  else if(m.t==='adsvlist'){ADSVLIST=m.list||[];adminRender()}
  else if(m.t==='adsvdel'){fT('Sunucu silindi');ADSVLIST=(ADSVLIST||[]).filter(s2=>s2.id!==m.id);adminRender();sendWS({t:'adstats'})}
  else if(m.t==='adusers'){ADUSERS=m.list||[];adminRender()}
@@ -1521,7 +1528,7 @@ function adminMsg(m){
  else if(m.t==='admsgdel'){
   if(m.ok){
    // Silme onaylanır onaylanmaz dashboard sayacını yerinde güncelle.
-   if(ADSTATS && Number.isFinite(m.messages)) ADSTATS.messages=m.messages;
+   if(ADSTATS && Number.isFinite(m.messages)){ADSTATS.messages=m.messages;ADMSGCOUNT_EXPECTED=m.messages;ADMSGCOUNT_AT=Date.now();}
    fT('Mesaj silindi · Kanalda '+m.total+' mesaj kaldı');
    if(ADMCH===m.ch){
     if(ADMSGS && Array.isArray(ADMSGS.list)) ADMSGS.list=ADMSGS.list.filter(x=>x.mid!==m.mid);
