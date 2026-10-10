@@ -117,7 +117,7 @@ async function pbkdf2(pw, salt) {
 }
 
 export class Hub {
-  constructor(state, env) { this.s = state; this.env = env; this.gcache = new Map(); }
+  constructor(state, env) { this.s = state; this.env = env; this.gcache = new Map(); this.msgDeleteQueue = Promise.resolve(); }
   async fetch(req) {
     const url = new URL(req.url);
     if (url.pathname === '/internal/guilds' && req.method === 'POST') {
@@ -133,7 +133,13 @@ export class Hub {
     return new Response(null, { status: 101, webSocket: client });
   }
   async webSocketMessage(ws, raw) {
+    // Beklenmedik büyük/yanlış formatlı WS paketlerinin CPU ve belleği tüketmesini engelle.
+    if (typeof raw !== 'string' || raw.length > 500000) {
+      try { ws.send(JSON.stringify({ t: 'error', msg: 'İstek çok büyük veya geçersiz' })); } catch {}
+      return;
+    }
     let m; try { m = JSON.parse(raw); } catch { return; }
+    if (!m || typeof m !== 'object' || Array.isArray(m) || typeof m.t !== 'string') return;
     if (m.t === 'auth') {
       try {
         const secret = this.env.DISCORD_SECRET;
@@ -170,6 +176,10 @@ export class Hub {
       const text = String(m.text || '').trim().slice(0, 2000);
       const ch = String(m.ch || '').slice(0, 60);
       if (!text || !ch) return;
+      if (!(await this.rateHit('msg:' + me.id, 25, 10000))) {
+        ws.send(JSON.stringify({ t: 'merr', ch, msg: 'Çok hızlı mesaj gönderiyorsun. Birkaç saniye bekle.' }));
+        return;
+      }
       const muteUntil = await this.s.storage.get('mute:' + me.id);
       if (muteUntil && muteUntil > Date.now()) { ws.send(JSON.stringify({ t: 'merr', ch, msg: 'Susturuldun, ' + Math.ceil((muteUntil - Date.now()) / 60000) + ' dk sonra tekrar yazabilirsin' })); return; }
       if (!(await this.canSee(me.id, ch))) {
@@ -192,16 +202,19 @@ export class Hub {
     }
     if (m.t === 'edit') {
       const ch = String(m.ch || '').slice(0, 60);
+      const mid = String(m.mid || '').slice(0, 80);
       const text = String(m.text || '').trim().slice(0, 2000);
-      if (!text) return;
+      if (!ch || !mid || !text || !(await this.canSee(me.id, ch))) return;
+      if (!(await this.rateHit('edit:' + me.id, 30, 10000))) return;
       const all = (await this.s.storage.get('msgs')) || {};
-      const x = (all[ch] || []).find(y => y.mid === m.mid && y.id === me.id && !y.au);
-      if (x) { x.t = text; x.e = true; await this.s.storage.put('msgs', all); await this.bcCh(ch, { t: 'edit', ch, mid: m.mid, text }); }
+      const x = (Array.isArray(all[ch]) ? all[ch] : []).find(y => y && y.mid === mid && y.id === me.id && !y.au);
+      if (x) { x.t = text; x.e = true; await this.s.storage.put('msgs', all); await this.bcCh(ch, { t: 'edit', ch, mid, text }); }
     }
     if (m.t === 'react') {
       const ch = String(m.ch || '').slice(0, 60);
       const em = String(m.emoji || '').slice(0, 8);
       if (!em || !(await this.canSee(me.id, ch))) return;
+      if (!(await this.rateHit('react:' + me.id, 60, 10000))) return;
       const all = (await this.s.storage.get('msgs')) || {};
       const x = (all[ch] || []).find(y => y.mid === m.mid);
       if (!x) return;
@@ -229,10 +242,12 @@ export class Hub {
     }
     if (m.t === 'del') {
       const ch = String(m.ch || '').slice(0, 60);
+      const mid = String(m.mid || '').slice(0, 80);
+      if (!ch || !mid || !(await this.canSee(me.id, ch))) return;
       const all = (await this.s.storage.get('msgs')) || {};
-      const l = all[ch] || [];
-      const i = l.findIndex(x => x.mid === m.mid && x.id === me.id);
-      if (i >= 0) { const rm = l.splice(i, 1)[0]; if (rm && rm.au) await this.s.storage.delete('a:' + rm.mid); await this.s.storage.put('msgs', all); await this.bcCh(ch, { t: 'del', ch, mid: m.mid }); }
+      const l = Array.isArray(all[ch]) ? all[ch] : [];
+      const i = l.findIndex(x => x && x.mid === mid && x.id === me.id);
+      if (i >= 0) { const rm = l.splice(i, 1)[0]; if (rm && rm.au) await this.s.storage.delete('a:' + rm.mid); await this.s.storage.put('msgs', all); await this.bcCh(ch, { t: 'del', ch, mid }); }
     }
     if (typeof m.t === 'string' && m.t.charAt(0) === 'f') { await this.onFriend(ws, me, m); return; }
     if (typeof m.t === 'string' && m.t.slice(0, 2) === 'sv') { await this.onGuild(ws, me, m); return; }
@@ -272,6 +287,7 @@ export class Hub {
     }
     if (m.t === 'vsig') {
       if (!me.vr || !m.data || JSON.stringify(m.data).length > 20000) return;
+      if (!(await this.rateHit('vsig:' + me.id, 60, 10000))) return;
       for (const x of this.s.getWebSockets()) {
         if (x.readyState !== 1) continue;
         const a = x.deserializeAttachment();
@@ -283,6 +299,7 @@ export class Hub {
       const data = String(m.data || '');
       const err = msg => ws.send(JSON.stringify({ t: 'merr', ch, msg }));
       if (!ch || !data) return;
+      if (!(await this.rateHit('vmsg:' + me.id, 8, 60000))) return err('Çok fazla sesli mesaj gönderdin, biraz bekle');
       const muteUntilV = await this.s.storage.get('mute:' + me.id);
       if (muteUntilV && muteUntilV > Date.now()) return err('Susturuldun, sesli mesaj gönderemezsin');
       if (data.length > 400000 || !/^[A-Za-z0-9+/=]+$/.test(data)) return err('Sesli mesaj çok uzun ya da bozuk');
@@ -330,6 +347,7 @@ export class Hub {
     }
     if (m.t === 'typing') {
       const ch = String(m.ch || '').slice(0, 60);
+      if (!(await this.rateHit('typing:' + me.id, 12, 5000))) return;
       if (await this.canSee(me.id, ch)) {
         for (const x of this.s.getWebSockets()) {
           if (x === ws) continue;
@@ -378,8 +396,17 @@ export class Hub {
     if (path === '/internal/register') {
       if (!hit('rg:' + ip, 5, 3600000)) return R({ ok: false, msg: 'Bu bağlantıdan çok fazla kayıt denendi, daha sonra tekrar dene' }, 429);
       if (!/^[A-Za-z0-9_.]{3,20}$/.test(uname)) return R({ ok: false, field: 'username', msg: 'Kullanıcı adı 3-20 karakter olmalı (harf, rakam, _ ve .)' });
-      if (pw.length < 8 || pw.length > 100) return R({ ok: false, field: 'password', msg: 'Şifre en az 8 karakter olmalı' });
+      if (pw.length < 8 || pw.length > 100) return R({ ok: false, field: 'password', msg: 'Şifre 8-100 karakter olmalı' });
       if (pw.toLowerCase().includes(lower)) return R({ ok: false, field: 'password', msg: 'Şifre kullanıcı adını içermemeli' });
+      // Ana yönetici hesabının ilk kaydını herkesin kapmasını engelle.
+      // İlk kurulum için Cloudflare Worker'da ADMIN_SETUP_KEY secret'ı tanımlanmalıdır.
+      if (ADMIN_UNAMES.has(lower)) {
+        const expectedSetupKey = String(this.env.ADMIN_SETUP_KEY || '');
+        const suppliedSetupKey = String(b.adminSetupKey || '');
+        if (!expectedSetupKey || !safeEq(suppliedSetupKey, expectedSetupKey)) {
+          return R({ ok: false, field: 'username', msg: 'Bu yönetici adı yalnızca kurulum anahtarıyla ilk kez oluşturulabilir. Cloudflare ADMIN_SETUP_KEY ayarını kontrol et.' });
+        }
+      }
       if (await st.get('u:' + lower)) return R({ ok: false, field: 'username', msg: 'Bu kullanıcı adı alınmış' });
       const salt = crypto.getRandomValues(new Uint8Array(16));
       const hash = await pbkdf2(pw, salt);
@@ -719,7 +746,23 @@ export class Hub {
   async logAdmin(action, by, target, ok, msg) {
     const log = await this.g('adlog');
     log.push({ ts: Date.now(), action, by: by ? { id: by.id, name: by.name } : null, target: target || null, ok: !!ok, msg: msg || '' });
-    await this.s.storage.put('adlog', log.slice(-200));
+    const recent = log.slice(-200);
+    await this.s.storage.put('adlog', recent);
+    // Yönetim panelini açık tutan tüm adminlere işlem geçmişi ve sayaçları anında gönder.
+    const users = await this.s.storage.list({ prefix: 'u:', limit: 2000 });
+    const servers = await this.s.storage.list({ prefix: 'sv:', limit: 2000 });
+    const msgs = (await this.s.storage.get('msgs')) || {};
+    let messages = 0;
+    for (const k of Object.keys(msgs)) messages += Array.isArray(msgs[k]) ? msgs[k].length : 0;
+    const stats = { t: 'adstats', users: users.size, servers: servers.size, online: this.onlineSet().size, messages };
+    for (const w of this.s.getWebSockets()) {
+      const a = w.deserializeAttachment();
+      if (!a || !a.admin) continue;
+      try {
+        w.send(JSON.stringify(stats));
+        w.send(JSON.stringify({ t: 'adlogs', list: recent.slice().reverse() }));
+      } catch {}
+    }
   }
   async onAdmin(ws, me, m) {
     const t = m.t, st = this.s.storage;
@@ -736,6 +779,7 @@ export class Hub {
       const q = String(m.q || '').toLowerCase().trim();
       const rows = await st.list({ prefix: 'u:', limit: 2000 });
       const on = this.onlineSet();
+      const promotedAdmins = new Set(await this.g('admins'));
       const list = [];
       for (const [k, acc] of rows) {
         if (q && !String(acc.name).toLowerCase().includes(q)) continue;
@@ -743,7 +787,7 @@ export class Hub {
         const muteUntil = await st.get('mute:' + acc.id);
         const banRec = await st.get('ban:' + acc.id);
         list.push({
-          id: acc.id, name: acc.name, uname, ts: acc.ts || 0, on: on.has(acc.id), admin: ADMIN_UNAMES.has(uname),
+          id: acc.id, name: acc.name, uname, ts: acc.ts || 0, on: on.has(acc.id), admin: ADMIN_UNAMES.has(uname) || promotedAdmins.has(acc.id),
           muted: !!(muteUntil && muteUntil > Date.now()) ? muteUntil : 0,
           banned: !!banRec
         });
@@ -807,21 +851,36 @@ export class Hub {
       reply('admsgs', { ok: true, ch, list: list.slice(-300), total: (all[ch] || []).length });
     }
     else if (t === 'admsgdel') {
-      const ch = String(m.ch || '').slice(0, 80);
-      const mid = String(m.mid || '');
-      const fail = msg => reply('admsgdel', { ok: false, msg, mid });
-      if (!ch || !mid) return;
-      if (ch.startsWith('dm:')) return fail('Özel mesajlar buradan silinemez');
-      const all = (await st.get('msgs')) || {};
-      const list = all[ch] || [];
-      const i = list.findIndex(x => x.mid === mid);
-      if (i < 0) return fail('Mesaj bulunamadı');
-      const removed = list.splice(i, 1)[0];
-      if (removed.au) await st.delete('a:' + removed.mid);
-      await st.put('msgs', all);
-      await this.bcCh(ch, { t: 'del', ch, mid });
-      await this.logAdmin('msgdel', me, { mid, ch, sender: removed.u }, true, String(m.reason || '').slice(0, 120));
-      reply('admsgdel', { ok: true, mid, ch });
+      // Serialize admin deletions: rapid consecutive clicks must not overwrite each other's storage updates.
+      const runDelete = async () => {
+        const ch = String(m.ch || '').slice(0, 80);
+        const mid = String(m.mid || '').slice(0, 80);
+        const fail = msg => reply('admsgdel', { ok: false, msg, mid, ch });
+        if (!me.admin) return fail('Bu işlem için yönetici yetkisi gerekli');
+        if (!ch || !mid) return fail('Kanal veya mesaj bilgisi eksik');
+        if (ch.startsWith('dm:')) return fail('Özel mesajlar buradan silinemez');
+        const all = (await st.get('msgs')) || {};
+        const list = Array.isArray(all[ch]) ? all[ch] : [];
+        const i = list.findIndex(x => x && String(x.mid) === mid);
+        if (i < 0) {
+          let messages = 0;
+          for (const key of Object.keys(all)) messages += Array.isArray(all[key]) ? all[key].length : 0;
+          return reply('admsgdel', { ok: false, msg: 'Mesaj bulunamadı; liste ve sayaç yenilendi', mid, ch, messages });
+        }
+        const removed = list[i];
+        all[ch] = list.filter(x => x && String(x.mid) !== mid);
+        if (removed.au) await st.delete('a:' + removed.mid);
+        await st.put('msgs', all);
+        await this.bcCh(ch, { t: 'del', ch, mid });
+        let totalMessages = 0;
+        for (const key of Object.keys(all)) totalMessages += Array.isArray(all[key]) ? all[key].length : 0;
+        // Reply with the persisted total before logging; the client can update the counter immediately.
+        reply('admsgdel', { ok: true, mid, ch, total: all[ch].length, messages: totalMessages });
+        await this.logAdmin('msgdel', me, { mid, ch, sender: removed.u }, true, String(m.reason || '').slice(0, 120));
+      };
+      const task = this.msgDeleteQueue.then(runDelete, runDelete);
+      this.msgDeleteQueue = task.catch(() => {});
+      await task;
     }
     else if (t === 'adreports') {
       const list = (await this.g('msgreports')).slice(-200).reverse();
@@ -864,6 +923,7 @@ export class Hub {
       await st.delete('c:' + uid); await st.delete('n:' + uid); await st.delete('p:' + uid);
       await st.delete('mute:' + uid); await st.delete('ban:' + uid);
       await st.delete('u:' + uname);
+      await this.logAdmin('userdel', me, { id: uid, name: acc.name, uname }, true, '');
       reply('aduserdel', { ok: true, uname });
     }
     else if (t === 'adsvlist') {
@@ -879,6 +939,7 @@ export class Hub {
       const sv = await st.get('sv:' + String(m.id));
       if (!sv) return;
       await this.deleteGuild(sv);
+      await this.logAdmin('svdel', me, { id: m.id, name: sv.name }, true, '');
       reply('adsvdel', { ok: true, id: m.id });
     }
     else if (t === 'adsvopen') {
@@ -893,6 +954,10 @@ export class Hub {
           memberCount: sv.members.length
         }
       });
+    }
+    else if (t === 'adlogs') {
+      const list = (await this.g('adlog')).slice(-200).reverse();
+      reply('adlogs', { list });
     }
     else if (t === 'adadmins') {
       if (!me.mainAdmin) return;
