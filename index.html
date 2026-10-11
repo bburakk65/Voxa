@@ -753,7 +753,7 @@ addEventListener('load',()=>{
 
 /* ===== SESLİ ODALAR (WebRTC) ===== */
 let VST={};
-const V={room:null,name:'',ui:null,sheet:'',sheetRoom:'',pcs:{},auds:{},ana:{},pend:{},vol:{},umute:{},prev:null,speak:{},stream:null,ctx:null,timer:null,spcs:{},svid:{},spend:{},screen:null,sharing:false,localVideoEl:null};
+const V={room:null,name:'',sid:null,joinSeq:0,ui:null,sheet:'',sheetRoom:'',pcs:{},auds:{},ana:{},pend:{},peerMeta:{},vol:{},umute:{},prev:null,speak:{},stream:null,ctx:null,timer:null,spcs:{},svid:{},spend:{},screen:null,sharing:false,localVideoEl:null};
 const ICE={iceServers:[{urls:['stun:stun.cloudflare.com:3478','stun:stun.l.google.com:19302']}]};
 const P={
  mic:'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z',
@@ -768,18 +768,19 @@ const P={
 };
 const ic=(p,s=24)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="currentColor"><path d="${p}"/></svg>`;
 const vroom=n=>srv+'/'+n;
-const rusers=r=>VST[r]||[];
+const rsessions=r=>VST[r]||[];
+const rusers=r=>{const byId=new Map();for(const u of rsessions(r)){const old=byId.get(u.id);if(!old||(u.ss&&!old.ss))byId.set(u.id,u)}return [...byId.values()]};
 const wsend=o=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))};
 const vtoast=m=>{if(window.toast)window.toast(m)};
 const pastel=n=>'hsl('+([...String(n)].reduce((a,c)=>a+c.charCodeAt(0),0)*37%360)+',70%,88%)';
 const vav=u=>`<div class="av ${V.speak[u.id]?'sp':''}" data-uid="${esc(u.id)}" style="background:${u.p?'url('+esc(u.p)+') center/cover':col(u.name)}">${u.p?'':esc(String(u.name)[0]||'?').toUpperCase()}</div>`;
 const stIcon=u=>u.d?'<span class="slash">'+ic(P.head,14)+'</span>':(u.m?ic(P.micoff,14):'');
 const ssIcon=u=>u.ss?' '+ic(P.share,12):'';
-const tile=u=>{const displayName=u.id===ME.id?(ME.name||u.name):u.name;return `<div class="vtile" data-pid="${esc(u.id)}" style="background:${pastel(displayName)}">${vav({...u,name:displayName})}<div class="vname">${stIcon(u)}<span>${esc(displayName)}</span>${ssIcon(u)}</div></div>`};
+const tile=u=>`<div class="vtile" data-pid="${esc(u.id)}" style="background:${pastel(u.name)}">${vav(u)}<div class="vname">${stIcon(u)}<span>${esc(u.id===ME.id?(ME.name||u.name):u.name)}</span>${ssIcon(u)}</div></div>`;
 function screenTilesHtml(){
  const parts=[];
  if(V.screen)parts.push(`<div class="vtile vscreen" data-vslot="me"><div class="vvideo" data-vid="me"></div><div class="vname">${ic(P.share,14)}<span>Ekranını paylaşıyorsun</span></div></div>`);
- for(const id in V.svid){const u=(rusers(V.room)||[]).find(x=>x.id===id);parts.push(`<div class="vtile vscreen" data-vslot="${esc(id)}"><div class="vvideo" data-vid="${esc(id)}"></div><div class="vname">${ic(P.share,14)}<span>${esc(u?u.name:'Ekran')}</span></div></div>`)}
+ for(const id in V.svid){const u=rsessions(V.room).find(x=>(x.sid||x.id)===id);parts.push(`<div class="vtile vscreen" data-vslot="${esc(id)}"><div class="vvideo" data-vid="${esc(id)}"></div><div class="vname">${ic(P.share,14)}<span>${esc(u?u.name:'Ekran')}</span></div></div>`)}
  return parts.join('');
 }
 function mountVideos(root){
@@ -906,15 +907,16 @@ function vtick(){
  for(const id in V.ana){
   const a=V.ana[id];a.an.getByteTimeDomainData(a.buf);
   let s=0;for(let i=0;i<a.buf.length;i++){const x=(a.buf[i]-128)/128;s+=x*x}
-  let on=Math.sqrt(s/a.buf.length)>0.035;if(id===ME.id&&muted)on=false;
-  if(!!V.speak[id]!==on){V.speak[id]=on;document.querySelectorAll('[data-uid="'+id+'"]').forEach(e=>e.classList.toggle('sp',on))}
+  const session=rsessions(V.room).find(u=>(u.sid||u.id)===id);const uid=id===ME.id?ME.id:(session?session.id:id);
+  let on=Math.sqrt(s/a.buf.length)>0.035;if(uid===ME.id&&muted)on=false;
+  if(!!V.speak[uid]!==on){V.speak[uid]=on;document.querySelectorAll('[data-uid="'+uid+'"]').forEach(e=>e.classList.toggle('sp',on))}
  }
 }
 function closePc(id){
  const pc=V.pcs[id];if(pc){try{pc.close()}catch(e){}delete V.pcs[id]}
  const a=V.auds[id];if(a){a.srcObject=null;a.remove();delete V.auds[id]}
  if(V.ana[id]){try{V.ana[id].src.disconnect()}catch(e){}delete V.ana[id]}
- delete V.speak[id];delete V.pend[id];
+ const meta=rsessions(V.room).find(u=>(u.sid||u.id)===id);if(meta&&!rsessions(V.room).some(u=>u.id===meta.id&&(u.sid||u.id)!==id&&V.ana[u.sid||u.id]))delete V.speak[meta.id];delete V.pend[id];
 }
 function vpc(id){
  if(V.pcs[id])return V.pcs[id];
@@ -929,7 +931,7 @@ function vpc(id){
   a.srcObject=st;a.muted=deaf||!!V.umute[id];a.volume=V.vol[id]==null?1:V.vol[id];a.play().catch(()=>{});
   if(!V.ana[id])vmeter(id,st);
  };
- pc.onconnectionstatechange=()=>{if(pc.connectionState==='failed'){try{pc.restartIce()}catch(e){}}};
+ pc.onconnectionstatechange=()=>{if(pc.connectionState==='failed'&&V.room){try{pc.restartIce();voffer(id).catch(()=>{})}catch(e){}}};
  return pc;
 }
 async function voffer(id){
@@ -964,26 +966,31 @@ function voiceMsg(m){
   VST=m.rooms||{};
   if(V.room){
    const us=VST[V.room]||[];
-   const ids=new Set(us.map(u=>u.id));
+   const ids=new Set(us.map(u=>u.sid||u.id));
    Object.keys(V.pcs).forEach(id=>{if(!ids.has(id))closePc(id)});
    Object.keys(V.spcs).forEach(id=>{if(!ids.has(id))closeSpc(id)});
-   us.forEach(u=>{if(u.id!==ME.id&&!u.ss&&V.svid[u.id])closeSpc(u.id)});
-   if(V.sharing)ids.forEach(id=>{if(id!==ME.id&&!V.spcs[id])offerScreenTo(id).catch(()=>{})});
+   us.forEach(u=>{const sid=u.sid||u.id;if(u.id!==ME.id&&!u.ss&&V.svid[sid])closeSpc(sid)});
+   if(V.sharing)ids.forEach(sid=>{const u=us.find(x=>(x.sid||x.id)===sid);if(u&&u.id!==ME.id&&!V.spcs[sid])offerScreenTo(sid).catch(()=>{})});
    if(V.prev&&!deaf){let up=false,dn=false;ids.forEach(id=>{if(!V.prev.has(id))up=true});V.prev.forEach(id=>{if(!ids.has(id))dn=true});if(up)beep(true);else if(dn)beep(false)}
-   if(ids.has(ME.id))V.prev=ids;
+   if(V.sid&&ids.has(V.sid))V.prev=ids;
   }
   chans();vui();
  }else if(m.t==='vpeers'){
-  if(V.room===m.room)(m.peers||[]).forEach(p=>voffer(p.id).catch(()=>{}));
+  if(V.room===m.room){V.sid=m.sid||V.sid;(m.peers||[]).forEach(p=>{if(!p.sid)return;V.peerMeta[p.sid]=p;voffer(p.sid).catch(()=>{})})}
  }else if(m.t==='vsig'){vsig(m.from,m.data)}
 }
 async function vjoin(name,room){
  if(V.room)await vleave(true);
- V.room=room;V.name=name;voice=name;V.prev=null;
+ const joinSeq=++V.joinSeq;
+ V.room=room;V.name=name;V.sid=null;V.peerMeta={};voice=name;V.prev=null;
  try{if(!V.ctx)V.ctx=new (window.AudioContext||window.webkitAudioContext)();if(V.ctx.state==='suspended')V.ctx.resume()}catch(e){}
  try{
-  V.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
- }catch(e){V.stream=null;muted=true;vtoast('Mikrofon izni yok, sadece dinleyebilirsin')}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('unsupported');
+  const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+  if(joinSeq!==V.joinSeq||V.room!==room){stream.getTracks().forEach(t=>t.stop());return}
+  V.stream=stream;
+ }catch(e){if(joinSeq!==V.joinSeq||V.room!==room)return;V.stream=null;muted=true;vtoast(e&&e.name==='NotAllowedError'?'Mikrofon izni verilmedi; tarayıcı ayarlarından izin verip tekrar katıl.':'Mikrofon açılamadı; HTTPS bağlantısını ve cihaz izinlerini kontrol et.')}
+ if(joinSeq!==V.joinSeq||V.room!==room){if(V.stream){V.stream.getTracks().forEach(t=>t.stop());V.stream=null}return}
  if(V.stream){V.stream.getAudioTracks().forEach(t=>t.enabled=!muted);vmeter(ME.id,V.stream)}
  clearInterval(V.timer);V.timer=setInterval(vtick,150);
  wsend({t:'vjoin',room,muted,deaf});
@@ -992,13 +999,19 @@ async function vjoin(name,room){
 }
 async function vleave(silent){
  if(!V.room)return;
+ V.joinSeq++;
  if(V.sharing)vShareStop();
- if(typeof CALL!=='undefined'&&CALL&&V.room===CALL.room){if(CALL.out&&(VST[V.room]||[]).length<2)sendWS({t:'fringx',id:CALL.id,why:'cancel'});clearTimeout(CALL.to);CALL=null}
+ if(typeof CALL!=='undefined'&&CALL&&V.room===CALL.room){if(CALL.out&&rusers(V.room).length<2)sendWS({t:'fringx',id:CALL.id,why:'cancel'});clearTimeout(CALL.to);CALL=null}
  wsend({t:'vleave'});
  Object.keys(V.pcs).forEach(closePc);
+ // Ekran paylaşımına ait ayrı WebRTC bağlantılarını da kapat; odadan çıkınca bağlantı sızdırma.
+ Object.keys(V.spcs).forEach(id=>closeSpc(id));
+ if(V.screen){try{V.screen.getTracks().forEach(t=>t.stop())}catch(e){}V.screen=null}
+ V.sharing=false;
  if(V.stream){V.stream.getTracks().forEach(t=>t.stop());V.stream=null}
  if(V.ana[ME.id]){try{V.ana[ME.id].src.disconnect()}catch(e){}delete V.ana[ME.id]}
- clearInterval(V.timer);V.prev=null;V.room=null;V.name='';voice=null;V.speak={};
+ Object.keys(V.auds).forEach(id=>{const a=V.auds[id];try{a.pause();a.srcObject=null;a.remove()}catch(e){}delete V.auds[id]});
+ clearInterval(V.timer);V.prev=null;V.room=null;V.name='';V.sid=null;V.peerMeta={};voice=null;V.speak={};V.pend={};V.spend={};
  if(!silent)V.ui=null;
  vpanel();chans();
 }
@@ -1427,7 +1440,7 @@ async function startCall(id){
  V.ui='full';vui();
  sendWS({t:'fring',id});
  const c=CALL;
- if(c)c.to=setTimeout(()=>{if(CALL===c&&(VST[room]||[]).length<2){sendWS({t:'fringx',id,why:'cancel'});endCall();fT('Cevap vermedi')}},45000);
+ if(c)c.to=setTimeout(()=>{if(CALL===c&&rusers(room).length<2){sendWS({t:'fringx',id,why:'cancel'});endCall();fT('Cevap vermedi')}},45000);
 }
 function endCall(){
  if(CALL){clearTimeout(CALL.to);const r=CALL.room;CALL=null;if(V.room===r){vleave();V.ui=null;vui()}}
