@@ -261,13 +261,16 @@ export class Hub {
       // açık kalabilir ve ses sinyalleri yanlış sekmeye yönlendirilmez.
       delete me.vss;
       me.vr = room; me.vsid = crypto.randomUUID(); me.vm = !!m.muted; me.vd = !!m.deaf; ws.serializeAttachment(me);
-      const peerMap = new Map();
-      for (const x of this.s.getWebSockets()) {
-        if (x === ws || x.readyState !== 1) continue;
-        const a = x.deserializeAttachment();
-        if (a && a.vr === room && a.vsid && a.id !== me.id) peerMap.set(a.vsid, { id: a.id, sid: a.vsid, name: a.name, pic: a.pic || '' });
+      // Every participant receives an updated peer list. Sending vpeers only to
+      // the newcomer leaves existing participants unaware of the new peer, so
+      // calls can fail whenever the newcomer is not the offer initiator.
+      const roomSockets = this.s.getWebSockets().filter(x => x.readyState === 1).map(x => ({ ws: x, a: x.deserializeAttachment() }))
+        .filter(x => x.a && x.a.vr === room && x.a.vsid);
+      for (const target of roomSockets) {
+        const peers = roomSockets.filter(x => x.ws !== target.ws && x.a.id !== target.a.id)
+          .map(x => ({ id: x.a.id, sid: x.a.vsid, name: x.a.name, pic: x.a.pic || '' }));
+        try { target.ws.send(JSON.stringify({ t: 'vpeers', room, sid: target.a.vsid, peers })); } catch {}
       }
-      ws.send(JSON.stringify({ t: 'vpeers', room, sid: me.vsid, peers: [...peerMap.values()] }));
       await this.vstate();
       await this.presence(me.id);
     }

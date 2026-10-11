@@ -973,7 +973,8 @@ function vpc(id){
   }
   let a=V.auds[id];
   if(!a){a=document.createElement('audio');a.autoplay=true;a.playsInline=true;document.body.append(a);V.auds[id]=a}
-  a.srcObject=st;a.muted=deaf||!!V.umute[id];a.volume=V.vol[id]==null?1:V.vol[id];a.play().catch(()=>{});
+  a.srcObject=st;a.autoplay=true;a.playsInline=true;a.muted=deaf||!!V.umute[id];a.volume=V.vol[id]==null?1:V.vol[id];
+  a.play().catch(()=>{const retry=()=>{a.play().catch(()=>{})};document.addEventListener('click',retry,{once:true});document.addEventListener('touchstart',retry,{once:true});});
   if(!V.ana[id])vmeter(id,st);
  };
  pc.onconnectionstatechange=()=>{if(pc.connectionState==='failed'&&V.room){try{pc.restartIce();voffer(id).catch(()=>{})}catch(e){}}};
@@ -1033,7 +1034,12 @@ function voiceMsg(m){
   }
   chans();vui();
  }else if(m.t==='vpeers'){
-  if(V.room===m.room){V.sid=m.sid||V.sid;(m.peers||[]).forEach(p=>{if(!p.sid||p.sid===V.sid)return;V.peerMeta[p.sid]=p;/* Tek taraf teklif başlatsın: grup görüşmelerinde aynı anda offer çakışmasını azaltır. */if(String(V.sid||'')<String(p.sid||''))voffer(p.sid).catch(()=>{})})}
+  if(V.room===m.room){
+   // Server sends this list to each socket; do not overwrite our sid if a stale
+   // or unexpected packet belongs to another local session.
+   if(!V.sid||V.sid===m.sid)V.sid=m.sid||V.sid;
+   if(V.sid===m.sid)(m.peers||[]).forEach(p=>{if(!p.sid||p.sid===V.sid)return;V.peerMeta[p.sid]=p;/* Offer initiator is deterministic to avoid glare. */if(String(V.sid||'')<String(p.sid||''))voffer(p.sid).catch(()=>{})});
+  }
  }else if(m.t==='vsig'){vsig(m.from,m.data)}
 }
 async function vjoin(name,room){
