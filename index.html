@@ -1079,64 +1079,82 @@ async function vCamFlip(){
  if(V.cameraBusy)return;
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){vtoast('Bu tarayıcı kamera erişimini desteklemiyor.');return}
  V.cameraBusy=true;vui();
+ const roomAtStart=V.room;
+ const oldStream=V.camera;
+ const oldTrack=oldStream&&oldStream.getVideoTracks()[0];
+ const oldSettings=oldTrack&&oldTrack.getSettings?oldTrack.getSettings():{};
+ const oldId=oldSettings.deviceId||'';
+ const oldFacing=V.cameraFacing;
+ const next=oldFacing==='user'?'environment':'user';
  let fresh=null;
+ // Android/Chrome çoğu cihazda aynı anda ikinci kamera açılamaz. Önce eski kamerayı
+ // gerçekten durdurup sonra yeni kamerayı aç; başarısız olursa eski kamerayı geri aç.
  try{
-  const oldTrack=V.camera.getVideoTracks()[0];
-  const currentSettings=oldTrack&&oldTrack.getSettings?oldTrack.getSettings():{};
-  const currentId=currentSettings.deviceId||'';
-  const next=V.cameraFacing==='user'?'environment':'user';
-  const constraints=[
-   {video:{facingMode:{exact:next}},audio:false},
-   {video:{facingMode:{ideal:next}},audio:false}
-  ];
-  // Android cihazlarda facingMode bazen yok sayılır; cihaz listesinden farklı kamerayı seç.
-  let devices=[];
-  try{devices=await navigator.mediaDevices.enumerateDevices()}catch(e){}
+  if(oldTrack){try{oldTrack.stop()}catch(e){}}
+  oldStream.getTracks().forEach(t=>{try{t.stop()}catch(e){}});
+  if(V.localVideoEl){V.localVideoEl.pause();V.localVideoEl.srcObject=null}
+  for(const pc of Object.values(V.pcs)){
+   if(!pc||pc.connectionState==='closed')continue;
+   const sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video')||pc.getTransceivers().find(x=>x.receiver&&x.receiver.track&&x.receiver.track.kind==='video')?.sender;
+   if(sender){try{await sender.replaceTrack(null)}catch(e){}}
+  }
+  let devices=[];try{devices=await navigator.mediaDevices.enumerateDevices()}catch(e){}
   const cams=devices.filter(d=>d.kind==='videoinput');
-  const other=cams.find(d=>d.deviceId&&d.deviceId!==currentId&&
-    (next==='environment'?/back|rear|environment|arka|world/i.test(d.label):/front|user|ön|ön kamera|facetime/i.test(d.label)));
-  const different=cams.find(d=>d.deviceId&&d.deviceId!==currentId);
-  const target=other||different;
-  if(target)constraints.push({video:{deviceId:{exact:target.deviceId}},audio:false});
+  const target=cams.find(d=>d.deviceId&&d.deviceId!==oldId&&(next==='environment'?/back|rear|environment|arka|world/i.test(d.label):/front|user|ön|facetime/i.test(d.label)))||cams.find(d=>d.deviceId&&d.deviceId!==oldId);
+  const attempts=[];
+  if(target)attempts.push({video:{deviceId:{exact:target.deviceId}},audio:false});
+  attempts.push({video:{facingMode:{exact:next}},audio:false});
+  attempts.push({video:{facingMode:{ideal:next}},audio:false});
   let lastError=null;
-  for(const c of constraints){
+  for(const constraints of attempts){
    try{
-    fresh=await navigator.mediaDevices.getUserMedia(c);
-    const t=fresh.getVideoTracks()[0];
-    const actual=t&&t.getSettings?t.getSettings():{};
-    // exact device seçimi mümkünse aynı kameraya sessizce dönülmesini önle.
-    if(!t)throw new Error('no video track');
-    if(currentId&&actual.deviceId===currentId&&cams.length>1){
-     fresh.getTracks().forEach(x=>x.stop());fresh=null;continue;
-    }
+    fresh=await navigator.mediaDevices.getUserMedia(constraints);
+    const track=fresh.getVideoTracks()[0];
+    if(!track)throw new Error('no video track');
+    const actual=track.getSettings?track.getSettings():{};
+    if(oldId&&actual.deviceId===oldId&&cams.length>1){fresh.getTracks().forEach(t=>t.stop());fresh=null;continue}
     break;
-   }catch(e){lastError=e; if(fresh){fresh.getTracks().forEach(x=>x.stop());fresh=null}}
+   }catch(e){lastError=e;if(fresh){fresh.getTracks().forEach(t=>t.stop());fresh=null}}
   }
-  if(!fresh)throw lastError||new Error('no alternate camera');
-  if(!V.room){fresh.getTracks().forEach(t=>t.stop());return}
+  if(!fresh)throw lastError||new Error('alternate camera unavailable');
+  if(V.room!==roomAtStart){fresh.getTracks().forEach(t=>t.stop());fresh=null;return}
   const track=fresh.getVideoTracks()[0];
-  // Önce bütün WebRTC göndericilerini yeni kameraya geçir; biri hata verirse eski kamera açık kalır.
-  for(const id of Object.keys(V.pcs)){
-   const pc=V.pcs[id];if(!pc||pc.connectionState==='closed')continue;
-   let sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video');
-   if(!sender)sender=pc.getTransceivers().find(x=>x.receiver&&x.receiver.track&&x.receiver.track.kind==='video')?.sender;
+  for(const pc of Object.values(V.pcs)){
+   if(!pc||pc.connectionState==='closed')continue;
+   let sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video')||pc.getTransceivers().find(x=>x.receiver&&x.receiver.track&&x.receiver.track.kind==='video')?.sender;
    if(sender)await sender.replaceTrack(track);
-   else {pc.addTrack(track,fresh);await voffer(id)}
+   else {pc.addTrack(track,fresh);const id=Object.keys(V.pcs).find(k=>V.pcs[k]===pc);if(id)await voffer(id)}
   }
-  const old=V.camera;V.camera=fresh;fresh=null;V.cameraFacing=next;
-  if(V.localVideoEl){
-   V.localVideoEl.srcObject=V.camera;
-   V.localVideoEl.style.transform=next==='user'?'scaleX(-1)':'none';
-   try{await V.localVideoEl.play()}catch(e){}
-  }
-  if(old)old.getTracks().forEach(t=>t.stop());
+  V.camera=fresh;fresh=null;V.cameraFacing=next;
+  if(!V.localVideoEl){V.localVideoEl=document.createElement('video');V.localVideoEl.autoplay=true;V.localVideoEl.muted=true;V.localVideoEl.playsInline=true}
+  V.localVideoEl.srcObject=V.camera;
+  V.localVideoEl.style.transform=next==='user'?'scaleX(-1)':'none';
+  try{await V.localVideoEl.play()}catch(e){}
   vtoast(next==='environment'?'Arka kamera açıldı':'Ön kamera açıldı');
  }catch(e){
-  if(fresh)fresh.getTracks().forEach(t=>t.stop());
-  const msg=e&&e.name==='NotAllowedError'?'Kamera izni verilmedi. Tarayıcı ayarlarından izin ver.':
-   e&&e.name==='NotReadableError'?'Kamera başka bir uygulama tarafından kullanılıyor; diğer uygulamayı kapatıp dene.':
-   e&&e.name==='OverconstrainedError'?'Bu kamera modu desteklenmiyor.':
-   'Diğer kamera bulunamadı veya telefon/tarayıcı geçişe izin vermedi. Chrome kamera iznini kontrol et.';
+  if(fresh){fresh.getTracks().forEach(t=>t.stop());fresh=null}
+  // Geri dönüş: yeni kamera açılamadıysa kullanıcıyı kamerasız bırakma.
+  let restored=null;
+  try{
+   const fallback=oldId?{video:{deviceId:{exact:oldId}},audio:false}:{video:{facingMode:{ideal:oldFacing}},audio:false};
+   restored=await navigator.mediaDevices.getUserMedia(fallback);
+  }catch(restoreError){
+   try{restored=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:oldFacing}},audio:false})}catch(e2){}
+  }
+  if(restored&&V.room===roomAtStart){
+   V.camera=restored;V.cameraFacing=oldFacing;
+   const track=restored.getVideoTracks()[0];
+   for(const pc of Object.values(V.pcs)){
+    if(!pc||pc.connectionState==='closed')continue;
+    const sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video')||pc.getTransceivers().find(x=>x.receiver&&x.receiver.track&&x.receiver.track.kind==='video')?.sender;
+    if(sender)try{await sender.replaceTrack(track)}catch(e2){}
+   }
+   if(V.localVideoEl){V.localVideoEl.srcObject=restored;V.localVideoEl.style.transform=oldFacing==='user'?'scaleX(-1)':'none';try{await V.localVideoEl.play()}catch(e2){}}
+  }else if(restored){restored.getTracks().forEach(t=>t.stop())}
+  const msg=e&&e.name==='NotAllowedError'?'Kamera izni verilmedi. Chrome ayarlarından kamera iznini aç.':
+   e&&e.name==='NotReadableError'?'Telefon kamerayı açamadı. Diğer uygulamaları kapatıp tekrar dene; önceki kamera geri yüklenmeye çalışıldı.':
+   e&&e.name==='OverconstrainedError'?'Bu kamera modu desteklenmiyor; önceki kamera geri yüklenmeye çalışıldı.':
+   'Arka kamera açılamadı; önceki kamera geri yüklenmeye çalışıldı. Telefon kamerası izinlerini kontrol et.';
   vtoast(msg);
  }finally{V.cameraBusy=false;vui()}
 }
