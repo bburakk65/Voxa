@@ -1322,4 +1322,417 @@ try{
 }catch(e){}
 
 /* ===== SESLİ MESAJ ===== */
-const VM={rec:null,chunks:[],t0:0,tm:null,stream:null,cancel:false,aud:{},play:null,wa
+const VM={rec:null,chunks:[],t0:0,tm:null,stream:null,cancel:false,aud:{},play:null,want:''};
+const vmFmt=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
+function vmPlayer(m){
+ const d=document.createElement('div');d.className='vm';d.dataset.mid=m.mid;
+ d.innerHTML=`<button class="vmp" data-k="play" type="button" aria-label="Oynat">▶</button><div class="vmb"><i></i></div><span class="vmd">${vmFmt(m.au.d)}</span>`;
+ return d;
+}
+async function vmStart(){
+ if(VM.rec)return;
+ if(!key()||(srv==='home'&&!String(ch).startsWith('dm:'))){fT('Önce bir kanal ya da sohbet seç');return}
+ if(!navigator.mediaDevices||!window.MediaRecorder){fT('Bu tarayıcı sesli mesajı desteklemiyor');return}
+ try{VM.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})}catch(e){fT('Mikrofon izni verilmedi');return}
+ const mt=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus'].find(t=>MediaRecorder.isTypeSupported(t))||'';
+ VM.chunks=[];VM.cancel=false;
+ let rec;
+ try{rec=new MediaRecorder(VM.stream,mt?{mimeType:mt,audioBitsPerSecond:24000}:{audioBitsPerSecond:24000})}catch(e){VM.stream.getTracks().forEach(t=>t.stop());VM.stream=null;fT('Kayıt başlatılamadı');return}
+ VM.rec=rec;
+ rec.ondataavailable=e=>{if(e.data&&e.data.size)VM.chunks.push(e.data)};
+ rec.onstop=()=>vmDone(rec.mimeType||mt||'audio/webm');
+ rec.start(250);VM.t0=Date.now();
+ document.querySelector('.cin').classList.add('rec');$('rtime').textContent='0:00';
+ clearInterval(VM.tm);VM.tm=setInterval(()=>{const s=(Date.now()-VM.t0)/1000;$('rtime').textContent=vmFmt(s);if(s>=60)vmStop(false)},250);
+}
+function vmStop(cancel){
+ if(!VM.rec)return;VM.cancel=!!cancel;
+ try{VM.rec.stop()}catch(e){vmDone('')}
+}
+function vmDone(mime){
+ clearInterval(VM.tm);
+ if(VM.stream){VM.stream.getTracks().forEach(t=>t.stop());VM.stream=null}
+ const dur=Math.max(1,Math.round((Date.now()-VM.t0)/1000)),chunks=VM.chunks,cancel=VM.cancel;
+ VM.rec=null;VM.chunks=[];
+ document.querySelector('.cin').classList.remove('rec');
+ if(cancel||!chunks.length)return;
+ const blob=new Blob(chunks,{type:mime||'audio/webm'});
+ if(blob.size>280000){fT('Sesli mesaj çok büyük');return}
+ const fr=new FileReader();
+ fr.onload=()=>{const data=String(fr.result).split(',')[1]||'';sendWS({t:'vmsg',ch:key(),data,dur:Math.min(60,dur),mime:blob.type})};
+ fr.readAsDataURL(blob);
+}
+function vmUi(mid,playing,pct){
+ const n=document.querySelector('.vm[data-mid="'+mid+'"]');if(!n)return;
+ n.querySelector('.vmp').textContent=playing?'⏸':'▶';
+ if(pct!==undefined)n.querySelector('.vmb i').style.width=Math.round(pct*100)+'%';
+}
+function vmGot(m){
+ VM.aud[m.mid]='data:'+(m.mime||'audio/webm')+';base64,'+m.data;
+ if(VM.want===m.mid)vmPlay(m.mid);
+}
+function vmPlay(mid){
+ if(VM.play&&VM.play.mid===mid){if(VM.play.a.paused)VM.play.a.play();else VM.play.a.pause();return}
+ if(VM.play){VM.play.a.pause();vmUi(VM.play.mid,false,0)}
+ if(!VM.aud[mid]){VM.want=mid;sendWS({t:'aud',mid});vmUi(mid,false);const n=document.querySelector('.vm[data-mid="'+mid+'"]');if(n)n.querySelector('.vmp').textContent='…';return}
+ const a=new Audio(VM.aud[mid]);VM.play={mid,a};
+ a.onplay=()=>vmUi(mid,true);a.onpause=()=>vmUi(mid,false);
+ a.ontimeupdate=()=>vmUi(mid,!a.paused,a.duration?a.currentTime/a.duration:0);
+ a.onended=()=>{vmUi(mid,false,0);VM.play=null};
+ a.play().catch(()=>vmUi(mid,false));
+}
+try{
+ const rb=document.createElement('div');rb.id='recbar';
+ rb.innerHTML='<button type="button" data-rc="x" aria-label="İptal">🗑</button><span class="rdot"></span><b id="rtime">0:00</b><span class="rhint">Kaydediliyor…</span><button type="button" data-rc="send" aria-label="Gönder">➤</button>';
+ $('form').append(rb);
+ $('rmic').onclick=vmStart;
+ rb.addEventListener('click',e=>{const r=e.target.closest('[data-rc]');if(r)vmStop(r.dataset.rc==='x')});
+ $('msgs').addEventListener('click',e=>{const b=e.target.closest('.vmp');if(!b)return;const n=b.closest('.vm');if(n)vmPlay(n.dataset.mid)});
+}catch(e){}
+
+/* ===== ÖZEL SESLİ ARAMA ===== */
+let CALL=null,RING=null,RINGT=null,RINGI=null;
+const callRoom=id=>dmKey(id)+'/call';
+async function startCall(id){
+ const p=findP(id);if(!p)return;
+ if(!p.on){fT(dn(p)+' şu an çevrimdışı');return}
+ const room=callRoom(id);
+ CALL={id,room,out:true};
+ if(V.room!==room)await vjoin('Arama · '+dn(p),room);
+ V.ui='full';vui();
+ sendWS({t:'fring',id});
+ const c=CALL;
+ if(c)c.to=setTimeout(()=>{if(CALL===c&&(VST[room]||[]).length<2){sendWS({t:'fringx',id,why:'cancel'});endCall();fT('Cevap vermedi')}},45000);
+}
+function endCall(){
+ if(CALL){clearTimeout(CALL.to);const r=CALL.room;CALL=null;if(V.room===r){vleave();V.ui=null;vui()}}
+}
+function answerCall(room,id){
+ const p=findP(id);
+ vjoin('Arama · '+(p?dn(p):'Arkadaş'),room).then(()=>{V.ui='full';vui()});
+}
+function ringTone(on){
+ clearInterval(RINGI);if(!on)return;
+ const beep=()=>{
+  try{if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();const t=AC.currentTime;
+   for(const [f,d] of [[660,0],[880,.25]]){const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;g.gain.setValueAtTime(.0001,t+d);g.gain.exponentialRampToValueAtTime(.12,t+d+.02);g.gain.exponentialRampToValueAtTime(.0001,t+d+.22);o.connect(g);g.connect(AC.destination);o.start(t+d);o.stop(t+d+.25)}}catch(e){}
+  try{if(navigator.vibrate)navigator.vibrate([300,150,300])}catch(e){}
+ };
+ beep();RINGI=setInterval(beep,1600);
+}
+function hideRing(){const b=$('vringb');if(b)b.classList.remove('on');ringTone(false);clearTimeout(RINGT);RING=null}
+function showRing(from,room){
+ if(V.room===room)return;
+ const b=$('vringb');if(!b)return;
+ const n=dn(findP(from.id)||from);
+ b.innerHTML=`${fav(from,0)}<div><b>${esc(n)}</b> seni arıyor<small>📞 Sesli arama</small></div><button class="fbtn red" data-fa="rno" data-id="${esc(from.id)}">Reddet</button><button class="fbtn ok" data-fa="ryes" data-room="${esc(room)}" data-id="${esc(from.id)}">Cevapla</button>`;
+ b.classList.add('on');RING={id:from.id,room};
+ ringTone(true);clearTimeout(RINGT);RINGT=setTimeout(hideRing,40000);
+ sNotify('Gelen arama',n+' seni arıyor');
+}
+
+/* ===== KAYIT / GİRİŞ ===== */
+const AU={mode:'login',busy:false,ck:null};
+const auUserOK=u=>/^[A-Za-z0-9_.]{3,20}$/.test(u);
+function auStrength(p){let n=0;if(p.length>=8)n++;if(p.length>=12)n++;if(/[a-z]/.test(p)&&/[A-Z]/.test(p))n++;if(/\d/.test(p))n++;if(/[^A-Za-z0-9]/.test(p))n++;return Math.min(4,n)}
+function auMode(m){
+ AU.mode=m;const reg=m==='reg';
+ document.querySelector('.atabs').classList.toggle('reg',reg);
+ document.querySelectorAll('.atab').forEach(b=>b.classList.toggle('on',b.dataset.at===m));
+ $('afold').classList.toggle('open',reg);
+ $('ap').autocomplete=reg?'new-password':'current-password';
+ $('asub').querySelector('.ab-t').textContent=reg?'Hesap Oluştur':'Giriş Yap';
+ $('aerr').textContent='';$('au_s').textContent='';$('au_s').className='afs';
+ document.querySelectorAll('.af').forEach(x=>x.classList.remove('bad'));
+ const f=$('aform');f.classList.remove('swap');void f.offsetWidth;f.classList.add('swap');
+}
+function auBad(id,msg){
+ const w=$(id).closest('.af')||$(id);w.classList.remove('bad');void w.offsetWidth;w.classList.add('bad');
+ $('aerr').textContent=msg;if($(id).focus)$(id).focus();
+}
+function auBusy(on){AU.busy=on;$('asub').disabled=on;$('asub').classList.toggle('load',on)}
+async function auSubmit(){
+ if(AU.busy)return;
+ const reg=AU.mode==='reg',u=$('au').value.trim(),p=$('ap').value;
+ $('aerr').textContent='';document.querySelectorAll('.af').forEach(x=>x.classList.remove('bad'));
+ if(!u)return auBad('au','Kullanıcı adını yaz');
+ if(reg&&!auUserOK(u))return auBad('au','Kullanıcı adı 3-20 karakter olmalı (harf, rakam, _ ve .)');
+ if(!p)return auBad('ap','Şifreni yaz');
+ if(reg){
+  if(p.length<8)return auBad('ap','Şifre en az 8 karakter olmalı');
+  if(p!==$('ap2').value)return auBad('ap2','Şifreler aynı değil');
+ }
+ auBusy(true);
+ let r;
+ try{
+  const res=await fetch('/auth/'+(reg?'register':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+  r=await res.json();
+ }catch(e){auBusy(false);$('aerr').textContent='Bağlantı hatası, internetini kontrol edip tekrar dene';return}
+ if(!r||!r.ok||!r.token){
+  auBusy(false);
+  const f=r&&r.field==='username'?'au':(r&&r.field==='password'?'ap':'ap');
+  auBad(f,(r&&r.msg)||'Bir sorun çıktı, tekrar dene');return;
+ }
+ try{localStorage.setItem('voxa_user',JSON.stringify({token:r.token}))}catch(e){}
+ $('asub').classList.remove('load');$('asub').classList.add('ok');$('asub').querySelector('.ab-t').textContent='Hoş geldin, '+(r.name||u)+' ✓';
+ setTimeout(()=>{const c=document.querySelector('#login .card');if(c)c.classList.add('out');setTimeout(()=>enter(jwt(r.token),r.token),420)},550);
+}
+try{
+ document.querySelectorAll('.atab').forEach(b=>b.addEventListener('click',()=>auMode(b.dataset.at)));
+ $('aform').addEventListener('submit',e=>{e.preventDefault();auSubmit()});
+ $('apeye').addEventListener('click',()=>{const t=$('ap').type==='password'?'text':'password';$('ap').type=t;$('ap2').type=t;$('apeye').style.opacity=t==='text'?'1':''});
+ $('ap').addEventListener('input',()=>{
+  if(AU.mode!=='reg')return;
+  const n=auStrength($('ap').value),L=['Çok zayıf','Zayıf','Orta','İyi','Güçlü'],C=['#f23f43','#f23f43','#f0b132','#5ac26b','#23a559'];
+  $('amb').style.width=($('ap').value?(n+1)*20:0)+'%';$('amb').style.background=C[n];$('amt').textContent=$('ap').value?'Şifre gücü: '+L[n]:'';
+ });
+ $('au').addEventListener('input',()=>{
+  const s=$('au_s');s.textContent='';s.className='afs';clearTimeout(AU.ck);
+  if(AU.mode!=='reg')return;
+  const u=$('au').value.trim();if(u.length<3)return;
+  if(!auUserOK(u)){s.textContent='✗ geçersiz';s.className='afs no';return}
+  AU.ck=setTimeout(async()=>{
+   try{const r=await (await fetch('/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u})})).json();
+    if($('au').value.trim()!==u)return;
+    if(r&&r.ok){s.textContent=r.free?'✓ müsait':'✗ alınmış';s.className='afs '+(r.free?'ok':'no')}}catch(e){}
+  },450);
+ });
+}catch(e){}
+
+
+
+/* ===== GİZLİ YÖNETİM PANELİ ===== */
+let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADPROMOQ='',MUTE_UN='',ADMVIEW='pick',ADMCH='',ADMCHL='',ADMQ='',ADMQT=null,ADMSGS=null,ADREPORTS=null;
+function openAdmin(){
+ if(!ME.admin)return;
+ ADSTATS=null;ADSVLIST=null;ADUSERS=null;ADTAB='dash';ADUQ='';
+ sendWS({t:'adstats'});sendWS({t:'adsvlist'});
+ $('adminFull').classList.add('on');
+ adminRender();
+}
+function closeAdmin(){$('adminFull').classList.remove('on')}
+function adminRender(){
+ const el=$('adminFull');if(!el.classList.contains('on'))return;
+ const tabBtn=(k,l)=>`<button class="ftab ${ADTAB===k?'on':''}" data-fa="adtab" data-k="${k}">${l}</button>`;
+ const adminRow=u2=>`<div class="frow">${av(u2.name,'dot')}<div class="fi"><b>${esc(u2.name)}${admTag(true)}</b><small>Voxa ID: ${esc(u2.code||'')}</small></div><button class="fbtn no" style="padding:7px 10px;font-size:13px" data-fa="addemote" data-id="${esc(u2.id)}" data-n="${esc(u2.name)}">Yetkiyi Kaldır</button></div>`;
+ const logRow=l2=>`<div class="frow" style="padding:7px 0"><div class="fi"><small>${l2.ok?'✅':'❌'} <b>${l2.action==='promote'?'Admin yapıldı':'Yetki kaldırıldı'}</b> — ${esc((l2.by&&l2.by.name)||'?')} → ${esc((l2.target&&l2.target.name)||(l2.target&&l2.target.uname)||'?')}${l2.msg?' ('+esc(l2.msg)+')':''}<br>${new Date(l2.ts).toLocaleString('tr')}</small></div></div>`;
+ const svRow=s2=>`<div class="frow"><div class="fi"><b>${s2.icon?esc(s2.icon)+' ':''}${esc(s2.name)}</b><small>Sahibi: ${esc(s2.ownerName)} · ${s2.memberCount} üye</small></div><button class="fbtn no" style="padding:7px 10px;font-size:13px" data-fa="adsvopen" data-mode="manage" data-id="${esc(s2.id)}">Yönet</button><button class="fbtn" style="padding:7px 10px;font-size:13px" data-fa="adsvopen" data-mode="join" data-id="${esc(s2.id)}">Katıl</button><button class="ib" data-fa="adsvdel" data-id="${esc(s2.id)}" data-n="${esc(s2.name)}" aria-label="Sil">🗑</button></div>`;
+const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Yasaklı</span>':(u2.muted?'<span style="color:#f0b132;font-weight:700">🔇 Susturuldu ('+Math.max(1,Math.ceil((u2.muted-Date.now())/60000))+' dk)</span>':'');
+ const uRow=u2=>`<div class="frow">${av(u2.name,u2.on?'dot':'dot offl')}<div class="fi"><b>${esc(u2.name)}${admTag(u2.admin)}</b><small>${modStatus(u2)?modStatus(u2)+' · ':''}${u2.on?'Çevrimiçi':'Çevrimdışı'} · ${new Date(u2.ts).toLocaleDateString('tr')} kayıt</small></div>${u2.admin?'':`<div class="fact">${u2.banned?`<button class="ib" data-fa="adunban" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Yasağı kaldır">✅</button>`:`<button class="ib" data-fa="adban" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Yasakla">⛔</button>`}${u2.muted?`<button class="ib" data-fa="adunmute" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Susturmayı kaldır">🔊</button>`:`<button class="ib" data-fa="admute" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Sustur">🔇</button>`}<button class="ib" data-fa="aduserdel" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Sil">🗑</button></div>`}</div>`;
+ let body='';
+ if(ADTAB==='dash'){
+  body=`<div class="adgrid">
+   <div class="adstat"><b>${ADSTATS?ADSTATS.users:'…'}</b><small>Kullanıcı</small></div>
+   <div class="adstat"><b>${ADSTATS?ADSTATS.online:'…'}</b><small>Çevrimiçi</small></div>
+   <div class="adstat"><b>${ADSTATS?ADSTATS.servers:'…'}</b><small>Sunucu</small></div>
+   <div class="adstat"><b>${ADSTATS?ADSTATS.messages:'…'}</b><small>Mesaj</small></div>
+  </div>
+  <div class="fsec" style="padding-left:16px">TÜM SUNUCULAR</div>
+  <div style="padding:0 16px">${ADSVLIST?(ADSVLIST.length?ADSVLIST.map(svRow).join(''):'<p class="hint">Hiç sunucu yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
+ }else if(ADTAB==='users'){
+  body=`<div class="fsearch" style="padding:4px 16px 10px"><input id="aduq" value="${esc(ADUQ)}" placeholder="Kullanıcı ara" autocomplete="off"></div>
+  <div style="padding:0 16px">${ADUSERS?(ADUSERS.length?ADUSERS.map(uRow).join(''):'<p class="hint">Sonuç yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
+}else if(ADTAB==='msgs'){
+  const chPill=(id,label,active)=>`<button class="ftab ${active?'on':''}" data-fa="admchpick" data-ch="${esc(id)}" data-l="${esc(label)}" style="margin:3px">#${esc(label)}</button>`;
+  if(ADMVIEW==='reports'){
+   const repRow=r2=>`<div class="frow" style="align-items:flex-start"><div class="fi"><b>#${esc(r2.ch.split('/').slice(1).join('/')||r2.ch)}</b> — ${esc(r2.sender)}<br><small style="color:var(--muted)">${esc(r2.snippet)}</small><br><small>🚩 ${esc(r2.byName)}${r2.reason?' · '+esc(r2.reason):''} · ${new Date(r2.ts).toLocaleString('tr')}</small></div><div class="fact" style="flex-direction:column;gap:4px"><button class="ib" data-fa="admjump" data-ch="${esc(r2.ch)}" data-mid="${esc(r2.mid)}" aria-label="Git">👁</button><button class="ib" data-fa="adreportclear" data-id="${esc(r2.id)}" aria-label="Kapat">✕</button></div></div>`;
+   body=`<div class="ftabs" style="padding:4px 16px 10px">${chPill('','Kanallar',false)}${chPill('r','Şikayetler',true)}</div>
+   <div style="padding:0 16px">${ADREPORTS?(ADREPORTS.length?ADREPORTS.map(repRow).join(''):'<p class="hint">Şikayet yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
+  }else if(!ADMCH){
+   const srvChs=(sid,sname,chs)=>chs.filter(c=>c.kind==='text').map(c=>`<button class="fmi" data-fa="admopench" data-ch="${esc(sid+'/'+c.name)}" data-l="${esc(sname+' · #'+c.name)}">#${esc(c.name)} <small style="color:var(--muted)">— ${esc(sname)}</small></button>`).join('');
+   const built=SERVERS.map(s2=>srvChs(s2.id,s2.name,CH[s2.id].text.map(n=>({name:n,kind:'text'})))).join('');
+   const real=(ADSVLIST||[]).map(s2=>srvChs('sv:'+s2.id,s2.name,s2.channels||[])).join('');
+   body=`<div class="ftabs" style="padding:4px 16px 10px">${chPill('','Kanallar',true)}${chPill('r','Şikayetler',false)}</div>
+   <div class="fsec" style="padding-left:16px">BİR KANAL SEÇ</div>
+   <div style="padding:0 16px">${built}${real||'<p class="hint">Sunucu yükleniyor…</p>'}</div>`;
+  }else{
+   const mRow=mm=>`<div class="frow" style="align-items:flex-start"><div class="fi"><b style="color:${col(mm.u)}">${esc(mm.u)}</b> <small style="color:var(--muted)">${new Date(mm.ts).toLocaleString('tr')}</small><br>${mm.au?'<small>🎤 Sesli mesaj</small>':`<small>${esc(String(mm.t).slice(0,300))}</small>`}</div><button class="ib" data-fa="admsgdel" data-ch="${esc(ADMCH)}" data-mid="${esc(mm.mid)}" data-n="${esc(mm.u)}" aria-label="Sil">🗑</button></div>`;
+   body=`<div class="fhead" style="padding:8px 16px 0"><button class="ib" data-fa="admchback" aria-label="Geri">←</button><b>#${esc(ADMCHL)}</b></div>
+   <div class="fsearch" style="padding:6px 16px 10px"><input id="admq" value="${esc(ADMQ)}" placeholder="Kullanıcı adı ya da metinde ara" autocomplete="off"></div>
+   <div style="padding:0 16px">${ADMSGS?(ADMSGS.ok===false?`<p class="hint">${esc(ADMSGS.msg||'Görüntülenemiyor')}</p>`:(ADMSGS.list.length?[...ADMSGS.list].reverse().map(mRow).join(''):'<p class="hint">Mesaj yok.</p>')):'<p class="hint">Yükleniyor…</p>'}</div>`;
+  }
+ }else if(ADTAB==='admins'&&ME.mainAdmin){
+  body=`<div class="fsearch" style="padding:4px 16px 2px"><input id="adpromoq" value="${esc(ADPROMOQ)}" placeholder="Admin yapmak için kullanıcı adı yaz" autocomplete="off"><button class="fbtn" style="margin-top:8px;width:100%" data-fa="adpromogo">Admin Yap</button></div>
+  <div class="fsec" style="padding-left:16px">ANA YÖNETİCİ</div>
+  <div style="padding:0 16px">${ADADMINS&&ADADMINS.main?`<div class="frow">${av(ADADMINS.main.name,'dot')}<div class="fi"><b>${esc(ADADMINS.main.name)}${admTag(true)}</b><small>Kaldırılamaz</small></div></div>`:'<p class="hint">Yükleniyor…</p>'}</div>
+  <div class="fsec" style="padding-left:16px">YETKİLENDİRİLMİŞ ADMİNLER</div>
+  <div style="padding:0 16px">${ADADMINS?(ADADMINS.list.length?ADADMINS.list.map(adminRow).join(''):'<p class="hint">Henüz yetkilendirilmiş admin yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>
+  <div class="fsec" style="padding-left:16px">SON İŞLEMLER</div>
+  <div style="padding:0 16px">${ADADMINS?(ADADMINS.log.length?ADADMINS.log.map(logRow).join(''):'<p class="hint">Kayıt yok.</p>'):''}</div>`;
+ }
+ el.innerHTML=`<div class="vh"><button class="vb" data-fa="adminclose" aria-label="Kapat">${ic(P.down)}</button><div class="vt">Yönetim Paneli</div><span class="gap"></span></div>
+ <div class="ftabs" style="padding:10px 16px 0">${tabBtn('dash','Dashboard')}${tabBtn('users','Kullanıcılar')}${tabBtn('msgs','Mesajlar')}${ME.mainAdmin?tabBtn('admins','Yöneticiler'):''}</div>
+ <div class="adbody">${body}</div>`;
+}
+function adminMsg(m){
+ if(m.t==='adstats'){ADSTATS=m;adminRender()}
+ else if(m.t==='adsvlist'){ADSVLIST=m.list||[];adminRender()}
+ else if(m.t==='adsvdel'){fT('Sunucu silindi');ADSVLIST=(ADSVLIST||[]).filter(s2=>s2.id!==m.id);adminRender();sendWS({t:'adstats'})}
+ else if(m.t==='adusers'){ADUSERS=m.list||[];adminRender()}
+ else if(m.t==='adsvopen'){
+  if(!m.ok){fT(m.msg||'Sunucu açılamadı');return}
+  const i=MYSV.findIndex(x=>x.id===m.server.id);
+  if(i>=0)MYSV[i]=m.server;else MYSV.push(m.server);
+  if(ADOPENMODE==='manage'){
+   MGMT=m.server;MGMTCODE='';MGMTMEM=null;sendWS({t:'svmembers',id:m.server.id});mgmtRender();
+  }else{
+   closeAdmin();
+   srv='sv:'+m.server.id;ch=(m.server.channels.find(c=>c.kind==='text')||{}).name||'';
+   all();drawer(false);
+  }
+ }
+ else if(m.t==='aduserdel'){if(m.ok){fT('Kullanıcı silindi');ADUSERS=(ADUSERS||[]).filter(u2=>u2.uname!==m.uname);adminRender();sendWS({t:'adstats'})}else fT(m.msg||'Silinemedi')}
+ else if(m.t==='adadmins'){ADADMINS=m;adminRender()}
+ else if(m.t==='adpromote'){fT(m.msg||(m.ok?'Tamam':'İşlem başarısız'));if(m.ok){ADPROMOQ='';sendWS({t:'adadmins'})}}
+ else if(m.t==='addemote'){fT(m.ok?'Yetki kaldırıldı':(m.msg||'İşlem başarısız'));if(m.ok)sendWS({t:'adadmins'})}
+ else if(m.t==='admute'){fT(m.ok?'Kullanıcı susturuldu':(m.msg||'İşlem başarısız'));if(m.ok&&ADTAB==='users')sendWS({t:'adusers',q:ADUQ})}
+ else if(m.t==='adunmute'){fT(m.ok?'Susturma kaldırıldı':(m.msg||'İşlem başarısız'));if(m.ok&&ADTAB==='users')sendWS({t:'adusers',q:ADUQ})}
+ else if(m.t==='adban'){fT(m.ok?'Kullanıcı yasaklandı':(m.msg||'İşlem başarısız'));if(m.ok&&ADTAB==='users')sendWS({t:'adusers',q:ADUQ})}
+ else if(m.t==='adunban'){fT(m.ok?'Yasak kaldırıldı':(m.msg||'İşlem başarısız'));if(m.ok&&ADTAB==='users')sendWS({t:'adusers',q:ADUQ})}
+ else if(m.t==='modstate'){if(m.banned){fT('Hesabın yasaklandı')}else if(m.muted){fT('Susturuldun')}else{fT('Susturman kaldırıldı')}}
+ else if(m.t==='admsgs'){if(m.ch===ADMCH)ADMSGS=m;adminRender()}
+ else if(m.t==='admsgdel'){fT(m.ok?'Mesaj silindi':(m.msg||'Silinemedi'));if(m.ok&&ADMSGS&&ADMSGS.list)ADMSGS.list=ADMSGS.list.filter(x=>x.mid!==m.mid);adminRender()}
+ else if(m.t==='adreports'){ADREPORTS=m.list||[];adminRender()}
+ else if(m.t==='adreportclear'){if(m.ok){ADREPORTS=(ADREPORTS||[]).filter(x=>x.id!==m.id);fT('Şikayet kapatıldı');adminRender()}}
+}
+/* ===== SUNUCU / KANAL / ROL UI ===== */
+function openServerAdd(){
+ $('fsheet').innerHTML=`<div class="fcard"><h3 style="margin-bottom:10px">Sunucu</h3>
+ <button class="fmi" data-fa="svnew">➕ Sunucu Oluştur</button>
+ <button class="fmi" data-fa="svjn">🔗 Davet Koduyla Katıl</button>
+ <div class="row2" style="margin-top:8px"><button class="fbtn no" data-fa="close">Kapat</button></div></div>`;
+ $('fsheet').classList.add('on');
+}
+function openServerNew(){
+ fDlg(`<div class="fcard"><h3>Yeni Sunucu</h3><label class="af"><span>Sunucu adı</span><input id="svn" maxlength="32" autocomplete="off"></label><label class="af"><span>Simge (emoji, opsiyonel)</span><input id="svi" maxlength="4" autocomplete="off"></label><div class="row2"><button class="fbtn no" data-fa="close">Vazgeç</button><button class="fbtn" data-fa="svnewgo">Oluştur</button></div></div>`);
+}
+function serverCreateGo(){
+ const n=($('svn')||{value:''}).value.trim(),ic2=($('svi')||{value:''}).value.trim();
+ if(!n){fT('Sunucuya bir ad ver');return}
+ sendWS({t:'svcreate',name:n,icon:ic2});closeF();
+}
+function openServerJoin(){
+ fDlg(`<div class="fcard"><h3>Sunucuya Katıl</h3><label class="af"><span>Davet kodu</span><input id="svc" maxlength="12" autocomplete="off" autocapitalize="none"></label><div class="row2"><button class="fbtn no" data-fa="close">Vazgeç</button><button class="fbtn" data-fa="svjngo">Katıl</button></div></div>`);
+}
+function serverJoinGo(){
+ const c=($('svc')||{value:''}).value.trim();
+ if(!c){fT('Davet kodunu yaz');return}
+ sendWS({t:'svjoin',code:c});closeF();
+}
+function svConfirmDlg(title,body,okLabel,cb){
+ SVCB=cb;
+ fDlg(`<div class="fcard"><h3>${esc(title)}</h3><p>${esc(body)}</p><div class="row2"><button class="fbtn no" data-fa="close">İptal</button><button class="fbtn red" data-fa="svok">${esc(okLabel)}</button></div></div>`);
+}
+function openMuteDlg(uname,name){
+ MUTE_UN=uname;
+ const opt=(ms,l)=>`<button class="fmi" data-fa="mutego" data-ms="${ms}">${l}</button>`;
+ fDlg(`<div class="fcard"><h3>${esc(name)} kullanıcısını sustur</h3><p>Ne kadar süre için?</p>${opt(300000,'5 dakika')}${opt(900000,'15 dakika')}${opt(3600000,'1 saat')}${opt(86400000,'1 gün')}${opt(604800000,'7 gün (en fazla)')}<div class="row2" style="margin-top:10px"><button class="fbtn no" data-fa="close">Vazgeç</button></div></div>`);
+}
+function openBanDlg(uname,name){
+ MUTE_UN=uname;
+ fDlg(`<div class="fcard"><h3>${esc(name)} kullanıcısını yasakla</h3><p>Bu kişi siteye giriş yapamaz hale gelir. İstersen bir sebep yaz.</p><label class="af"><span>Sebep (opsiyonel)</span><input id="banreason" maxlength="120" autocomplete="off"></label><div class="row2"><button class="fbtn no" data-fa="close">Vazgeç</button><button class="fbtn red" data-fa="bango">Yasakla</button></div></div>`);
+}
+function svPromptDlg(title,placeholder,extra,cb){
+ SVPCB=cb;
+ fDlg(`<div class="fcard"><h3>${esc(title)}</h3><label class="af"><span>${esc(placeholder)}</span><input id="svp" maxlength="32" autocomplete="off"></label>${extra||''}<div class="row2"><button class="fbtn no" data-fa="close">Vazgeç</button><button class="fbtn" data-fa="svpgo">Oluştur</button></div></div>`);
+}
+let CR_N='',CR_K='';
+function openChRoles(name,kind){
+ CR_N=name;CR_K=kind;
+ const s2=MYSV.find(x=>x.id===MGMT.id)||MGMT;
+ const c=s2.channels.find(x=>x.name===name&&x.kind===kind);
+ const cur=(c&&c.roles)||[];
+ const rows=s2.roles.map(r=>`<label style="display:flex;align-items:center;gap:10px;padding:9px 0;font-size:15px"><input type="checkbox" data-crole="${esc(r.id)}" ${cur.includes(r.id)?'checked':''} style="width:18px;height:18px">${esc(r.name)}</label>`).join('');
+ fDlg(`<div class="fcard"><h3>${esc(name)} — Kimler görsün?</h3><p>Hiçbiri işaretli değilse herkese açık olur.</p>${rows||'<p class="hint">Önce bir rol oluştur.</p>'}<div class="row2" style="margin-top:12px"><button class="fbtn no" data-fa="close">Vazgeç</button><button class="fbtn" data-fa="chrolesgo">Kaydet</button></div></div>`);
+}
+function addChannel(kind){
+ svPromptDlg(kind==='voice'?'Yeni Ses Kanalı':'Yeni Metin Kanalı','Kanal adı','',n=>{sendWS({t:'svch_add',id:MGMT.id,name:n,kind})});
+}
+function addRole(){
+ svPromptDlg('Yeni Rol','Rol adı','<label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-size:14px;color:#b5bac1"><input type="checkbox" id="svpadm" style="width:16px;height:16px">Yönetici yetkisi olsun</label>',(n,adm)=>{sendWS({t:'svrole_add',id:MGMT.id,name:n,admin:adm})});
+}
+function mgmtRender(){
+ if(!MGMT)return;
+ const s2=MYSV.find(x=>x.id===MGMT.id);if(!s2){closeF();return}
+ MGMT=s2;
+ const chRow=c=>`<div class="frow"><div class="fi"><b>${c.kind==='voice'?'🔊':'#'} ${esc(c.name)}</b><small>${c.roles&&c.roles.length?'Kısıtlı: '+c.roles.map(rid=>esc((s2.roles.find(r=>r.id===rid)||{}).name||'?')).join(', '):'Herkese açık'}</small></div>${s2.roles.length?`<button class="ib" data-fa="chroles" data-n="${esc(c.name)}" data-k="${c.kind}" aria-label="Rol">🔑</button>`:''}${s2.channels.length>1?`<button class="ib" data-fa="chdel" data-n="${esc(c.name)}" data-k="${c.kind}" aria-label="Sil">🗑</button>`:''}</div>`;
+ const roleRow=r=>`<div class="frow"><div class="fi"><b style="color:${esc(r.color)}">${esc(r.name)}</b><small>${r.admin?'Yönetici yetkisi':'Üye'}</small></div><button class="ib" data-fa="roledel" data-r="${esc(r.id)}" aria-label="Sil">🗑</button></div>`;
+ const memRow=mm=>{const cur=(s2.roles.find(r=>(mm.roles||[]).includes(r.id))||{}).id||'';
+  return `<div class="frow">${fav(mm,1)}<div class="fi"><b>${esc(mm.name)}</b><small>${mm.owner?'Sahip':(cur?esc((s2.roles.find(r=>r.id===cur)||{}).name||''):'Üye')}</small></div>${(!mm.owner&&s2.roles.length)?`<select data-fa="roleassign" data-u="${esc(mm.id)}" data-old="${esc(cur)}" style="background:var(--input);color:#fff;border:0;border-radius:8px;padding:6px"><option value="">Rol yok</option>${s2.roles.map(r=>`<option value="${esc(r.id)}" ${cur===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}</select>`:''}</div>`};
+ fDlg(`<div class="fcard" style="max-height:80vh;overflow-y:auto">
+  <h3>${esc(s2.name)} — Yönetim</h3>
+  <div class="fsec">DAVET</div>
+  <button class="fbtn" data-fa="mkinv">Davet Kodu Oluştur</button>${MGMTCODE?`<p style="margin-top:8px;color:#9aa3ff">Kod: <b>${esc(MGMTCODE)}</b></p><small style="color:var(--muted)">Bu kodu sadece davet etmek istediğin kişiyle paylaş — bir kişi girince kod geçersiz olur.</small>`:''}
+  <div class="fsec">KANALLAR</div>${s2.channels.map(chRow).join('')}
+  <div class="row2" style="margin-top:6px"><button class="fbtn" data-fa="chaddtxt">+ Metin Kanalı</button><button class="fbtn" data-fa="chaddvoice">+ Ses Kanalı</button></div>
+  ${s2.owner?`<div class="fsec">ROLLER</div>${s2.roles.map(roleRow).join('')||'<p class="hint">Henüz rol yok.</p>'}<button class="fbtn" data-fa="roleadd" style="margin-top:6px">+ Rol Oluştur</button>`:''}
+  <div class="fsec">ÜYELER (${s2.memberCount})</div>${(MGMTMEM||[]).map(memRow).join('')||'<p class="hint">Yükleniyor…</p>'}
+  <div class="row2" style="margin-top:14px">${s2.owner?`<button class="fbtn red" data-fa="svdelgo" data-id="${esc(s2.id)}">Sunucuyu Sil</button>`:`<button class="fbtn red" data-fa="svleavego" data-id="${esc(s2.id)}">Sunucudan Ayrıl</button>`}<button class="fbtn no" data-fa="close">Kapat</button></div>
+ </div>`);
+}
+function guildMsg(m){
+ if(m.t==='svservers'){
+  MYSV=m.list||[];rail();if(srv.startsWith('sv:'))chans();if(MGMT&&MYSV.some(x=>x.id===MGMT.id))mgmtRender();
+ }else if(m.t==='svres'){
+  fT(m.msg||(m.ok?'Tamam':'Bir sorun oluştu'));
+  if(m.ok&&m.id){
+   setTimeout(()=>{const s2=MYSV.find(x=>x.id===m.id);if(s2){srv='sv:'+s2.id;ch=(s2.channels.find(c=>c.kind==='text')||{}).name||'';all();drawer(false)}},250);
+  }
+ }else if(m.t==='svinvite'){
+  if(!m.ok){fT(m.msg||'Davet oluşturulamadı');return}
+  MGMTCODE=m.code;mgmtRender();fCopy(m.code,'Davet kodu kopyalandı: '+m.code);
+ }else if(m.t==='svmembers'){
+  MGMTMEM=m.list||[];mgmtRender();
+ }
+}
+/* --- özellikler: mesaj işlemleri, emoji, profil, PWA --- */
+try{
+ ['epick','prof'].forEach(id=>{const d=document.createElement('div');d.id=id;document.body.append(d)});
+ $('msgs').addEventListener('click',e=>{
+  const node=e.target.closest('.m');if(!node)return;
+  const mid=node.dataset.mid,k=e.target.closest('[data-k]'),rx=e.target.closest('.rx');
+  const msg=(HIST[key()]||[]).find(x=>x.mid===mid);
+  if(rx&&msg){sendWS({t:'react',ch:key(),mid,emoji:rx.dataset.e});return}
+  if(k&&msg){
+   const a=k.dataset.k;
+   if(a==='del')sendWS({t:'del',ch:key(),mid});
+   else if(a==='reply'){REPLY={mid,u:msg.u};EDIT=null;bar();$('inp').focus()}
+   else if(a==='edit'){EDIT=mid;REPLY=null;$('inp').value=msg.t;bar();$('inp').focus()}
+   else if(a==='react')openPick(em=>sendWS({t:'react',ch:key(),mid,emoji:em}));
+   else if(a==='report'){svConfirmDlg('Mesajı şikayet et','“'+(msg.au?'[Sesli mesaj]':msg.t)+'” mesajını şikayet etmek istediğine emin misin?','Şikayet Et',()=>{sendWS({t:'reportmsg',ch:key(),mid});});}
+   node.classList.remove('sel');return;
+  }
+  if(e.target.closest('a'))return;
+  document.querySelectorAll('.m.sel').forEach(x=>{if(x!==node)x.classList.remove('sel')});
+  node.classList.toggle('sel');
+ });
+ $('rbar').onclick=e=>{if(e.target.closest('[data-c]')){REPLY=null;EDIT=null;$('inp').value='';bar()}};
+ window.openPick=cb=>{PICK=cb;$('epick').innerHTML='<div class="pc2">'+EMO.map(e=>'<button type="button" data-e="'+e+'">'+e+'</button>').join('')+'</div>';$('epick').classList.add('on')};
+ $('emo').onclick=()=>openPick(em=>{const i=$('inp');i.value+=em;i.focus()});
+ document.addEventListener('click',e=>{
+  const p=$('epick');if(!p.classList.contains('on'))return;
+  const b=e.target.closest('#epick [data-e]');
+  if(b&&PICK){const f=PICK;PICK=null;p.classList.remove('on');f(b.dataset.e);return}
+  if(!e.target.closest('#epick')&&!e.target.closest('#emo')&&!e.target.closest('[data-k="react"]'))p.classList.remove('on');
+ });
+ const profOpen=()=>{$('prof').innerHTML='<div class="pc3"><h3>Profil</h3><label>Takma ad<input id="nick" maxlength="32"></label><div class="pr"><button class="vjoin sm" id="nsave" style="background:#5865f2">Kaydet</button><button class="vc s" id="nx" aria-label="Kapat">✕</button></div></div>';$('nick').value=ME.name;$('prof').classList.add('on')};
+ document.querySelector('.up .who').onclick=profOpen;$('myav').onclick=profOpen;
+ document.addEventListener('click',e=>{
+  const p=$('prof');if(!p.classList.contains('on'))return;
+  if(e.target.closest('#nsave')){const v=$('nick').value.trim();if(v)sendWS({t:'nick',name:v});p.classList.remove('on');return}
+  if(e.target.closest('#nx')||!e.target.closest('#prof .pc3')){if(!e.target.closest('.up'))p.classList.remove('on')}
+ });
+ if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+}catch(e){}
+/* --- lüks: toast, ripple, kanal geçişi --- */
+try{
+ const tc=document.createElement('div');tc.id='toast';document.body.append(tc);
+ let tt;window.toast=m=>{tc.textContent=m;tc.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>tc.classList.remove('on'),2600)};
+ let prev=null;
+ setInterval(()=>{const st=(typeof ws!=='undefined'&&ws)?ws.readyState:-1;if(st!==prev){if(st===1)toast('Bağlandı ✓');else if(prev===1)toast('Bağlantı koptu, yeniden deneniyor…');prev=st}},1000);
+ const _m=msgs;msgs=function(){_m();if(NOANIM)return;const b=$('msgs');b.classList.remove('sw');void b.offsetWidth;b.classList.add('sw')};
+ addEventListener('pointerdown',e=>{const t=e.target.closest('.srv,.ch,.ib,.gbtn');if(!t)return;const r=t.getBoundingClientRect(),s=document.createElement('span'),d=Math.max(r.width,r.height);s.className='ripple';s.style.cssText='width:'+d+'px;height:'+d+'px;left:'+(e.clientX-r.left-d/2)+'px;top:'+(e.clientY-r.top-d/2)+'px';t.append(s);setTimeout(()=>s.remove(),600)});
+}catch(e){}
+</script>
+</body>
+</html>
