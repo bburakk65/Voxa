@@ -280,11 +280,28 @@ html,body{font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif
 #adminFull{position:fixed;inset:0;z-index:85;display:none;flex-direction:column;background:var(--main);color:#fff;padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0)}
 #adminFull.on{display:flex;animation:pageIn .3s var(--ease)}
 @keyframes pageIn{from{opacity:0;transform:translateX(16px)}}
-#adminFull .adbody{flex:1;overflow-y:auto;padding-bottom:24px}
-.adgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:4px 16px 18px}
-.adstat{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px 8px;text-align:center}
-.adstat b{display:block;font-size:22px;font-weight:800}
-.adstat small{color:var(--muted);font-size:11px}
+#adminFull .adbody{flex:1;overflow-y:auto;padding-bottom:24px;animation:adminTabIn .22s ease both}
+@keyframes adminTabIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.logintro{padding:0 20px 10px;color:var(--muted);font-size:12px}
+.logitem{border-bottom:1px solid rgba(255,255,255,.06);cursor:default}
+.logmark{width:28px;height:28px;flex:0 0 28px;border-radius:9px;display:grid;place-items:center;font-weight:800;background:rgba(255,255,255,.08)}
+.logmark.good{color:#4ade80;background:rgba(74,222,128,.12)}.logmark.bad{color:#fb7185;background:rgba(251,113,133,.12)}
+.logitem .fi b{font-size:13px}.logitem .fi small{display:block;line-height:1.45;white-space:normal;overflow-wrap:anywhere}
+@media(prefers-reduced-motion:reduce){#adminFull .adbody,.frow{animation:none!important;transition:none!important}}
+#adminFull .vh{flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.07)}
+#adminFull .ftabs{padding-left:16px;padding-right:16px;gap:8px}
+#adminFull .ftab{min-height:40px;justify-content:center}
+#adminFull .adbody{overscroll-behavior:contain;scrollbar-gutter:stable}
+.adgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:8px 16px 20px}
+.adstat{position:relative;overflow:hidden;min-width:0;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:17px 12px;text-align:left;box-shadow:0 8px 22px rgba(0,0,0,.08);transition:transform .18s,border-color .18s,background .18s}
+.adstat::after{content:"";position:absolute;right:-18px;top:-24px;width:66px;height:66px;border-radius:50%;background:rgba(88,101,242,.12);pointer-events:none}
+.adstat b{position:relative;z-index:1;display:block;font-size:clamp(20px,2vw,27px);font-weight:800;letter-spacing:-.5px;line-height:1.25;font-variant-numeric:tabular-nums}
+.adstat small{position:relative;z-index:1;display:block;margin-top:6px;color:var(--muted);font-size:12px;font-weight:600}
+#adminFull .frow{border:1px solid transparent}
+#adminFull .frow:hover{border-color:rgba(255,255,255,.07);background:rgba(255,255,255,.035)}
+#adminFull .ib,#adminFull .fbtn{min-height:38px}
+@media(max-width:760px){.adgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:8px 12px 16px}.adstat{padding:14px 12px;border-radius:14px}#adminFull .ftabs{padding-left:12px;padding-right:12px;gap:5px}#adminFull .ftab{padding:8px 11px;font-size:13px;min-height:38px}}
+@media(max-width:360px){.adgrid{grid-template-columns:minmax(0,1fr)}#adminFull .ftab{padding:7px 9px;font-size:12px}}
 </style>
 <style id="admincss">.adminTag{display:inline-block;background:#000;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:6px;letter-spacing:.3px;vertical-align:middle;border:1px solid rgba(255,255,255,.25)}.srv.adm{background:linear-gradient(135deg,#ed4245,#f0b132);box-shadow:0 0 0 3px rgba(237,66,69,.35),0 6px 16px rgba(237,66,69,.35);animation:admpulse 2.4s ease-in-out infinite}.srv.adm:hover{transform:translateY(-1px) scale(1.04)}@keyframes admpulse{0%,100%{box-shadow:0 0 0 3px rgba(237,66,69,.35),0 6px 16px rgba(237,66,69,.35)}50%{box-shadow:0 0 0 6px rgba(237,66,69,.12),0 6px 20px rgba(237,66,69,.45)}}</style>
 <style id="sharecss">
@@ -397,6 +414,89 @@ body.dmopen #dmcall{display:grid}
 .adiv::before,.adiv::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.1)}
 .note a{color:#9aa3ff;text-decoration:none}.note a:hover{text-decoration:underline}
 </style>
+<style id="voxa-responsive-polish">
+/* Voxa responsive visual polish — presentation only; preserves existing app logic */
+:root{--vx-border:rgba(255,255,255,.075);--vx-glass:rgba(255,255,255,.035);--vx-shadow:0 16px 42px rgba(0,0,0,.18)}
+html{background:#0d0e12;scrollbar-gutter:stable}
+body{background:radial-gradient(ellipse at 65% -20%,rgba(88,101,242,.09),transparent 48%),var(--rail);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button,input,textarea{touch-action:manipulation}
+button{transition:background-color .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease,transform .18s ease}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid #8b95ff;outline-offset:3px}
+#app{min-width:0;isolation:isolate}
+.rail{border-right:1px solid rgba(255,255,255,.035);padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom))}
+.side{border-right:1px solid var(--vx-border);box-shadow:8px 0 28px rgba(0,0,0,.08)}
+.sh,.mh{background:rgba(20,21,26,.74);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid var(--vx-border);box-shadow:none}
+.sh{height:56px;letter-spacing:.1px}
+.mh{height:56px;padding-left:clamp(12px,1.5vw,24px);padding-right:clamp(12px,1.5vw,24px)}
+.main{background:linear-gradient(145deg,rgba(34,35,42,.98),rgba(25,26,31,.99));min-width:0}
+.ch{min-height:36px;border:1px solid transparent;border-radius:8px;padding:7px 10px}
+.ch:hover{border-color:rgba(255,255,255,.045)}.ch.on{box-shadow:inset 2px 0 #8992ff;background:linear-gradient(90deg,rgba(88,101,242,.2),rgba(88,101,242,.07));color:#fff}
+.srv{box-shadow:0 3px 10px rgba(0,0,0,.12)}.srv.on{box-shadow:0 6px 18px rgba(88,101,242,.3)}
+.ib{width:36px;height:36px;border-radius:9px}.ib:hover{box-shadow:inset 0 0 0 1px var(--vx-border)}
+.up,.vp{background:rgba(16,17,21,.72);border-top:1px solid var(--vx-border)}
+.up{min-height:58px;height:auto;padding-top:8px;padding-bottom:max(8px,env(safe-area-inset-bottom))}
+.m{padding:7px clamp(12px,1.5vw,24px);margin-top:8px;border-radius:8px;animation:slide .18s ease both}
+.m:hover{background:rgba(255,255,255,.035)}.m p{line-height:1.55}
+.m .del{border:1px solid rgba(242,63,67,.24);background:#24252c;border-radius:8px;padding:5px 10px;box-shadow:0 5px 18px rgba(0,0,0,.2)}
+.cin{padding-left:clamp(12px,1.5vw,24px);padding-right:clamp(12px,1.5vw,24px)}
+.cin div{min-height:48px;border:1px solid rgba(255,255,255,.045);box-shadow:0 8px 26px rgba(0,0,0,.1)}
+.cin input{font-size:15px;min-height:44px}
+#login{padding:clamp(16px,4vw,40px)}.card{width:min(100%,420px);border-color:rgba(255,255,255,.12);box-shadow:0 28px 90px rgba(0,0,0,.42),inset 0 1px rgba(255,255,255,.06)}
+.gbtn{min-height:46px;border-radius:10px}.logo{box-shadow:0 10px 30px rgba(88,101,242,.35)}
+#toast{max-width:min(92vw,420px);border:1px solid rgba(255,255,255,.1);box-shadow:var(--vx-shadow);backdrop-filter:blur(18px)}
+/* Large displays: improve breathing room without enlarging or distorting media */
+@media(min-width:1400px){.side{width:260px}.mem{width:260px}.msgs{padding-top:18px;padding-bottom:18px}.m{padding-top:8px;padding-bottom:8px}.cin{padding-bottom:20px}}
+@media(min-width:1920px){.side{width:280px}.mem{width:280px}.sh,.mh{height:62px}.m{padding-left:28px;padding-right:28px}.cin{padding-left:28px;padding-right:28px}}
+@media(max-width:760px){
+ html,body{width:100%;height:100%;height:100dvh;overscroll-behavior:none}
+ #app{height:100%;height:100dvh;min-height:0}
+ .main{width:100%;height:100%;min-height:0}
+ .mh{height:calc(52px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top);gap:10px}
+ .menu{width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.045)}
+ .msgs{padding-top:8px;padding-bottom:8px;overscroll-behavior:contain}
+ .m{gap:10px;padding:7px 12px;margin-top:5px;border-radius:0}
+ .m .av{width:34px;height:34px;font-size:14px}
+ .m .del{display:block;position:static;margin-left:auto;align-self:flex-start;opacity:.82;padding:5px 8px}
+ .cin{padding:0 10px max(10px,env(safe-area-inset-bottom))}
+ .cin div{padding-left:12px;border-radius:12px;min-height:46px}
+ .cin input{font-size:16px}
+ .scrim{z-index:30}.rail{z-index:32;padding-top:max(12px,env(safe-area-inset-top))}.side{z-index:31;padding-top:env(safe-area-inset-top)}
+ .up{padding-bottom:max(8px,env(safe-area-inset-bottom))}
+ .card{padding:clamp(22px,7vw,34px) clamp(18px,6vw,28px);border-radius:22px}
+}
+@media(max-width:380px){.m{gap:8px;padding-left:9px;padding-right:9px}.m .av{width:30px;height:30px}.mh{padding-left:8px;padding-right:8px}.cin{padding-left:7px;padding-right:7px}}
+@media(hover:none){.m .del{opacity:.9}.srv:hover,.ch:hover,.ib:hover{transform:none}}
+@media(prefers-reduced-motion:reduce){html:focus-within{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
+</style>
+
+
+<style id="live-chat-polish">
+/* Voxa live chat polish — visual-only enhancements; existing message protocol retained */
+.conn-status{display:inline-flex;align-items:center;gap:7px;margin-left:auto;padding:5px 10px;border:1px solid rgba(255,255,255,.08);border-radius:999px;background:rgba(255,255,255,.035);font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
+.conn-status::before{content:"";width:7px;height:7px;border-radius:50%;background:#f0b132;box-shadow:0 0 0 3px rgba(240,177,50,.12)}
+.conn-status[data-state="live"]{color:#b9f4d0;border-color:rgba(35,165,89,.22);background:rgba(35,165,89,.07)}
+.conn-status[data-state="live"]::before{background:#23a559;box-shadow:0 0 0 3px rgba(35,165,89,.14);animation:connPulse 2.2s ease-out infinite}
+.conn-status[data-state="retry"]{color:#ffd88a}
+.conn-status[data-state="off"]{color:#ffb4b6}
+@keyframes connPulse{0%{box-shadow:0 0 0 0 rgba(35,165,89,.32)}70%,100%{box-shadow:0 0 0 6px rgba(35,165,89,0)}}
+.m{animation:messageEnter .24s var(--ease, ease-out) both;will-change:opacity,transform}
+@keyframes messageEnter{from{opacity:0;transform:translateY(7px) scale(.995)}to{opacity:1;transform:translateY(0) scale(1)}}
+.m .mb{min-width:0;flex:1}
+.m p{line-height:1.58;overflow-wrap:anywhere}
+.m .mtb{opacity:0;transform:translateY(3px);transition:opacity .16s ease,transform .16s ease}
+.m:hover .mtb,.m:focus-within .mtb{opacity:1;transform:none}
+#typ{display:flex;align-items:center;gap:5px;min-height:18px}
+#typ:not(:empty)::after{content:"";width:4px;height:4px;border-radius:50%;background:currentColor;box-shadow:6px 0 currentColor,12px 0 currentColor;margin-left:8px;animation:typingDots 1s ease-in-out infinite}
+@keyframes typingDots{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-2px)}}
+.ch,.srv,.ib,.rx,.mtb button{transition:transform .16s var(--ease, ease-out),background-color .16s ease,color .16s ease,box-shadow .16s ease}
+.ch:active,.srv:active,.ib:active,.rx:active,.mtb button:active{transform:scale(.95)}
+.cin div{transition:box-shadow .18s ease,border-color .18s ease,transform .18s ease}
+.cin div:focus-within{box-shadow:0 0 0 1px rgba(88,101,242,.8),0 0 0 5px rgba(88,101,242,.12);transform:translateY(-1px)}
+.vu{transition:background .16s ease,transform .16s ease}.vu:hover{background:rgba(255,255,255,.035);transform:translateX(2px)}
+@media(max-width:760px){.conn-status{font-size:10px;padding:4px 8px;gap:5px}.mh{gap:7px}.m{margin:2px 3px;padding:8px 9px;gap:10px}.m .av{width:36px;height:36px}.cin{padding-left:9px;padding-right:9px}.cin div{padding-left:12px}.mtb{opacity:1!important;transform:none!important}}
+@media(prefers-reduced-motion:reduce){.conn-status::before,#typ:not(:empty)::after{animation:none!important}.m{animation:none!important;will-change:auto}.m .mtb,.cin div,.vu{transition:none!important}}
+</style>
+
 </head>
 <body>
 <div id="login">
@@ -414,7 +514,7 @@ body.dmopen #dmcall{display:grid}
   <form id="aform" novalidate>
    <label class="af"><span>Kullanıcı adı</span><input id="au" name="username" autocomplete="username" maxlength="20" autocapitalize="none" spellcheck="false"><em id="au_s" class="afs"></em></label>
    <label class="af"><span>Şifre</span><div class="pw"><input id="ap" name="password" type="password" autocomplete="current-password" maxlength="100"><button type="button" id="apeye" aria-label="Şifreyi göster">👁</button></div></label>
-   <div class="fold" id="afold"><div><div class="ameter"><b id="amb"></b></div><small id="amt" class="amt"></small><label class="af"><span>Şifre (tekrar)</span><input id="ap2" type="password" autocomplete="new-password" maxlength="100"></label></div></div>
+   <div class="fold" id="afold"><div><div class="ameter"><b id="amb"></b></div><small id="amt" class="amt"></small><label class="af"><span>Şifre (tekrar)</span><input id="ap2" type="password" autocomplete="new-password" maxlength="100"></label><label class="af hide" id="adminSetupWrap"><span>Yönetici kurulum anahtarı</span><input id="adminSetupKey" type="password" autocomplete="off" maxlength="100"><small class="note">Yalnızca ilk yönetici hesabını kurarken gerekir.</small></label></div></div>
    <div id="aerr" class="aerr" role="alert" aria-live="polite"></div>
    <button class="abtn" id="asub" type="submit"><span class="ab-t">Giriş Yap</span><i class="spin"></i></button>
   </form>
@@ -478,19 +578,9 @@ function rail(){
 }
 const SV=()=>[{id:'home',name:'Arkadaşlar',short:'👥'},...SERVERS,...GUILDS.map(g=>({id:'dg:'+g.id,name:g.name,short:(g.name||'?')[0].toUpperCase(),icon:g.icon,gid:g.id})),...MYSV.map(s2=>({id:'sv:'+s2.id,name:s2.name,short:(s2.name||'?')[0].toUpperCase(),icon:s2.icon||'',gid:null}))];
 const chOf=id=>{if(id&&id.startsWith('sv:')){const s2=MYSV.find(x=>'sv:'+x.id===id);return s2?{text:s2.channels.filter(c=>c.kind==='text').map(c=>c.name),voice:s2.channels.filter(c=>c.kind==='voice').map(c=>c.name)}:{text:[],voice:[]}}return CH[id]||{text:['genel','sohbet'],voice:['Sesli Oda']}};
-function typ(){const n=Object.keys(TY).filter(k=>TY[k]>Date.now());$('typ').textContent=n.length?n.join(', ')+' yazıyor…':''}
-setInterval(typ,1000);
+function typ(){const now=Date.now();for(const name of Object.keys(TY))if(TY[name]<=now)delete TY[name];const names=Object.keys(TY);const el=$('typ');if(!el)return;el.textContent=names.length?(names.length===1?names[0]+' yazıyor…':names.length===2?names.join(' ve ')+' yazıyor…':names.slice(0,2).join(', ')+' ve '+(names.length-2)+' kişi daha yazıyor…'):''}
+setInterval(typ,500);
 function members(){
- if(srv.startsWith('sv:')){
-  const gid=srv.slice(3);
-  if(SVMEMFOR!==gid){SVMEM=null;SVMEMFOR=gid;sendWS({t:'svmembers',id:gid})}
-  if(!SVMEM){$('mem').innerHTML='<p class="hint" style="padding:14px">Yükleniyor…</p>';return}
-  const on=SVMEM.filter(u=>u.on),off=SVMEM.filter(u=>!u.on);
-  const row=u=>`<div class="vu">${av(u.name,u.on?'dot':'dot offl')}${esc(u.name)}${admTag(u.admin)}${u.owner?' 👑':''}</div>`;
-  $('mem').innerHTML=(on.length?`<div class="cat">ÇEVRİMİÇİ — ${on.length}</div>`+on.map(row).join(''):'')+
-   (off.length?`<div class="cat">ÇEVRİMDIŞI — ${off.length}</div>`+off.map(row).join(''):'')||'<p class="hint" style="padding:14px">Üye yok.</p>';
-  return;
- }
  $('mem').innerHTML=`<div class="cat">ÇEVRİMİÇİ — ${ONL.length}</div>`+ONL.map(u=>`<div class="vu">${av(u.name,'dot')}${esc(u.name)}${admTag(u.admin)}</div>`).join('');
 }
 let REPLY=null,EDIT=null,PICK=null,UNR={},AC=null,NOANIM=false;
@@ -586,18 +676,26 @@ function enter(u,tok){
  if(u.picture){a.textContent='';a.style.background='url('+u.picture+') center/cover'}
  all();connect();
 }
-function logout(){try{localStorage.removeItem('voxa_user')}catch(e){}TOKEN=null;if(ws)ws.close();location.reload()}
+function logout(){userClosed=true;if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null}try{localStorage.removeItem('voxa_user')}catch(e){}TOKEN=null;if(ws)ws.close();location.reload()}
 
 /* --- canlı bağlantı --- */
+let reconnectDelay=1000, reconnectTimer=null, userClosed=false;
+function connectionState(state,label){
+ // Bağlantı durumu başlığın sağında gösterilmiyor; yeniden bağlanma mantığı korunur.
+}
 function connect(){
- ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
- ws.onopen=()=>ws.send(JSON.stringify({t:'auth',token:TOKEN}));
+ if(!TOKEN||userClosed)return;
+ if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null}
+ connectionState('retry','Bağlanıyor');
+ try{ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws')}
+ catch(err){connectionState('off','Bağlantı yok');scheduleReconnect();return}
+ ws.onopen=()=>{reconnectDelay=1000;connectionState('retry','Doğrulanıyor');ws.send(JSON.stringify({t:'auth',token:TOKEN}))};
  ws.onmessage=e=>{
-  const m=JSON.parse(e.data);
-  if(m.t==='ready'){if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;ME.mainAdmin=!!m.me.mainAdmin;profUI()}HIST=m.hist||{};ONL=m.online||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
-  else if(m.t==='online'){ONL=m.online||[];if(srv.startsWith('sv:'))SVMEMFOR='';members()}
+  let m;try{m=JSON.parse(e.data)}catch(err){return}
+  if(m.t==='ready'){connectionState('live','Canlı');if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;ME.mainAdmin=!!m.me.mainAdmin;profUI()}HIST=m.hist||{};ONL=m.online||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
+  else if(m.t==='online'){ONL=m.online||[];members()}
   else if(m.t==='msg'){
-   const L=(HIST[m.ch]=HIST[m.ch]||[]);const prev=L[L.length-1];L.push(m.msg);delete TY[m.msg.u];typ();
+   const L=(HIST[m.ch]=HIST[m.ch]||[]);const prev=L[L.length-1];L.push(m.msg);if(m.msg&&m.msg.u)delete TY[m.msg.u];typ();
    if(m.ch===key()){const b=$('msgs');const nb=b.scrollHeight-b.scrollTop-b.clientHeight<120||m.msg.id===ME.id;addMsg(b,m.msg,prev);if(nb)b.scrollTop=1e9}
    if(m.msg.id!==ME.id&&(m.ch!==key()||document.hidden)){if(m.ch!==key()){UNR[m.ch]=(UNR[m.ch]||0)+1;chans();rail()}utitle();ping()}
   }
@@ -608,17 +706,19 @@ function connect(){
    HIST[m.ch]=(HIST[m.ch]||[]).filter(x=>x.mid!==m.mid);
    if(m.ch===key()){const n=document.querySelector('[data-mid="'+m.mid+'"]');if(n)n.remove()}
   }
-  else if(m.t==='typing'){if(m.ch===key()){TY[m.name]=Date.now()+3000;typ()}}
+  else if(m.t==='typing'){if(m.ch===key()&&m.name&&m.name!==ME.name){TY[m.name]=Date.now()+3000;typ()}}
   else if(m.t==='session'){try{localStorage.setItem('voxa_user',JSON.stringify({token:m.token}))}catch(e){}TOKEN=m.token}
   else if(m.t==='social'||m.t==='freq'||m.t==='fnew'||m.t==='fsearch'||m.t==='fres'||m.t==='fprof'||m.t==='frep'||m.t==='merr'||m.t==='vinv'||m.t==='finv'||m.t==='aud'||m.t==='ring'||m.t==='ringx'||m.t==='fringr'){socialMsg(m)}
   else if(m.t==='svservers'||m.t==='svres'||m.t==='svinvite'||m.t==='svmembers'){guildMsg(m)}
   else if(m.t==='hist'){HIST[m.ch]=m.msgs||[];if(m.ch===key())msgs()}
-  else if(m.t==='adstats'||m.t==='adsvlist'||m.t==='adsvdel'||m.t==='adusers'||m.t==='aduserdel'||m.t==='adsvopen'||m.t==='adadmins'||m.t==='adpromote'||m.t==='addemote'||m.t==='admute'||m.t==='adunmute'||m.t==='adban'||m.t==='adunban'||m.t==='modstate'||m.t==='admsgs'||m.t==='admsgdel'||m.t==='adreports'||m.t==='adreportclear'){adminMsg(m)}
+  else if(m.t==='adstats'||m.t==='adsvlist'||m.t==='adsvdel'||m.t==='adusers'||m.t==='aduserdel'||m.t==='adsvopen'||m.t==='adadmins'||m.t==='adlogs'||m.t==='adpromote'||m.t==='addemote'||m.t==='admute'||m.t==='adunmute'||m.t==='adban'||m.t==='adunban'||m.t==='modstate'||m.t==='admsgs'||m.t==='admsgdel'||m.t==='adreports'||m.t==='adreportclear'){adminMsg(m)}
   else if(m.t==='vstate'||m.t==='vpeers'||m.t==='vsig'){voiceMsg(m)}
-  else if(m.t==='error'){logout()}
+  else if(m.t==='error'){fT(m.msg||'İşlem tamamlanamadı')}
  };
- ws.onclose=()=>{if(window.voiceReset)voiceReset();if(TOKEN)setTimeout(connect,2000)};
+ ws.onerror=()=>connectionState('off','Bağlantı sorunu');
+ ws.onclose=()=>{if(window.voiceReset)voiceReset();if(TOKEN&&!userClosed){connectionState('retry','Yeniden bağlanıyor');scheduleReconnect()}};
 }
+function scheduleReconnect(){if(!TOKEN||userClosed||reconnectTimer)return;const wait=reconnectDelay;reconnectDelay=Math.min(15000,Math.round(reconnectDelay*1.7));reconnectTimer=setTimeout(()=>{reconnectTimer=null;connect()},wait)}
 
 /* --- arayüz olayları --- */
 $('rail').onclick=e=>{const b=e.target.closest('.srv');if(!b)return;if(b.dataset.add){openServerAdd();return}if(b.dataset.admin){openAdmin();return}srv=b.dataset.s;if(srv==='home'){ch='';FVIEW=true}else ch=chOf(srv).text[0]||'';all()};
@@ -630,7 +730,8 @@ $('form').onsubmit=e=>{
  else sendWS({t:'msg',ch:key(),text:v,reply:REPLY?REPLY.mid:undefined});
  REPLY=null;$('inp').value='';bar();
 };
-$('inp').oninput=()=>{const n=Date.now();if(key()&&n-lastT>2000&&ws&&ws.readyState===1){lastT=n;ws.send(JSON.stringify({t:'typing',ch:key()}))}};
+$('inp').oninput=()=>{const n=Date.now();if($('inp').value.trim()&&key()&&n-lastT>1200&&ws&&ws.readyState===1){lastT=n;ws.send(JSON.stringify({t:'typing',ch:key()}))}};
+$('inp').addEventListener('blur',()=>{if(!$('inp').value.trim())typ()});
 $('menu').onclick=()=>drawer(true);
 $('scrim').onclick=()=>drawer(false);
 let x0=null;
@@ -652,7 +753,7 @@ addEventListener('load',()=>{
 
 /* ===== SESLİ ODALAR (WebRTC) ===== */
 let VST={};
-const V={room:null,name:'',ui:null,sheet:'',sheetRoom:'',pcs:{},auds:{},ana:{},pend:{},vol:{},umute:{},prev:null,speak:{},stream:null,ctx:null,timer:null,spcs:{},svid:{},spend:{},screen:null,sharing:false,localVideoEl:null,cpcs:{},cvid:{},cpend:{},cam:null,camOn:false,localCamEl:null};
+const V={room:null,name:'',ui:null,sheet:'',sheetRoom:'',pcs:{},auds:{},ana:{},pend:{},vol:{},umute:{},prev:null,speak:{},stream:null,ctx:null,timer:null,spcs:{},svid:{},spend:{},screen:null,sharing:false,localVideoEl:null};
 const ICE={iceServers:[{urls:['stun:stun.cloudflare.com:3478','stun:stun.l.google.com:19302']}]};
 const P={
  mic:'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z',
@@ -674,18 +775,11 @@ const pastel=n=>'hsl('+([...String(n)].reduce((a,c)=>a+c.charCodeAt(0),0)*37%360
 const vav=u=>`<div class="av ${V.speak[u.id]?'sp':''}" data-uid="${esc(u.id)}" style="background:${u.p?'url('+esc(u.p)+') center/cover':col(u.name)}">${u.p?'':esc(String(u.name)[0]||'?').toUpperCase()}</div>`;
 const stIcon=u=>u.d?'<span class="slash">'+ic(P.head,14)+'</span>':(u.m?ic(P.micoff,14):'');
 const ssIcon=u=>u.ss?' '+ic(P.share,12):'';
-const camIcon=u=>u.cam?' 🎥':'';
-const tile=u=>`<div class="vtile" data-pid="${esc(u.id)}" style="background:${pastel(u.name)}">${vav(u)}<div class="vname">${stIcon(u)}<span>${esc(u.name)}</span>${ssIcon(u)}${camIcon(u)}</div></div>`;
+const tile=u=>{const displayName=u.id===ME.id?(ME.name||u.name):u.name;return `<div class="vtile" data-pid="${esc(u.id)}" style="background:${pastel(displayName)}">${vav({...u,name:displayName})}<div class="vname">${stIcon(u)}<span>${esc(displayName)}</span>${ssIcon(u)}</div></div>`};
 function screenTilesHtml(){
  const parts=[];
  if(V.screen)parts.push(`<div class="vtile vscreen" data-vslot="me"><div class="vvideo" data-vid="me"></div><div class="vname">${ic(P.share,14)}<span>Ekranını paylaşıyorsun</span></div></div>`);
  for(const id in V.svid){const u=(rusers(V.room)||[]).find(x=>x.id===id);parts.push(`<div class="vtile vscreen" data-vslot="${esc(id)}"><div class="vvideo" data-vid="${esc(id)}"></div><div class="vname">${ic(P.share,14)}<span>${esc(u?u.name:'Ekran')}</span></div></div>`)}
- return parts.join('');
-}
-function camTilesHtml(){
- const parts=[];
- if(V.cam)parts.push(`<div class="vtile vscreen" data-cslot="me"><div class="vvideo" data-cvid="me"></div><div class="vname">🎥<span>${esc(ME.name)}</span></div></div>`);
- for(const id in V.cvid){const u=(rusers(V.room)||[]).find(x=>x.id===id);parts.push(`<div class="vtile vscreen" data-cslot="${esc(id)}"><div class="vvideo" data-cvid="${esc(id)}"></div><div class="vname">🎥<span>${esc(u?u.name:'Kamera')}</span></div></div>`)}
  return parts.join('');
 }
 function mountVideos(root){
@@ -696,14 +790,6 @@ function mountVideos(root){
    if(V.screen)V.localVideoEl.srcObject=V.screen;
    slot.appendChild(V.localVideoEl);
   }else{const v=V.svid[id];if(v)slot.appendChild(v)}
- });
- root.querySelectorAll('.vvideo[data-cvid]').forEach(slot=>{
-  const id=slot.dataset.cvid;
-  if(id==='me'){
-   if(!V.localCamEl){V.localCamEl=document.createElement('video');V.localCamEl.autoplay=true;V.localCamEl.muted=true;V.localCamEl.playsInline=true;V.localCamEl.style.transform='scaleX(-1)'}
-   if(V.cam)V.localCamEl.srcObject=V.cam;
-   slot.appendChild(V.localCamEl);
-  }else{const v=V.cvid[id];if(v)slot.appendChild(v)}
  });
 }
 
@@ -731,9 +817,9 @@ function vui(){
  if(V.ui==='full'&&V.room){
   const us=rusers(V.room);
   fu.innerHTML=`<div class="vh"><button class="vb" data-a="min" aria-label="Küçült">${ic(P.down)}</button><div class="vt">${esc(V.name)}</div><span class="gap"></span><button class="vb" data-a="invite" aria-label="Davet et">${ic(P.add,20)}</button><button class="vb" data-a="chat" aria-label="Sohbet">${ic(P.chat,20)}</button></div>
-  <div class="vgrid ${(us.length>2||V.screen||V.cam||Object.keys(V.svid).length||Object.keys(V.cvid).length)?'sm':''}">${screenTilesHtml()}${camTilesHtml()}${us.filter(u=>!(u.id===ME.id?V.cam:V.cvid[u.id])).map(tile).join('')}</div>
+  <div class="vgrid ${(us.length>2||V.screen||Object.keys(V.svid).length)?'sm':''}">${screenTilesHtml()}${us.map(tile).join('')}</div>
   <button class="vinv" data-a="invite"><span class="vi">${ic(P.add,20)}</span><span><b>Sesli Sohbet'e kişi ekle</b><small>Gruba geldiğini haber ver!</small></span><span>›</span></button>
-  <div class="vbar"><button class="vc ${V.camOn?'white':''}" data-a="cam" aria-label="Kamera">${ic(P.camoff)}</button><button class="vc ${muted?'white':''}" data-a="mic" aria-label="Mikrofon">${ic(muted?P.micoff:P.mic)}</button><button class="vc ${V.sharing?'white':''}" data-a="share" aria-label="Ekran paylaş" ${MOBILE?"style=\"opacity:.45\"":""}>${ic(P.share)}</button><button class="vc ${deaf?'white':''}" data-a="deaf" aria-label="Kulaklık">${ic(P.head)}</button><button class="vc red" data-a="end" aria-label="Ayrıl">${ic(P.end)}</button></div>`;
+  <div class="vbar"><button class="vc" data-a="cam" aria-label="Kamera">${ic(P.camoff)}</button><button class="vc ${muted?'white':''}" data-a="mic" aria-label="Mikrofon">${ic(muted?P.micoff:P.mic)}</button><button class="vc ${V.sharing?'white':''}" data-a="share" aria-label="Ekran paylaş" ${MOBILE?"style=\"opacity:.45\"":""}>${ic(P.share)}</button><button class="vc ${deaf?'white':''}" data-a="deaf" aria-label="Kulaklık">${ic(P.head)}</button><button class="vc red" data-a="end" aria-label="Ayrıl">${ic(P.end)}</button></div>`;
   fu.classList.add('on');mountVideos(fu);
  }else fu.classList.remove('on');
  if(V.ui==='mini'&&V.room){
@@ -812,75 +898,6 @@ function vShareStop(){
  if(V.room)wsend({t:'vstream_stop'});
  vui();
 }
-
-/* ===== GÖRÜNTÜLÜ ARAMA (kamera) ===== */
-function closeCpc(id){
- const pc=V.cpcs[id];if(pc){try{pc.close()}catch(e){}delete V.cpcs[id]}
- const v=V.cvid[id];if(v){v.srcObject=null;try{v.remove()}catch(e){}delete V.cvid[id]}
- delete V.cpend[id];
- if(V.ui==='full')vui();
-}
-function cpcFor(id){
- if(V.cpcs[id])return V.cpcs[id];
- const pc=new RTCPeerConnection(ICE);V.cpcs[id]=pc;
- pc.onicecandidate=e=>{if(e.candidate)wsend({t:'vsig',to:id,data:{type:'cice',c:e.candidate}})};
- pc.ontrack=e=>{
-  const st=e.streams[0]||new MediaStream([e.track]);
-  if(!V.cvid[id]){const v=document.createElement('video');v.autoplay=true;v.playsInline=true;v.muted=true;V.cvid[id]=v}
-  V.cvid[id].srcObject=st;if(V.ui==='full')vui();
- };
- pc.onconnectionstatechange=()=>{if(pc.connectionState==='failed'||pc.connectionState==='closed')closeCpc(id)};
- return pc;
-}
-async function vflush3(id,pc){
- for(const c of (V.cpend[id]||[])){try{await pc.addIceCandidate(c)}catch(e){}}
- V.cpend[id]=[];
-}
-async function offerCamTo(id){
- if(!V.cam)return;
- const pc=cpcFor(id);
- V.cam.getTracks().forEach(t=>{if(!pc.getSenders().find(s=>s.track===t))pc.addTrack(t,V.cam)});
- try{
-  const o=await pc.createOffer();await pc.setLocalDescription(o);
-  wsend({t:'vsig',to:id,data:{type:'coffer',sdp:pc.localDescription.sdp}});
- }catch(e){}
-}
-async function vsig3(from,d){
- if(!V.room)return;
- try{
-  if(d.type==='coffer'){
-   const pc=cpcFor(from);
-   await pc.setRemoteDescription({type:'offer',sdp:d.sdp});
-   const a=await pc.createAnswer();await pc.setLocalDescription(a);
-   wsend({t:'vsig',to:from,data:{type:'canswer',sdp:pc.localDescription.sdp}});
-   await vflush3(from,pc);
-  }else if(d.type==='canswer'){
-   const pc=V.cpcs[from];if(pc){await pc.setRemoteDescription({type:'answer',sdp:d.sdp});await vflush3(from,pc)}
-  }else if(d.type==='cice'){
-   const pc=V.cpcs[from];
-   if(pc&&pc.remoteDescription)await pc.addIceCandidate(d.c);else(V.cpend[from]=V.cpend[from]||[]).push(d.c);
-  }else if(d.type==='cstop'){
-   closeCpc(from);
-  }
- }catch(e){}
-}
-async function vCamStart(){
- if(!V.room){vtoast('Önce bir sesli odaya katıl');return}
- if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){vtoast('Bu tarayıcı kamerayı desteklemiyor');return}
- let st;try{st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false})}catch(e){vtoast('Kamera başlatılamadı ya da izin verilmedi');return}
- V.cam=st;V.camOn=true;
- try{st.getVideoTracks()[0].onended=()=>vCamStop()}catch(e){}
- for(const id of Object.keys(V.pcs))await offerCamTo(id);
- wsend({t:'vstream_cam_start'});vui();
-}
-function vCamStop(){
- if(V.cam){try{V.cam.getTracks().forEach(t=>t.stop())}catch(e){}V.cam=null}
- V.camOn=false;
- const peers=Object.keys(V.cpcs);
- peers.forEach(id=>{if(!V.cvid[id]){wsend({t:'vsig',to:id,data:{type:'cstop'}});closeCpc(id)}});
- if(V.room)wsend({t:'vstream_cam_stop'});
- vui();
-}
 function vmeter(id,stream){
  if(!V.ctx)return;
  try{const src=V.ctx.createMediaStreamSource(stream),an=V.ctx.createAnalyser();an.fftSize=512;src.connect(an);V.ana[id]={an,src,buf:new Uint8Array(an.fftSize)}}catch(e){}
@@ -926,7 +943,7 @@ async function vflush(id,pc){
 }
 async function vsig(from,d){
  if(!V.room||!d)return;
- if(d.type){const __c0=String(d.type).charAt(0);if(__c0==='s'){await vsig2(from,d);return}if(__c0==='c'){await vsig3(from,d);return}}
+ if(d.type&&String(d.type).charAt(0)==='s'){await vsig2(from,d);return}
  try{
   if(d.type==='offer'&&V.pcs[from]&&V.pcs[from].remoteDescription)closePc(from);
   const pc=vpc(from);
@@ -950,11 +967,8 @@ function voiceMsg(m){
    const ids=new Set(us.map(u=>u.id));
    Object.keys(V.pcs).forEach(id=>{if(!ids.has(id))closePc(id)});
    Object.keys(V.spcs).forEach(id=>{if(!ids.has(id))closeSpc(id)});
-   Object.keys(V.cpcs).forEach(id=>{if(!ids.has(id))closeCpc(id)});
    us.forEach(u=>{if(u.id!==ME.id&&!u.ss&&V.svid[u.id])closeSpc(u.id)});
-   us.forEach(u=>{if(u.id!==ME.id&&!u.cam&&V.cvid[u.id])closeCpc(u.id)});
    if(V.sharing)ids.forEach(id=>{if(id!==ME.id&&!V.spcs[id])offerScreenTo(id).catch(()=>{})});
-   if(V.camOn)ids.forEach(id=>{if(id!==ME.id&&!V.cpcs[id])offerCamTo(id).catch(()=>{})});
    if(V.prev&&!deaf){let up=false,dn=false;ids.forEach(id=>{if(!V.prev.has(id))up=true});V.prev.forEach(id=>{if(!ids.has(id))dn=true});if(up)beep(true);else if(dn)beep(false)}
    if(ids.has(ME.id))V.prev=ids;
   }
@@ -979,7 +993,6 @@ async function vjoin(name,room){
 async function vleave(silent){
  if(!V.room)return;
  if(V.sharing)vShareStop();
- if(V.camOn)vCamStop();
  if(typeof CALL!=='undefined'&&CALL&&V.room===CALL.room){if(CALL.out&&(VST[V.room]||[]).length<2)sendWS({t:'fringx',id:CALL.id,why:'cancel'});clearTimeout(CALL.to);CALL=null}
  wsend({t:'vleave'});
  Object.keys(V.pcs).forEach(closePc);
@@ -1076,7 +1089,7 @@ document.addEventListener('click',e=>{
  else if(a==='end'){vleave();V.ui=null}
  else if(a==='invite')vinvite();
  else if(a==='share'){if(V.sharing)vShareStop();else vShareStart()}
- else if(a==='cam'){if(V.camOn)vCamStop();else vCamStart()}
+ else if(a==='cam')vtoast('Yakında geliyor');
  vui();
 });
 
@@ -1293,13 +1306,14 @@ function fAction(el){
  else if(a==='adunban'){svConfirmDlg('Yasağı kaldır','“'+el.dataset.n+'” kullanıcısının yasağını kaldırmak istediğine emin misin?','Kaldır',()=>sendWS({t:'adunban',uname:el.dataset.uname}))}
  else if(a==='admchpick'){ADMVIEW=el.dataset.ch==='r'?'reports':'pick';ADMCH='';if(ADMVIEW==='reports'&&!ADREPORTS)sendWS({t:'adreports'});adminRender()}
  else if(a==='admopench'){ADMVIEW='pick';ADMCH=el.dataset.ch;ADMCHL=el.dataset.l;ADMQ='';ADMSGS=null;sendWS({t:'admsgs',ch:ADMCH});adminRender()}
- else if(a==='admchback'){ADMCH='';ADMSGS=null;adminRender()}
+ else if(a==='admchback'){ADMCH='';ADMSGS=null;ADMSGCHS=null;sendWS({t:'admsgchannels'});adminRender()}
  else if(a==='admsgdel'){const ch=el.dataset.ch,mid=el.dataset.mid,nm=el.dataset.n;svConfirmDlg('Mesajı sil','“'+nm+'” kullanıcısının mesajını silmek istediğine emin misin?','Sil',()=>sendWS({t:'admsgdel',ch,mid}))}
+ else if(a==='admsgclearall'){svConfirmDlg('Tüm mesajları sil','Tüm kanallardaki mesajlar kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?','Tümünü sil',()=>sendWS({t:'admsgclearall'}))}
  else if(a==='admjump'){ADTAB='msgs';ADMVIEW='pick';ADMCH=el.dataset.ch;ADMCHL=el.dataset.ch.split('/').slice(1).join('/')||el.dataset.ch;ADMQ='';ADMSGS=null;sendWS({t:'admsgs',ch:ADMCH});adminRender()}
  else if(a==='adreportclear')sendWS({t:'adreportclear',id:el.dataset.id});
  else if(a==='adsvdel'){const nm=el.dataset.n,gid=el.dataset.id;svConfirmDlg('Sunucuyu sil (admin)','“'+nm+'” sunucusunu kalıcı olarak silmek istediğine emin misin? Sahibi sen olmasan bile silinir.','Sil',()=>sendWS({t:'adsvdel',id:gid}))}
  else if(a==='adminclose')closeAdmin();
- else if(a==='adtab'){ADTAB=el.dataset.k;if(ADTAB==='users'&&!ADUSERS)sendWS({t:'adusers',q:ADUQ});if(ADTAB==='admins'&&ME.mainAdmin)sendWS({t:'adadmins'});if(ADTAB==='msgs'){ADMVIEW='pick';ADMCH='';if(!ADSVLIST)sendWS({t:'adsvlist'})}adminRender()}
+ else if(a==='adtab'){ADTAB=el.dataset.k;if(ADTAB==='users'&&!ADUSERS)sendWS({t:'adusers',q:ADUQ});if(ADTAB==='admins'&&ME.mainAdmin)sendWS({t:'adadmins'});if(ADTAB==='logs')sendWS({t:'adlogs'});if(ADTAB==='msgs'){ADMVIEW='pick';ADMCH='';ADMSGCHS=null;sendWS({t:'admsgchannels'});if(!ADSVLIST)sendWS({t:'adsvlist'})}adminRender()}
  else if(a==='aduserdel'){const nm=el.dataset.n,un=el.dataset.uname;svConfirmDlg('Kullanıcıyı sil','“'+nm+'” hesabını kalıcı olarak silmek istediğine emin misin? Arkadaşlıkları ve sunucu üyelikleri de kalkar.','Sil',()=>sendWS({t:'aduserdel',uname:un}))}
  else if(a==='svleavego'){const gid=el.dataset.id,nm=MGMT.name;svConfirmDlg('Sunucudan ayrıl','“'+nm+'” sunucusundan ayrılmak istediğine emin misin?','Ayrıl',()=>{sendWS({t:'svleave',id:gid});if(srv==='sv:'+gid){srv='home';ch='';FVIEW=true;all()}})}
  else if(a==='svok'){const cb=SVCB;SVCB=null;closeF();if(cb)cb()}
@@ -1323,6 +1337,7 @@ try{
  document.addEventListener('input',e=>{
   if(e.target.id==='admq'){ADMQ=e.target.value;clearTimeout(ADMQT);ADMQT=setTimeout(()=>sendWS({t:'admsgs',ch:ADMCH,q:ADMQ}),300);return}
   if(e.target.id==='adpromoq'){ADPROMOQ=e.target.value;return}
+  if(e.target.id==='adlogq'){ADLOGQ=e.target.value;const pos=e.target.selectionStart;const y=$('adminFull').querySelector('.adbody').scrollTop;adminRender();const b=$('adminFull').querySelector('.adbody');if(b)b.scrollTop=y;const inp=$('adlogq');if(inp){inp.focus();try{inp.setSelectionRange(pos,pos)}catch(x){}}return}
   if(e.target.id==='aduq'){ADUQ=e.target.value;clearTimeout(ADUT);ADUT=setTimeout(()=>sendWS({t:'adusers',q:ADUQ}),300);return}
   if(e.target.id==='ffq'){FFQ=e.target.value;fList();return}
   if(e.target.id!=='fq')return;
@@ -1454,6 +1469,7 @@ function auMode(m){
  $('asub').querySelector('.ab-t').textContent=reg?'Hesap Oluştur':'Giriş Yap';
  $('aerr').textContent='';$('au_s').textContent='';$('au_s').className='afs';
  document.querySelectorAll('.af').forEach(x=>x.classList.remove('bad'));
+ $('adminSetupWrap').classList.toggle('hide',!(reg&&$('au').value.trim().toLowerCase()==='voxaadmin'));
  const f=$('aform');f.classList.remove('swap');void f.offsetWidth;f.classList.add('swap');
 }
 function auBad(id,msg){
@@ -1475,7 +1491,9 @@ async function auSubmit(){
  auBusy(true);
  let r;
  try{
-  const res=await fetch('/auth/'+(reg?'register':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+  const payload={username:u,password:p};
+  if(reg&&u.toLowerCase()==='voxaadmin')payload.adminSetupKey=$('adminSetupKey').value;
+  const res=await fetch('/auth/'+(reg?'register':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   r=await res.json();
  }catch(e){auBusy(false);$('aerr').textContent='Bağlantı hatası, internetini kontrol edip tekrar dene';return}
  if(!r||!r.ok||!r.token){
@@ -1497,6 +1515,7 @@ try{
   $('amb').style.width=($('ap').value?(n+1)*20:0)+'%';$('amb').style.background=C[n];$('amt').textContent=$('ap').value?'Şifre gücü: '+L[n]:'';
  });
  $('au').addEventListener('input',()=>{
+  $('adminSetupWrap').classList.toggle('hide',!(AU.mode==='reg'&&$('au').value.trim().toLowerCase()==='voxaadmin'));
   const s=$('au_s');s.textContent='';s.className='afs';clearTimeout(AU.ck);
   if(AU.mode!=='reg')return;
   const u=$('au').value.trim();if(u.length<3)return;
@@ -1512,10 +1531,11 @@ try{
 
 
 /* ===== GİZLİ YÖNETİM PANELİ ===== */
-let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADPROMOQ='',MUTE_UN='',ADMVIEW='pick',ADMCH='',ADMCHL='',ADMQ='',ADMQT=null,ADMSGS=null,ADREPORTS=null,SVMEM=null,SVMEMFOR='';
+let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADLOGS=null,ADLOGQ='',ADPROMOQ='',MUTE_UN='',ADMVIEW='pick',ADMCH='',ADMCHL='',ADMQ='',ADMQT=null,ADMSGS=null,ADREPORTS=null,ADMSGCHS=null;
+let ADMSGCOUNT_EXPECTED=null,ADMSGCOUNT_AT=0;
 function openAdmin(){
  if(!ME.admin)return;
- ADSTATS=null;ADSVLIST=null;ADUSERS=null;ADTAB='dash';ADUQ='';
+ ADSTATS=null;ADSVLIST=null;ADUSERS=null;ADLOGS=null;ADTAB='dash';ADUQ='';
  sendWS({t:'adstats'});sendWS({t:'adsvlist'});
  $('adminFull').classList.add('on');
  adminRender();
@@ -1525,7 +1545,8 @@ function adminRender(){
  const el=$('adminFull');if(!el.classList.contains('on'))return;
  const tabBtn=(k,l)=>`<button class="ftab ${ADTAB===k?'on':''}" data-fa="adtab" data-k="${k}">${l}</button>`;
  const adminRow=u2=>`<div class="frow">${av(u2.name,'dot')}<div class="fi"><b>${esc(u2.name)}${admTag(true)}</b><small>Voxa ID: ${esc(u2.code||'')}</small></div><button class="fbtn no" style="padding:7px 10px;font-size:13px" data-fa="addemote" data-id="${esc(u2.id)}" data-n="${esc(u2.name)}">Yetkiyi Kaldır</button></div>`;
- const logRow=l2=>`<div class="frow" style="padding:7px 0"><div class="fi"><small>${l2.ok?'✅':'❌'} <b>${l2.action==='promote'?'Admin yapıldı':'Yetki kaldırıldı'}</b> — ${esc((l2.by&&l2.by.name)||'?')} → ${esc((l2.target&&l2.target.name)||(l2.target&&l2.target.uname)||'?')}${l2.msg?' ('+esc(l2.msg)+')':''}<br>${new Date(l2.ts).toLocaleString('tr')}</small></div></div>`;
+ const actionName=a=>({'promote':'Admin yetkisi verildi','demote':'Admin yetkisi kaldırıldı','mute':'Kullanıcı susturuldu','unmute':'Susturma kaldırıldı','ban':'Kullanıcı yasaklandı','unban':'Yasak kaldırıldı','msgdel':'Mesaj silindi','msgclearall':'Tüm mesajlar silindi','userdel':'Kullanıcı silindi','svdel':'Sunucu silindi','reportclear':'Şikâyet kapatıldı'}[a]||String(a||'İşlem').replace(/[_-]/g,' '));
+ const logRow=l2=>`<div class="frow logitem" style="padding:10px 8px;align-items:flex-start"><div class="logmark ${l2.ok?'good':'bad'}">${l2.ok?'✓':'!'}</div><div class="fi"><b>${esc(actionName(l2.action))}</b><small>${esc((l2.by&&l2.by.name)||'Bilinmeyen yönetici')} → ${esc((l2.target&& (l2.target.name||l2.target.uname||l2.target.ch||l2.target.id))||'—')}${l2.msg?' · '+esc(l2.msg):''}</small><small>${new Date(l2.ts||Date.now()).toLocaleString('tr')}</small></div></div>`;
  const svRow=s2=>`<div class="frow"><div class="fi"><b>${s2.icon?esc(s2.icon)+' ':''}${esc(s2.name)}</b><small>Sahibi: ${esc(s2.ownerName)} · ${s2.memberCount} üye</small></div><button class="fbtn no" style="padding:7px 10px;font-size:13px" data-fa="adsvopen" data-mode="manage" data-id="${esc(s2.id)}">Yönet</button><button class="fbtn" style="padding:7px 10px;font-size:13px" data-fa="adsvopen" data-mode="join" data-id="${esc(s2.id)}">Katıl</button><button class="ib" data-fa="adsvdel" data-id="${esc(s2.id)}" data-n="${esc(s2.name)}" aria-label="Sil">🗑</button></div>`;
 const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Yasaklı</span>':(u2.muted?'<span style="color:#f0b132;font-weight:700">🔇 Susturuldu ('+Math.max(1,Math.ceil((u2.muted-Date.now())/60000))+' dk)</span>':'');
  const uRow=u2=>`<div class="frow">${av(u2.name,u2.on?'dot':'dot offl')}<div class="fi"><b>${esc(u2.name)}${admTag(u2.admin)}</b><small>${modStatus(u2)?modStatus(u2)+' · ':''}${u2.on?'Çevrimiçi':'Çevrimdışı'} · ${new Date(u2.ts).toLocaleDateString('tr')} kayıt</small></div>${u2.admin?'':`<div class="fact">${u2.banned?`<button class="ib" data-fa="adunban" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Yasağı kaldır">✅</button>`:`<button class="ib" data-fa="adban" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Yasakla">⛔</button>`}${u2.muted?`<button class="ib" data-fa="adunmute" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Susturmayı kaldır">🔊</button>`:`<button class="ib" data-fa="admute" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Sustur">🔇</button>`}<button class="ib" data-fa="aduserdel" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Sil">🗑</button></div>`}</div>`;
@@ -1549,33 +1570,41 @@ const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Y
    body=`<div class="ftabs" style="padding:4px 16px 10px">${chPill('','Kanallar',false)}${chPill('r','Şikayetler',true)}</div>
    <div style="padding:0 16px">${ADREPORTS?(ADREPORTS.length?ADREPORTS.map(repRow).join(''):'<p class="hint">Şikayet yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
   }else if(!ADMCH){
-   const srvChs=(sid,sname,chs)=>chs.filter(c=>c.kind==='text').map(c=>`<button class="fmi" data-fa="admopench" data-ch="${esc(sid+'/'+c.name)}" data-l="${esc(sname+' · #'+c.name)}">#${esc(c.name)} <small style="color:var(--muted)">— ${esc(sname)}</small></button>`).join('');
+   const srvChs=(sid,sname,chs)=>chs.filter(c=>c.kind==='text' && Array.isArray(ADMSGCHS) && ADMSGCHS.includes(sid+'/'+c.name)).map(c=>`<button class="fmi" data-fa="admopench" data-ch="${esc(sid+'/'+c.name)}" data-l="${esc(sname+' · #'+c.name)}">#${esc(c.name)} <small style="color:var(--muted)">— ${esc(sname)}</small></button>`).join('');
    const built=SERVERS.map(s2=>srvChs(s2.id,s2.name,CH[s2.id].text.map(n=>({name:n,kind:'text'})))).join('');
    const real=(ADSVLIST||[]).map(s2=>srvChs('sv:'+s2.id,s2.name,s2.channels||[])).join('');
    body=`<div class="ftabs" style="padding:4px 16px 10px">${chPill('','Kanallar',true)}${chPill('r','Şikayetler',false)}</div>
    <div class="fsec" style="padding-left:16px">BİR KANAL SEÇ</div>
-   <div style="padding:0 16px">${built}${real||'<p class="hint">Sunucu yükleniyor…</p>'}</div>`;
+   <div style="padding:0 16px 10px"><button class="fbtn no" style="width:100%" data-fa="admsgclearall">Tüm kanallardaki mesajları sil</button><small class="hint">Sayaç kayıtlı mesajların toplamıdır. Boş kanallar listelenmez.</small></div>
+   <div style="padding:0 16px">${ADMSGCHS===null?'<p class="hint">Mesaj bulunan kanallar yükleniyor…</p>':(built+real)||'<p class="hint">Henüz mesaj bulunan kanal yok.</p>'}</div>`;
   }else{
    const mRow=mm=>`<div class="frow" style="align-items:flex-start"><div class="fi"><b style="color:${col(mm.u)}">${esc(mm.u)}</b> <small style="color:var(--muted)">${new Date(mm.ts).toLocaleString('tr')}</small><br>${mm.au?'<small>🎤 Sesli mesaj</small>':`<small>${esc(String(mm.t).slice(0,300))}</small>`}</div><button class="ib" data-fa="admsgdel" data-ch="${esc(ADMCH)}" data-mid="${esc(mm.mid)}" data-n="${esc(mm.u)}" aria-label="Sil">🗑</button></div>`;
    body=`<div class="fhead" style="padding:8px 16px 0"><button class="ib" data-fa="admchback" aria-label="Geri">←</button><b>#${esc(ADMCHL)}</b></div>
    <div class="fsearch" style="padding:6px 16px 10px"><input id="admq" value="${esc(ADMQ)}" placeholder="Kullanıcı adı ya da metinde ara" autocomplete="off"></div>
    <div style="padding:0 16px">${ADMSGS?(ADMSGS.ok===false?`<p class="hint">${esc(ADMSGS.msg||'Görüntülenemiyor')}</p>`:(ADMSGS.list.length?[...ADMSGS.list].reverse().map(mRow).join(''):'<p class="hint">Mesaj yok.</p>')):'<p class="hint">Yükleniyor…</p>'}</div>`;
   }
+ }else if(ADTAB==='logs'){
+  const rows=(ADLOGS||[]).filter(l=>{const q=ADLOGQ.toLowerCase().trim();return !q||[actionName(l.action),l.by&&l.by.name,l.target&&l.target.name,l.target&&l.target.uname,l.target&&l.target.ch,l.msg].join(' ').toLowerCase().includes(q)});
+  body=`<div class="fsearch" style="padding:4px 16px 10px"><input id="adlogq" value="${esc(ADLOGQ)}" placeholder="İşlem, yönetici veya kullanıcı ara" autocomplete="off"></div><div class="logintro">Son 200 kayıt · Yeni yönetici işlemleri burada görünür.</div><div style="padding:0 16px">${ADLOGS?(rows.length?rows.map(logRow).join(''):'<p class="hint">Eşleşen işlem yok.</p>'):'<p class="hint">İşlem geçmişi yükleniyor…</p>'}</div>`;
  }else if(ADTAB==='admins'&&ME.mainAdmin){
   body=`<div class="fsearch" style="padding:4px 16px 2px"><input id="adpromoq" value="${esc(ADPROMOQ)}" placeholder="Admin yapmak için kullanıcı adı yaz" autocomplete="off"><button class="fbtn" style="margin-top:8px;width:100%" data-fa="adpromogo">Admin Yap</button></div>
   <div class="fsec" style="padding-left:16px">ANA YÖNETİCİ</div>
   <div style="padding:0 16px">${ADADMINS&&ADADMINS.main?`<div class="frow">${av(ADADMINS.main.name,'dot')}<div class="fi"><b>${esc(ADADMINS.main.name)}${admTag(true)}</b><small>Kaldırılamaz</small></div></div>`:'<p class="hint">Yükleniyor…</p>'}</div>
   <div class="fsec" style="padding-left:16px">YETKİLENDİRİLMİŞ ADMİNLER</div>
-  <div style="padding:0 16px">${ADADMINS?(ADADMINS.list.length?ADADMINS.list.map(adminRow).join(''):'<p class="hint">Henüz yetkilendirilmiş admin yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>
-  <div class="fsec" style="padding-left:16px">SON İŞLEMLER</div>
-  <div style="padding:0 16px">${ADADMINS?(ADADMINS.log.length?ADADMINS.log.map(logRow).join(''):'<p class="hint">Kayıt yok.</p>'):''}</div>`;
+  <div style="padding:0 16px">${ADADMINS?(ADADMINS.list.length?ADADMINS.list.map(adminRow).join(''):'<p class="hint">Henüz yetkilendirilmiş admin yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
  }
  el.innerHTML=`<div class="vh"><button class="vb" data-fa="adminclose" aria-label="Kapat">${ic(P.down)}</button><div class="vt">Yönetim Paneli</div><span class="gap"></span></div>
- <div class="ftabs" style="padding:10px 16px 0">${tabBtn('dash','Dashboard')}${tabBtn('users','Kullanıcılar')}${tabBtn('msgs','Mesajlar')}${ME.mainAdmin?tabBtn('admins','Yöneticiler'):''}</div>
+ <div class="ftabs" style="padding:10px 16px 0">${tabBtn('dash','Dashboard')}${tabBtn('users','Kullanıcılar')}${tabBtn('msgs','Mesajlar')}${tabBtn('logs','Son İşlemler')}${ME.mainAdmin?tabBtn('admins','Yöneticiler'):''}</div>
  <div class="adbody">${body}</div>`;
 }
 function adminMsg(m){
- if(m.t==='adstats'){ADSTATS=m;adminRender()}
+ if(m.t==='adstats'){
+  // A delayed stats response must not overwrite the newer count received from a message deletion.
+  if(ADMSGCOUNT_EXPECTED!==null && Date.now()-ADMSGCOUNT_AT<5000 && Number.isFinite(m.messages) && m.messages>ADMSGCOUNT_EXPECTED){
+   ADSTATS={...m,messages:ADMSGCOUNT_EXPECTED};
+  }else{ADSTATS=m;if(ADMSGCOUNT_EXPECTED!==null && Date.now()-ADMSGCOUNT_AT>=5000)ADMSGCOUNT_EXPECTED=null;}
+  adminRender();
+ }
  else if(m.t==='adsvlist'){ADSVLIST=m.list||[];adminRender()}
  else if(m.t==='adsvdel'){fT('Sunucu silindi');ADSVLIST=(ADSVLIST||[]).filter(s2=>s2.id!==m.id);adminRender();sendWS({t:'adstats'})}
  else if(m.t==='adusers'){ADUSERS=m.list||[];adminRender()}
@@ -1593,6 +1622,7 @@ function adminMsg(m){
  }
  else if(m.t==='aduserdel'){if(m.ok){fT('Kullanıcı silindi');ADUSERS=(ADUSERS||[]).filter(u2=>u2.uname!==m.uname);adminRender();sendWS({t:'adstats'})}else fT(m.msg||'Silinemedi')}
  else if(m.t==='adadmins'){ADADMINS=m;adminRender()}
+ else if(m.t==='adlogs'){ADLOGS=m.list||[];adminRender()}
  else if(m.t==='adpromote'){fT(m.msg||(m.ok?'Tamam':'İşlem başarısız'));if(m.ok){ADPROMOQ='';sendWS({t:'adadmins'})}}
  else if(m.t==='addemote'){fT(m.ok?'Yetki kaldırıldı':(m.msg||'İşlem başarısız'));if(m.ok)sendWS({t:'adadmins'})}
  else if(m.t==='admute'){fT(m.ok?'Kullanıcı susturuldu':(m.msg||'İşlem başarısız'));if(m.ok&&ADTAB==='users')sendWS({t:'adusers',q:ADUQ})}
@@ -1601,7 +1631,33 @@ function adminMsg(m){
  else if(m.t==='adunban'){fT(m.ok?'Yasak kaldırıldı':(m.msg||'İşlem başarısız'));if(m.ok&&ADTAB==='users')sendWS({t:'adusers',q:ADUQ})}
  else if(m.t==='modstate'){if(m.banned){fT('Hesabın yasaklandı')}else if(m.muted){fT('Susturuldun')}else{fT('Susturman kaldırıldı')}}
  else if(m.t==='admsgs'){if(m.ch===ADMCH)ADMSGS=m;adminRender()}
- else if(m.t==='admsgdel'){fT(m.ok?'Mesaj silindi':(m.msg||'Silinemedi'));if(m.ok&&ADMSGS&&ADMSGS.list)ADMSGS.list=ADMSGS.list.filter(x=>x.mid!==m.mid);adminRender()}
+ else if(m.t==='admsgchannels'){ADMSGCHS=Array.isArray(m.channels)?m.channels:[];adminRender()}
+ else if(m.t==='admsgclearall'){
+  if(m.ok){ADMSGCOUNT_EXPECTED=0;ADMSGCOUNT_AT=Date.now();if(ADSTATS)ADSTATS.messages=0;ADMSGS=null;fT('Tüm mesajlar silindi ('+(m.removed||0)+')');adminRender();sendWS({t:'adstats'});ADMSGCHS=null;sendWS({t:'admsgchannels'});if(ADMCH)sendWS({t:'admsgs',ch:ADMCH,q:ADMQ})}
+  else fT(m.msg||'Mesajlar silinemedi');
+ }
+ else if(m.t==='admsgdel'){
+  if(m.ok){
+   // Silme onaylanır onaylanmaz dashboard sayacını yerinde güncelle.
+   if(ADSTATS && Number.isFinite(m.messages)){ADSTATS.messages=m.messages;ADMSGCOUNT_EXPECTED=m.messages;ADMSGCOUNT_AT=Date.now();}
+   fT('Mesaj silindi · Kanalda '+m.total+' mesaj kaldı');
+   if(ADMCH===m.ch){
+    if(ADMSGS && Array.isArray(ADMSGS.list)) ADMSGS.list=ADMSGS.list.filter(x=>x.mid!==m.mid);
+    if(ADMSGS) ADMSGS.total=m.total;
+    adminRender();
+    // Arama filtresi ve son 300 mesaj görünümüyle uyumlu kalması için sunucudan doğrula.
+    sendWS({t:'admsgs',ch:m.ch,q:ADMQ});
+   }else adminRender();
+   sendWS({t:'adstats'});
+   if(ADTAB==='msgs'){if(m.channelEmpty && Array.isArray(ADMSGCHS))ADMSGCHS=ADMSGCHS.filter(c=>c!==m.ch);ADMSGCHS=null;sendWS({t:'admsgchannels'});}
+  }else{
+   if(ADSTATS && Number.isFinite(m.messages)) ADSTATS.messages=m.messages;
+   fT(m.msg||'Mesaj silinemedi');
+   adminRender();
+   if(ADMCH===m.ch)sendWS({t:'admsgs',ch:m.ch,q:ADMQ});
+   sendWS({t:'adstats'});
+  }
+ }
  else if(m.t==='adreports'){ADREPORTS=m.list||[];adminRender()}
  else if(m.t==='adreportclear'){if(m.ok){ADREPORTS=(ADREPORTS||[]).filter(x=>x.id!==m.id);fT('Şikayet kapatıldı');adminRender()}}
 }
@@ -1692,8 +1748,7 @@ function guildMsg(m){
   if(!m.ok){fT(m.msg||'Davet oluşturulamadı');return}
   MGMTCODE=m.code;mgmtRender();fCopy(m.code,'Davet kodu kopyalandı: '+m.code);
  }else if(m.t==='svmembers'){
-  if(MGMT&&String(m.id)===String(MGMT.id)){MGMTMEM=m.list||[];mgmtRender()}
-  if(srv==='sv:'+m.id){SVMEM=m.list||[];members()}
+  MGMTMEM=m.list||[];mgmtRender();
  }
 }
 /* --- özellikler: mesaj işlemleri, emoji, profil, PWA --- */
