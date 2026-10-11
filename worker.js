@@ -168,7 +168,11 @@ export class Hub {
     if (!me) return;
     if (m.t === 'hist') {
       const ch = String(m.ch || '').slice(0, 80);
-      if (!ch || !(await this.canSee(me.id, ch))) return;
+      if (!ch) return;
+      if (!(await this.canSee(me.id, ch))) {
+        ws.send(JSON.stringify({ t: 'hist', ch, msgs: [], denied: true, msg: 'Bu kanalın geçmişine erişim iznin yok. Sunucu/kanal üyeliğini ve Worker sürümünü kontrol et.' }));
+        return;
+      }
       const all0 = (await this.s.storage.get('msgs')) || {};
       ws.send(JSON.stringify({ t: 'hist', ch, msgs: all0[ch] || [] }));
     }

@@ -603,6 +603,7 @@ const CH={
 };
 let GUILDS=[],MYSV=[],ALLMEM=[],MGMT=null,MGMTCODE='',MGMTMEM=null,SVCB=null,SVPCB=null,TY={},lastT=0,HIST={},ONL=[],srv='tayfa',ch='genel',voice=null,muted=false,deaf=false,TOKEN=null,ws=null;
 const key=()=>srv==='home'?ch:srv+'/'+ch;
+const HIST_PENDING=new Map();
 const hm=t=>new Date(t).toLocaleTimeString('tr',{hour:'2-digit',minute:'2-digit'});
 
 function av(n,x=''){return `<div class="av ${x}" style="background:${col(n)}">${esc(String(n)[0]||'?').toUpperCase()}</div>`}
@@ -662,8 +663,12 @@ function msgs(){
  box.classList.toggle('noanim',NOANIM);
  const k=key();
  if(k&&HIST[k]===undefined){
-  const l=document.createElement('p');l.className='hint';l.style.textAlign='center';l.textContent='Geçmiş yükleniyor…';box.append(l);
-  sendWS({t:'hist',ch:k});
+  const l=document.createElement('p');l.className='hint';l.style.textAlign='center';l.textContent='Geçmiş yükleniyor…';l.dataset.histLoading=k;box.append(l);
+  if(ws&&ws.readyState===1){
+   const old=HIST_PENDING.get(k);if(old)clearTimeout(old);
+   HIST_PENDING.set(k,setTimeout(()=>{if(HIST[k]===undefined&&key()===k){HIST[k]=[];box.innerHTML='<div class="wel"><h2>Geçmiş yüklenemedi</h2><p>Sunucu yanıt vermedi. Bağlantıyı ve Cloudflare Worker dağıtımını kontrol et; tekrar denemek için kanala yeniden gir.</p></div>';}HIST_PENDING.delete(k)},8000));
+   sendWS({t:'hist',ch:k});
+  }else{l.textContent='Sunucuya bağlanılıyor…';}
  }else{
   let prev=null;(HIST[k]||[]).forEach(m=>{addMsg(box,m,prev);prev=m});
  }
@@ -746,7 +751,7 @@ function connect(){
   else if(m.t==='session'){try{localStorage.setItem('voxa_user',JSON.stringify({token:m.token}))}catch(e){}TOKEN=m.token}
   else if(m.t==='social'||m.t==='freq'||m.t==='fnew'||m.t==='fsearch'||m.t==='fres'||m.t==='fprof'||m.t==='frep'||m.t==='merr'||m.t==='vinv'||m.t==='finv'||m.t==='aud'||m.t==='ring'||m.t==='ringx'||m.t==='fringr'){socialMsg(m)}
   else if(m.t==='svservers'||m.t==='svres'||m.t==='svinvite'||m.t==='svmembers'){guildMsg(m)}
-  else if(m.t==='hist'){HIST[m.ch]=m.msgs||[];if(m.ch===key())msgs()}
+  else if(m.t==='hist'){const pending=HIST_PENDING.get(m.ch);if(pending)clearTimeout(pending);HIST_PENDING.delete(m.ch);HIST[m.ch]=m.msgs||[];if(m.ch===key()){if(m.denied){$('msgs').innerHTML='<div class="wel"><h2>Erişim yok</h2><p>'+esc(m.msg||'Bu kanalın geçmişine erişilemiyor.')+'</p></div>'}else msgs()}}
   else if(m.t==='adstats'||m.t==='adsvlist'||m.t==='adsvdel'||m.t==='adusers'||m.t==='aduserdel'||m.t==='adsvopen'||m.t==='adadmins'||m.t==='adlogs'||m.t==='adpromote'||m.t==='addemote'||m.t==='admute'||m.t==='adunmute'||m.t==='adban'||m.t==='adunban'||m.t==='modstate'||m.t==='admsgs'||m.t==='admsgdel'||m.t==='adreports'||m.t==='adreportclear'){adminMsg(m)}
   else if(m.t==='vstate'||m.t==='vpeers'||m.t==='vsig'){voiceMsg(m)}
   else if(m.t==='error'){fT(m.msg||'İşlem tamamlanamadı')}
