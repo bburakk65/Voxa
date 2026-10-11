@@ -1,24 +1,27 @@
-VOXA — GEÇMİŞ YÜKLENİYOR / YÖNETİM PANELİ / TARAYICI FIX
+VOXA — BAĞLANTI + AYNI DOMAIN + ADMIN DÜZELTMESİ
 
-Dosyalar: index.html, worker.js
+PAKET İÇERİĞİ
+- index.html: bağlantı durumunu açıkça gösteren arayüz
+- _worker.js: Cloudflare Pages Advanced Mode giriş noktası; /ws ve /auth isteklerini Durable Object'e iletir, geri kalan GET isteklerinde Pages ASSETS dosyalarını sunar
+- worker.js: normal Cloudflare Worker dağıtımı için API Worker dosyası (Pages Advanced Mode kullanıyorsan _worker.js dosyasını kullan)
 
-Bu güncellemede:
-- Mesaj geçmişi isteği artık izinsiz kanalda sessizce beklemiyor; kullanıcıya erişim hatası gösteriyor.
-- Geçmiş isteğine 8 saniye içinde cevap gelmezse sonsuz “Geçmiş yükleniyor…” ekranı yerine anlaşılır bağlantı/Worker hata mesajı gösteriliyor.
-- Mevcut uygulama özellikleri ve admin paneli kodu korunmuştur.
-- JS sözdizimi kontrolü yapıldı.
+ÖNEMLİ: Bu paket tek başına canlı siteye yüklenmiş değildir. Aynı hesap/mesajların tarayıcılar arasında eşitlenmesi için bütün tarayıcılar aynı yayınlanmış domain ve aynı Durable Object namespace'ine bağlanmalıdır.
 
-CLOUDflare yayınlama:
-1. Önce mevcut index.html ve worker.js dosyalarını yedekle.
-2. ZIP içindeki index.html ve worker.js dosyalarını projedeki karşılıklarıyla değiştir.
-3. Cloudflare Worker/Pages projesini yeniden deploy et.
-4. Worker'ın Durable Object binding adı MERKEZ (Hub sınıfı) ve /ws ile /auth/* yolları doğru Worker'a yönlenmiş olmalı. Projenin mevcut wrangler/binding ayarlarını silme.
-5. Mesaj geçmişi hâlâ yüklenmiyorsa, bu arayüzden ziyade deploy/binding/izin/veri depolama sorunu olabilir; ekrandaki yeni hata mesajını kontrol et.
+CLOUDFLARE PAGES KULLANIYORSAN
+1. Pages projesinin Build output directory/çıktı klasörüne index.html ve _worker.js koy. Advanced Mode için _worker.js, yayınlanan çıktı klasörünün kökünde olmalı.
+2. Pages projesine Durable Object binding ekle: binding adı MERKEZ, class name Hub. Var olan Durable Object namespace'ini kullan; yeni/boş bir namespace oluşturursan eski hesap ve mesajlar orada görünmez.
+3. Worker/Pages ortam değişkeni olarak DISCORD_SECRET tanımla (en az 32 karakterlik rastgele gizli değer). Ana yönetici ilk kaydı için ADMIN_SETUP_KEY secret'ı da tanımla.
+4. _worker.js içindeki Hub class'ının Durable Object migration/namespace ayarının mevcut namespace ile eşleştiğini kontrol et. Var olan namespace'i silme veya değiştirme.
+5. Deploy et. Aynı site adresini farklı tarayıcıda açıp aynı kullanıcıyla giriş yap. Bağlantı başarısızsa artık alt kısımda sebebi kontrol etmeyi söyleyen durum mesajı görünür.
 
-YÖNETİCİ PANELİ:
-- Yönetim paneli sadece ME.admin=true olan hesaplarda görünür.
-- Bu Worker'da ana yönetici adı voxaadmin olarak tanımlıdır. İlk kayıt için Cloudflare Worker ortam değişkeni/secret ADMIN_SETUP_KEY yapılandırılmış olmalı ve kayıt ekranında kurulum anahtarı kullanılmalı. Normal bir hesabı otomatik olarak admin yapmak güvenlik nedeniyle yapılmaz.
+NORMAL CLOUDFLARE WORKER + PAGES AYRI KULLANIYORSAN
+- index.html'in geldiği domain üzerinde /ws ve /auth/* yolları bu worker'a route edilmelidir. Worker'ın MERKEZ binding'i ve secrets'ı doğru olmalı.
+- Başka bir domain kullanıyorsan yalnızca HTML'i taşımak yeterli değildir; /ws ve /auth aynı backend'e gitmelidir.
 
-TARAYICI/CIHAZ:
-- Arayüz responsive ve HTTPS üzerinde kullanılmalıdır. Mikrofon/kamera için tarayıcı izinleri gerekir.
-- Sözdizimi kontrolü yapıldı; canlı Cloudflare deploy ve farklı cihazlarda uçtan uca test yapılmadı. Her tarayıcıda %100 çalışma garantisi verilmez.
+ADMIN
+- Admin simgesi yalnızca sunucu hesabı admin yetkisini verdiğinde görünür.
+- Ana yönetici adı voxaadmin. İlk kayıtta ADMIN_SETUP_KEY gerekir. Normal hesabı tarayıcıdan admin yapacak bir istemci kısayolu eklenmedi; yetki sunucuda tutulur ve aynı backend'e bağlanan tüm tarayıcılara gelir.
+
+DOĞRULAMA
+- JS sözdizimi kontrolü yapılmalıdır; canlı Cloudflare deploy/test bu paketten yapılamaz.
+- WebRTC kamera/mikrofon için HTTPS ve tarayıcı izinleri gerekir.

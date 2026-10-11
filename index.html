@@ -722,7 +722,11 @@ function logout(){userClosed=true;if(reconnectTimer){clearTimeout(reconnectTimer
 /* --- canlı bağlantı --- */
 let reconnectDelay=1000, reconnectTimer=null, userClosed=false;
 function connectionState(state,label){
- // Bağlantı durumu başlığın sağında gösterilmiyor; yeniden bağlanma mantığı korunur.
+ // Kullanıcıya gerçek bağlantı durumunu göster; başarılıymış gibi sonsuza kadar bekletme.
+ let el=document.getElementById('voxaConnState');
+ if(!el){el=document.createElement('div');el.id='voxaConnState';el.setAttribute('role','status');el.style.cssText='position:fixed;z-index:99999;left:50%;bottom:14px;transform:translateX(-50%);max-width:calc(100vw - 24px);padding:10px 14px;border-radius:10px;background:#252833;color:#fff;font:13px/1.4 system-ui,sans-serif;box-shadow:0 4px 20px #0006;text-align:center;display:none';document.body.appendChild(el)}
+ if(state==='live'){el.style.display='none';el.textContent=''}
+ else {el.style.display='block';el.style.background=state==='off'?'#8b2525':'#252833';el.textContent=state==='off'?'VOXA sunucusuna bağlanılamadı. Cloudflare Worker, MERKEZ bağlantısı ve /ws yönlendirmesini kontrol et. Yeniden deneniyor…':(label||'VOXA sunucusuna bağlanılıyor…')}
 }
 function connect(){
  if(!TOKEN||userClosed)return;
@@ -754,10 +758,10 @@ function connect(){
   else if(m.t==='hist'){const pending=HIST_PENDING.get(m.ch);if(pending)clearTimeout(pending);HIST_PENDING.delete(m.ch);HIST[m.ch]=m.msgs||[];if(m.ch===key()){if(m.denied){$('msgs').innerHTML='<div class="wel"><h2>Erişim yok</h2><p>'+esc(m.msg||'Bu kanalın geçmişine erişilemiyor.')+'</p></div>'}else msgs()}}
   else if(m.t==='adstats'||m.t==='adsvlist'||m.t==='adsvdel'||m.t==='adusers'||m.t==='aduserdel'||m.t==='adsvopen'||m.t==='adadmins'||m.t==='adlogs'||m.t==='adpromote'||m.t==='addemote'||m.t==='admute'||m.t==='adunmute'||m.t==='adban'||m.t==='adunban'||m.t==='modstate'||m.t==='admsgs'||m.t==='admsgdel'||m.t==='adreports'||m.t==='adreportclear'){adminMsg(m)}
   else if(m.t==='vstate'||m.t==='vpeers'||m.t==='vsig'){voiceMsg(m)}
-  else if(m.t==='error'){fT(m.msg||'İşlem tamamlanamadı')}
+  else if(m.t==='error'){connectionState('off',m.msg||'Sunucu isteği reddetti');fT(m.msg||'İşlem tamamlanamadı')}
  };
  ws.onerror=()=>connectionState('off','Bağlantı sorunu');
- ws.onclose=()=>{if(window.voiceReset)voiceReset();if(TOKEN&&!userClosed){connectionState('retry','Yeniden bağlanıyor');scheduleReconnect()}};
+ ws.onclose=ev=>{if(window.voiceReset)voiceReset();if(TOKEN&&!userClosed){connectionState('off',ev&&ev.code===1006?'Sunucu bağlantıyı kapattı (1006). /ws yönlendirmesi ve Worker dağıtımını kontrol et.':'Bağlantı kesildi. Yeniden bağlanılıyor…');scheduleReconnect()}};
 }
 function scheduleReconnect(){if(!TOKEN||userClosed||reconnectTimer)return;const wait=reconnectDelay;reconnectDelay=Math.min(15000,Math.round(reconnectDelay*1.7));reconnectTimer=setTimeout(()=>{reconnectTimer=null;connect()},wait)}
 
