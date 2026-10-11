@@ -77,7 +77,7 @@ async function discordCallback(req, env, u) {
     if (gr && gr.ok) guilds = (await gr.json()).slice(0, 200).map(g => ({ id: String(g.id), name: String(g.name), icon: g.icon ? String(g.icon) : null }));
   } catch {}
   try {
-    await env.HUB.get(env.HUB.idFromName('main')).fetch('https://hub/internal/guilds', { method: 'POST', body: JSON.stringify({ id: 'd' + d.id, guilds }) });
+    await env.MERKEZ.get(env.MERKEZ.idFromName('main')).fetch('https://hub/internal/guilds', { method: 'POST', body: JSON.stringify({ id: 'd' + d.id, guilds }) });
   } catch {}
   const pic = d.avatar ? 'https://cdn.discordapp.com/avatars/' + d.id + '/' + d.avatar + '.png?size=64' : '';
   const tok = await sign(env.DISCORD_SECRET, { id: 'd' + d.id, name: d.global_name || d.username, picture: pic });
@@ -90,13 +90,13 @@ async function discordCallback(req, env, u) {
 export default {
   async fetch(req, env) {
     const u = new URL(req.url);
-    if (u.pathname === '/ws') return env.HUB.get(env.HUB.idFromName('main')).fetch(req);
+    if (u.pathname === '/ws') return env.MERKEZ.get(env.MERKEZ.idFromName('main')).fetch(req);
     if (req.method === 'POST' && ['/auth/login', '/auth/register', '/auth/check'].includes(u.pathname)) {
       const bad = (msg, s) => new Response(JSON.stringify({ ok: false, msg }), { status: s, headers: { 'Content-Type': 'application/json' } });
       if (Number(req.headers.get('content-length') || 0) > 2048) return bad('İstek çok büyük', 413);
       let b; try { b = await req.json(); } catch { return bad('Geçersiz istek', 400); }
       b.ip = req.headers.get('CF-Connecting-IP') || '';
-      return env.HUB.get(env.HUB.idFromName('main')).fetch('https://hub/internal/' + u.pathname.slice(6), { method: 'POST', body: JSON.stringify(b) });
+      return env.MERKEZ.get(env.MERKEZ.idFromName('main')).fetch('https://hub/internal/' + u.pathname.slice(6), { method: 'POST', body: JSON.stringify(b) });
     }
     if (env.ENABLE_DISCORD === '1') {
       if (u.pathname === '/auth/discord/start') return discordStart(u);
@@ -157,8 +157,8 @@ export class Hub {
         const hist = {};
         for (const k of Object.keys(hist0)) { if (await this.canSee(u.id, k)) hist[k] = hist0[k]; }
         const guilds = (await this.s.storage.get('g:' + u.id)) || [];
-        ws.send(JSON.stringify({ t: 'ready', hist, online: this.users(), guilds, servers: await this.guildsOf(u.id), me: { name, admin, mainAdmin }, social: await this.social(u.id) }));
-        this.bc({ t: 'online', online: this.users() });
+        ws.send(JSON.stringify({ t: 'ready', hist, online: this.users(), guilds, servers: await this.guildsOf(u.id), me: { name, admin, mainAdmin }, social: await this.social(u.id), members: await this.allMembers() }));
+        this.bc({ t: 'online', online: this.users(), members: await this.allMembers() });
         await this.vstate();
         await this.presence(u.id);
       } catch { ws.send(JSON.stringify({ t: 'error' })); ws.close(1008, 'auth'); }
@@ -471,6 +471,15 @@ export class Hub {
       await this.s.storage.put('ci:' + code, id);
     }
     await this.setProfile(id, { name, pic, code });
+    const all = (await this.s.storage.get('allusers')) || [];
+    if (!all.includes(id)) { all.push(id); await this.s.storage.put('allusers', all); }
+  }
+  async allMembers() {
+    const ids = (await this.s.storage.get('allusers')) || [];
+    const on = this.onlineSet();
+    const out = [];
+    for (const id of ids) { const p = await this.card(id, on); if (p) out.push(p); }
+    return out.sort((a,b) => Number(b.on)-Number(a.on) || a.name.localeCompare(b.name));
   }
   async card(id, on) {
     const p = await this.s.storage.get('p:' + id);
@@ -1293,7 +1302,7 @@ export class Hub {
   async webSocketClose(ws) {
     let a = null; try { a = ws.deserializeAttachment(); } catch {}
     try { ws.close(); } catch {}
-    this.bc({ t: 'online', online: this.users() });
+    this.bc({ t: 'online', online: this.users(), members: await this.allMembers() });
     await this.vstate();
     if (a) await this.presence(a.id);
   }

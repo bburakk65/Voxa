@@ -601,7 +601,7 @@ const CH={
  tayfa:{text:['genel','oyun-sohbeti','müzik'],voice:['Genel Ses','Oyun Sesi']},
  oyun:{text:['duyurular','takım-ara'],voice:['Takım 1','Takım 2']}
 };
-let GUILDS=[],MYSV=[],MGMT=null,MGMTCODE='',MGMTMEM=null,SVCB=null,SVPCB=null,TY={},lastT=0,HIST={},ONL=[],srv='tayfa',ch='genel',voice=null,muted=false,deaf=false,TOKEN=null,ws=null;
+let GUILDS=[],MYSV=[],ALLMEM=[],MGMT=null,MGMTCODE='',MGMTMEM=null,SVCB=null,SVPCB=null,TY={},lastT=0,HIST={},ONL=[],srv='tayfa',ch='genel',voice=null,muted=false,deaf=false,TOKEN=null,ws=null;
 const key=()=>srv==='home'?ch:srv+'/'+ch;
 const hm=t=>new Date(t).toLocaleTimeString('tr',{hour:'2-digit',minute:'2-digit'});
 
@@ -614,8 +614,10 @@ const chOf=id=>{if(id&&id.startsWith('sv:')){const s2=MYSV.find(x=>'sv:'+x.id===
 function typ(){const now=Date.now();for(const name of Object.keys(TY))if(TY[name]<=now)delete TY[name];const names=Object.keys(TY);const el=$('typ');if(!el)return;el.textContent=names.length?(names.length===1?names[0]+' yazıyor…':names.length===2?names.join(' ve ')+' yazıyor…':names.slice(0,2).join(', ')+' ve '+(names.length-2)+' kişi daha yazıyor…'):''}
 setInterval(typ,500);
 function members(){
- const mc=$('memberCount');if(mc)mc.textContent=ONL.length;
- $('mem').innerHTML=`<div class="cat">ÇEVRİMİÇİ — ${ONL.length}</div>`+(ONL.length?ONL.map(u=>`<div class="vu">${av(u.name,'dot')}${esc(u.name)}${admTag(u.admin)}</div>`).join(''):'<div class="vu" style="opacity:.7">Şu anda çevrimiçi üye yok</div>');
+ const online=ALLMEM.length?ALLMEM.filter(u=>u.on):ONL;
+ const offline=ALLMEM.filter(u=>!u.on);
+ const mc=$('memberCount');if(mc)mc.textContent=online.length;
+ $('mem').innerHTML=`<div class="cat">ÇEVRİMİÇİ — ${online.length}</div>`+(online.length?online.map(u=>`<div class="vu">${av(u.name,'dot')}${esc(u.name)}${admTag(u.admin)}</div>`).join(''):'<div class="vu" style="opacity:.7">Şu anda çevrimiçi üye yok</div>')+`<div class="cat" style="margin-top:14px">ÇEVRİMDIŞI — ${offline.length}</div>`+(offline.length?offline.map(u=>`<div class="vu" style="opacity:.58">${av(u.name)}${esc(u.name)}${admTag(u.admin)}</div>`).join(''):'<div class="vu" style="opacity:.7">Çevrimdışı üye yok</div>');
 }
 let REPLY=null,EDIT=null,PICK=null,UNR={},AC=null,NOANIM=false;
 const EMO='😀 😂 🤣 😊 😍 😘 😎 🤔 😅 😭 😡 🥳 😴 🤯 🙄 😇 👍 👎 👏 🙌 🙏 💪 👀 🔥 ✨ 💯 ❤️ 💔 🎉 🎮 🎧 ⚽ 🍕 ☕ 🚀 ⭐ ✅ ❌ 😮 😢'.split(' ');
@@ -726,8 +728,8 @@ function connect(){
  ws.onopen=()=>{reconnectDelay=1000;connectionState('retry','Doğrulanıyor');ws.send(JSON.stringify({t:'auth',token:TOKEN}))};
  ws.onmessage=e=>{
   let m;try{m=JSON.parse(e.data)}catch(err){return}
-  if(m.t==='ready'){connectionState('live','Canlı');if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;ME.mainAdmin=!!m.me.mainAdmin;profUI()}HIST=m.hist||{};ONL=m.online||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
-  else if(m.t==='online'){ONL=m.online||[];members();if(MGMT&&ws&&ws.readyState===1)sendWS({t:'svmembers',id:MGMT.id})}
+  if(m.t==='ready'){connectionState('live','Canlı');if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;ME.mainAdmin=!!m.me.mainAdmin;profUI()}HIST=m.hist||{};ONL=m.online||[];ALLMEM=m.members||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
+  else if(m.t==='online'){ONL=m.online||[];ALLMEM=m.members||ALLMEM;members();if(MGMT&&ws&&ws.readyState===1)sendWS({t:'svmembers',id:MGMT.id})}
   else if(m.t==='msg'){
    const L=(HIST[m.ch]=HIST[m.ch]||[]);const prev=L[L.length-1];L.push(m.msg);if(m.msg&&m.msg.u)delete TY[m.msg.u];typ();
    if(m.ch===key()){const b=$('msgs');const nb=b.scrollHeight-b.scrollTop-b.clientHeight<120||m.msg.id===ME.id;addMsg(b,m.msg,prev);if(nb)b.scrollTop=1e9}
@@ -1518,6 +1520,8 @@ function fAction(el){
  else if(a==='adreportclear')sendWS({t:'adreportclear',id:el.dataset.id});
  else if(a==='adsvdel'){const nm=el.dataset.n,gid=el.dataset.id;svConfirmDlg('Sunucuyu sil (admin)','“'+nm+'” sunucusunu kalıcı olarak silmek istediğine emin misin? Sahibi sen olmasan bile silinir.','Sil',()=>sendWS({t:'adsvdel',id:gid}))}
  else if(a==='adminclose')closeAdmin();
+ else if(a==='aduserfilter'){ADUFILTER=el.dataset.filter||'all';adminRender()}
+ else if(a==='aduserrefresh'){ADUSERS=null;sendWS({t:'adusers',q:ADUQ});sendWS({t:'adstats'});adminRender()}
  else if(a==='adtab'){ADTAB=el.dataset.k;if(ADTAB==='users'&&!ADUSERS)sendWS({t:'adusers',q:ADUQ});if(ADTAB==='admins'&&ME.mainAdmin)sendWS({t:'adadmins'});if(ADTAB==='logs')sendWS({t:'adlogs'});if(ADTAB==='msgs'){ADMVIEW='pick';ADMCH='';ADMSGCHS=null;sendWS({t:'admsgchannels'});if(!ADSVLIST)sendWS({t:'adsvlist'})}adminRender()}
  else if(a==='aduserdel'){const nm=el.dataset.n,un=el.dataset.uname;svConfirmDlg('Kullanıcıyı sil','“'+nm+'” hesabını kalıcı olarak silmek istediğine emin misin? Arkadaşlıkları ve sunucu üyelikleri de kalkar.','Sil',()=>sendWS({t:'aduserdel',uname:un}))}
  else if(a==='svleavego'){const gid=el.dataset.id,nm=(MGMT&&MGMT.name)||'bu sunucu';svConfirmDlg('Sunucudan ayrıl','“'+nm+'” sunucusundan ayrılmak istediğine emin misin? Bu işlem sunucu üyeliğini kaldırır.','Ayrıl',()=>{if(!ws||ws.readyState!==1){fT('Bağlantı yok. İnternet bağlantını kontrol edip tekrar dene.');return}sendWS({t:'svleave',id:gid});fT('Sunucudan ayrılma isteği gönderildi…')})}
@@ -1736,11 +1740,11 @@ try{
 
 
 /* ===== GİZLİ YÖNETİM PANELİ ===== */
-let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADLOGS=null,ADLOGQ='',ADPROMOQ='',MUTE_UN='',ADMVIEW='pick',ADMCH='',ADMCHL='',ADMQ='',ADMQT=null,ADMSGS=null,ADREPORTS=null,ADMSGCHS=null;
+let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUFILTER='all',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADLOGS=null,ADLOGQ='',ADPROMOQ='',MUTE_UN='',ADMVIEW='pick',ADMCH='',ADMCHL='',ADMQ='',ADMQT=null,ADMSGS=null,ADREPORTS=null,ADMSGCHS=null;
 let ADMSGCOUNT_EXPECTED=null,ADMSGCOUNT_AT=0;
 function openAdmin(){
  if(!ME.admin)return;
- ADSTATS=null;ADSVLIST=null;ADUSERS=null;ADLOGS=null;ADTAB='dash';ADUQ='';
+ ADSTATS=null;ADSVLIST=null;ADUSERS=null;ADLOGS=null;ADTAB='dash';ADUQ='';ADUFILTER='all';
  sendWS({t:'adstats'});sendWS({t:'adsvlist'});
  $('adminFull').classList.add('on');
  adminRender();
@@ -1766,8 +1770,11 @@ const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Y
   <div class="fsec" style="padding-left:16px">TÜM SUNUCULAR</div>
   <div style="padding:0 16px">${ADSVLIST?(ADSVLIST.length?ADSVLIST.map(svRow).join(''):'<p class="hint">Hiç sunucu yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
  }else if(ADTAB==='users'){
-  body=`<div class="fsearch" style="padding:4px 16px 10px"><input id="aduq" value="${esc(ADUQ)}" placeholder="Kullanıcı ara" autocomplete="off"></div>
-  <div style="padding:0 16px">${ADUSERS?(ADUSERS.length?ADUSERS.map(uRow).join(''):'<p class="hint">Sonuç yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
+  const allUsers=ADUSERS||[];
+  const shownUsers=allUsers.filter(u=>ADUFILTER==='all'||(ADUFILTER==='online'?!!u.on:!u.on));
+  body=`<div class="fsearch" style="padding:4px 16px 10px"><input id="aduq" value="${esc(ADUQ)}" placeholder="Tüm kullanıcıları ara" autocomplete="off"><button class="fbtn" style="width:100%;margin-top:8px" data-fa="aduserrefresh">↻ Kullanıcıları Yenile</button></div>
+  <div class="ftabs" style="padding:0 16px 10px;gap:6px"><button class="ftab ${ADUFILTER==='all'?'on':''}" data-fa="aduserfilter" data-filter="all">Tümü (${allUsers.length})</button><button class="ftab ${ADUFILTER==='online'?'on':''}" data-fa="aduserfilter" data-filter="online">Çevrimiçi (${allUsers.filter(u=>u.on).length})</button><button class="ftab ${ADUFILTER==='offline'?'on':''}" data-fa="aduserfilter" data-filter="offline">Çevrimdışı (${allUsers.filter(u=>!u.on).length})</button></div>
+  <div style="padding:0 16px">${ADUSERS?(shownUsers.length?shownUsers.map(uRow).join(''):'<p class="hint">Bu filtrede sonuç yok.</p>'):'<p class="hint">Sunucudan kullanıcılar yükleniyor…</p>'}</div>`;
 }else if(ADTAB==='msgs'){
   const chPill=(id,label,active)=>`<button class="ftab ${active?'on':''}" data-fa="admchpick" data-ch="${esc(id)}" data-l="${esc(label)}" style="margin:3px">#${esc(label)}</button>`;
   if(ADMVIEW==='reports'){
