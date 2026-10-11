@@ -227,7 +227,7 @@ html,body{font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif
 .vmt{flex:1;min-width:0}.vmt b{display:block;font-size:14px}.vmt small{color:#949ba4}
 .vu span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vu .mi{margin-left:auto;display:inline-flex;color:#f23f43}
-.vtile{cursor:pointer}
+.vtile{cursor:pointer}.vtile .vvideo{position:absolute;inset:0}.vtile .vvideo video{width:100%;height:100%;object-fit:cover;background:#000}.vtile.vhasvideo .vname{z-index:2;background:rgba(0,0,0,.48);color:#fff}.vtile.vhasvideo .vname .av{display:none}
 .slash{position:relative;display:inline-flex}
 .slash::after{content:"";position:absolute;left:-2px;right:-2px;top:50%;height:2px;background:#f23f43;transform:rotate(-45deg)}
 #vpop{position:fixed;left:0;right:0;bottom:0;z-index:70;display:none;padding:12px}
@@ -753,7 +753,7 @@ addEventListener('load',()=>{
 
 /* ===== SESLİ ODALAR (WebRTC) ===== */
 let VST={};
-const V={room:null,name:'',sid:null,joinSeq:0,ui:null,sheet:'',sheetRoom:'',pcs:{},auds:{},ana:{},pend:{},peerMeta:{},vol:{},umute:{},prev:null,speak:{},stream:null,ctx:null,timer:null,spcs:{},svid:{},spend:{},screen:null,sharing:false,localVideoEl:null};
+const V={room:null,name:'',sid:null,joinSeq:0,ui:null,sheet:'',sheetRoom:'',pcs:{},auds:{},ana:{},pend:{},peerMeta:{},vol:{},umute:{},prev:null,speak:{},stream:null,ctx:null,timer:null,spcs:{},svid:{},spend:{},screen:null,sharing:false,localVideoEl:null,camera:null,videos:{}};
 const ICE={iceServers:[{urls:['stun:stun.cloudflare.com:3478','stun:stun.l.google.com:19302']}]};
 const P={
  mic:'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z',
@@ -776,7 +776,7 @@ const pastel=n=>'hsl('+([...String(n)].reduce((a,c)=>a+c.charCodeAt(0),0)*37%360
 const vav=u=>`<div class="av ${V.speak[u.id]?'sp':''}" data-uid="${esc(u.id)}" style="background:${u.p?'url('+esc(u.p)+') center/cover':col(u.name)}">${u.p?'':esc(String(u.name)[0]||'?').toUpperCase()}</div>`;
 const stIcon=u=>u.d?'<span class="slash">'+ic(P.head,14)+'</span>':(u.m?ic(P.micoff,14):'');
 const ssIcon=u=>u.ss?' '+ic(P.share,12):'';
-const tile=u=>`<div class="vtile" data-pid="${esc(u.id)}" style="background:${pastel(u.name)}">${vav(u)}<div class="vname">${stIcon(u)}<span>${esc(u.id===ME.id?(ME.name||u.name):u.name)}</span>${ssIcon(u)}</div></div>`;
+const tile=u=>{const vid=(u.id===ME.id?'me':(u.sid||u.id));const live=(u.id===ME.id?V.camera:V.videos[vid]);return `<div class="vtile ${live?'vhasvideo':''}" data-pid="${esc(u.id)}" style="background:${pastel(u.name)}">${live?`<div class="vvideo" data-vid="${esc(vid)}"></div>`:vav(u)}<div class="vname">${stIcon(u)}<span>${esc(u.id===ME.id?(ME.name||u.name):u.name)}</span>${ssIcon(u)}</div></div>`};
 function screenTilesHtml(){
  const parts=[];
  if(V.screen)parts.push(`<div class="vtile vscreen" data-vslot="me"><div class="vvideo" data-vid="me"></div><div class="vname">${ic(P.share,14)}<span>Ekranını paylaşıyorsun</span></div></div>`);
@@ -788,9 +788,9 @@ function mountVideos(root){
   const id=slot.dataset.vid;
   if(id==='me'){
    if(!V.localVideoEl){V.localVideoEl=document.createElement('video');V.localVideoEl.autoplay=true;V.localVideoEl.muted=true;V.localVideoEl.playsInline=true}
-   if(V.screen)V.localVideoEl.srcObject=V.screen;
-   slot.appendChild(V.localVideoEl);
-  }else{const v=V.svid[id];if(v)slot.appendChild(v)}
+   const stream=V.screen||V.camera;if(stream&&V.localVideoEl.srcObject!==stream)V.localVideoEl.srcObject=stream;
+   if(V.localVideoEl.parentElement!==slot)slot.appendChild(V.localVideoEl);
+  }else{const v=V.videos[id]||V.svid[id];if(v&&v.parentElement!==slot)slot.appendChild(v)}
  });
 }
 
@@ -915,6 +915,7 @@ function vtick(){
 function closePc(id){
  const pc=V.pcs[id];if(pc){try{pc.close()}catch(e){}delete V.pcs[id]}
  const a=V.auds[id];if(a){a.srcObject=null;a.remove();delete V.auds[id]}
+ const v=V.videos[id];if(v){v.srcObject=null;v.remove();delete V.videos[id]}
  if(V.ana[id]){try{V.ana[id].src.disconnect()}catch(e){}delete V.ana[id]}
  const meta=rsessions(V.room).find(u=>(u.sid||u.id)===id);if(meta&&!rsessions(V.room).some(u=>u.id===meta.id&&(u.sid||u.id)!==id&&V.ana[u.sid||u.id]))delete V.speak[meta.id];delete V.pend[id];
 }
@@ -923,9 +924,14 @@ function vpc(id){
  const pc=new RTCPeerConnection(ICE);V.pcs[id]=pc;
  if(V.stream)V.stream.getTracks().forEach(t=>pc.addTrack(t,V.stream));
  else pc.addTransceiver('audio',{direction:'recvonly'});
+ if(V.camera)V.camera.getVideoTracks().forEach(t=>pc.addTrack(t,V.camera));
  pc.onicecandidate=e=>{if(e.candidate)wsend({t:'vsig',to:id,data:{type:'ice',c:e.candidate}})};
  pc.ontrack=e=>{
   const st=e.streams[0]||new MediaStream([e.track]);
+  if(e.track.kind==='video'){
+   let v=V.videos[id];if(!v){v=document.createElement('video');v.autoplay=true;v.playsInline=true;v.muted=true;V.videos[id]=v}
+   v.srcObject=st;v.play().catch(()=>{});if(V.ui==='full')vui();return;
+  }
   let a=V.auds[id];
   if(!a){a=document.createElement('audio');a.autoplay=true;a.playsInline=true;document.body.append(a);V.auds[id]=a}
   a.srcObject=st;a.muted=deaf||!!V.umute[id];a.volume=V.vol[id]==null?1:V.vol[id];a.play().catch(()=>{});
@@ -997,6 +1003,28 @@ async function vjoin(name,room){
  try{navigator.mediaSession.metadata=new MediaMetadata({title:name,artist:'Voxa sesli oda'});navigator.mediaSession.setActionHandler('hangup',()=>{vleave().then(()=>{V.ui=null;vui()})})}catch(e){}
  vpanel();chans();
 }
+async function vCamToggle(){
+ if(!V.room){vtoast('Önce sesli odaya katıl');return}
+ if(V.camera){
+  const old=V.camera;V.camera=null;
+  old.getTracks().forEach(t=>t.stop());
+  Object.values(V.pcs).forEach(pc=>pc.getSenders().forEach(sender=>{if(sender.track&&sender.track.kind==='video'){try{pc.removeTrack(sender)}catch(e){}}}));
+  if(V.localVideoEl)V.localVideoEl.srcObject=null;
+  for(const id of Object.keys(V.pcs)){try{await voffer(id)}catch(e){}}
+  vtoast('Kamera kapatıldı');vui();return;
+ }
+ try{
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('unsupported');
+  const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
+  if(!V.room){stream.getTracks().forEach(t=>t.stop());return}
+  V.camera=stream;
+  if(!V.localVideoEl){V.localVideoEl=document.createElement('video');V.localVideoEl.autoplay=true;V.localVideoEl.muted=true;V.localVideoEl.playsInline=true}
+  V.localVideoEl.srcObject=stream;V.localVideoEl.play().catch(()=>{});
+  for(const id of Object.keys(V.pcs)){const pc=V.pcs[id];stream.getVideoTracks().forEach(t=>pc.addTrack(t,stream));try{await voffer(id)}catch(e){}}
+  vtoast('Kamera açıldı');vui();
+ }catch(e){vtoast(e&&e.name==='NotAllowedError'?'Kamera izni verilmedi. Tarayıcı ayarlarından izin ver.':e&&e.name==='NotFoundError'?'Kamera bulunamadı.':'Kamera açılamadı; izinleri ve HTTPS bağlantısını kontrol et.')}
+}
+
 async function vleave(silent){
  if(!V.room)return;
  V.joinSeq++;
@@ -1009,6 +1037,8 @@ async function vleave(silent){
  if(V.screen){try{V.screen.getTracks().forEach(t=>t.stop())}catch(e){}V.screen=null}
  V.sharing=false;
  if(V.stream){V.stream.getTracks().forEach(t=>t.stop());V.stream=null}
+ if(V.camera){V.camera.getTracks().forEach(t=>t.stop());V.camera=null}
+ if(V.localVideoEl)V.localVideoEl.srcObject=null;
  if(V.ana[ME.id]){try{V.ana[ME.id].src.disconnect()}catch(e){}delete V.ana[ME.id]}
  Object.keys(V.auds).forEach(id=>{const a=V.auds[id];try{a.pause();a.srcObject=null;a.remove()}catch(e){}delete V.auds[id]});
  clearInterval(V.timer);V.prev=null;V.room=null;V.name='';V.sid=null;V.peerMeta={};voice=null;V.speak={};V.pend={};V.spend={};
@@ -1102,7 +1132,7 @@ document.addEventListener('click',e=>{
  else if(a==='end'){vleave();V.ui=null}
  else if(a==='invite')vinvite();
  else if(a==='share'){if(V.sharing)vShareStop();else vShareStart()}
- else if(a==='cam')vtoast('Yakında geliyor');
+ else if(a==='cam'){vCamToggle();return;}
  vui();
 });
 
