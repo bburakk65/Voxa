@@ -203,11 +203,21 @@ html,body{font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif
 .vb{width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.08);display:grid;place-items:center;color:#fff}
 .vbody{flex:1;display:grid;place-items:center;padding:12px 20px;text-align:center;overflow:auto}
 .vempty{color:#b5bac1;line-height:1.6}
-.vgrid{flex:1;display:grid;grid-template-columns:1fr;gap:12px;padding:12px 16px;align-content:center;overflow:auto;width:100%}
-.vgrid.sm{grid-template-columns:1fr 1fr}
-.vtile{position:relative;border-radius:24px;min-height:180px;display:grid;place-items:center;overflow:hidden;color:#111}
-.vgrid:not(.sm) .vtile{min-height:260px}
-.vtile .av{width:104px;height:104px;font-size:42px}
+ .vgrid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);grid-auto-rows:minmax(0,1fr);gap:12px;padding:12px 16px;align-content:stretch;justify-content:stretch;overflow:auto;width:100%;overscroll-behavior:contain}
+.vgrid.sm{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(140px,1fr)}
+.vtile{position:relative;border-radius:18px;min-height:0;min-width:0;display:grid;place-items:center;overflow:hidden;color:#111;aspect-ratio:16/9;background:#24262b}
+.vgrid:not(.sm) .vtile{min-height:0;aspect-ratio:auto;height:100%;max-height:100%}
+.vtile .av{width:clamp(64px,12vw,140px);height:clamp(64px,12vw,140px);font-size:clamp(28px,5vw,54px)}
+.vgrid.count-3,.vgrid.count-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+.vgrid.count-many{grid-template-columns:repeat(3,minmax(0,1fr))}
+.vgrid.count-many .vtile .av{width:clamp(42px,7vw,84px);height:clamp(42px,7vw,84px);font-size:clamp(20px,3vw,36px)}
+.vgrid.count-many .vname{left:8px;right:8px;bottom:8px;transform:none;max-width:none;font-size:12px;padding:4px 8px}
+.vgrid .vtile video{object-fit:cover}
+#vfull .vbar{flex:none;margin-bottom:max(10px,env(safe-area-inset-bottom,0px))}
+@media(min-width:761px){#vfull .vgrid{padding:18px 5vw;gap:16px}#vfull .vgrid.sm{grid-template-columns:repeat(2,minmax(0,1fr))}#vfull .vgrid.count-3{grid-template-columns:repeat(2,minmax(0,1fr))}#vfull .vgrid.count-many{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){#vfull .vh{padding:10px 10px 4px}.vgrid{gap:7px;padding:8px}.vgrid.sm{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(100px,1fr)}.vtile{border-radius:12px}.vname{bottom:7px;font-size:11px;padding:4px 8px}.vgrid.count-many{grid-template-columns:repeat(2,minmax(0,1fr))}#vfull .vbar{gap:8px;margin:6px 8px 10px;padding:8px;flex-wrap:wrap}.vc{width:48px;height:48px}}
+@media(max-width:380px){#vfull .vbar{gap:5px}.vc{width:42px;height:42px}.vgrid{gap:5px;padding:5px}}
+
 .vtile .av.sp{box-shadow:0 0 0 5px #fff,0 0 0 9px rgba(35,165,89,.6);animation:none}
 .vname{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.62);color:#fff;padding:6px 12px;border-radius:999px;font-size:14px;font-weight:600;white-space:nowrap;max-width:85%}
 .vname span{overflow:hidden;text-overflow:ellipsis}
@@ -706,7 +716,7 @@ function connect(){
  ws.onmessage=e=>{
   let m;try{m=JSON.parse(e.data)}catch(err){return}
   if(m.t==='ready'){connectionState('live','Canlı');if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;ME.mainAdmin=!!m.me.mainAdmin;profUI()}HIST=m.hist||{};ONL=m.online||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
-  else if(m.t==='online'){ONL=m.online||[];members()}
+  else if(m.t==='online'){ONL=m.online||[];members();if(MGMT&&ws&&ws.readyState===1)sendWS({t:'svmembers',id:MGMT.id})}
   else if(m.t==='msg'){
    const L=(HIST[m.ch]=HIST[m.ch]||[]);const prev=L[L.length-1];L.push(m.msg);if(m.msg&&m.msg.u)delete TY[m.msg.u];typ();
    if(m.ch===key()){const b=$('msgs');const nb=b.scrollHeight-b.scrollTop-b.clientHeight<120||m.msg.id===ME.id;addMsg(b,m.msg,prev);if(nb)b.scrollTop=1e9}
@@ -833,7 +843,7 @@ function vui(){
  if(V.ui==='full'&&V.room){
   const us=rusers(V.room);
   fu.innerHTML=`<div class="vh"><button class="vb" data-a="min" aria-label="Küçült">${ic(P.down)}</button><div class="vt">${esc(V.name)}</div><span class="gap"></span><button class="vb" data-a="invite" aria-label="Davet et">${ic(P.add,20)}</button><button class="vb" data-a="chat" aria-label="Sohbet">${ic(P.chat,20)}</button></div>
-  <div class="vgrid ${(us.length>2||V.screen||Object.keys(V.svid).length)?'sm':''}">${screenTilesHtml()}${us.map(tile).join('')}</div>
+  <div class="vgrid ${((us.length+Object.keys(V.svid).length+(V.screen?1:0))>1)?'sm':''} ${(()=>{const n=us.length+Object.keys(V.svid).length+(V.screen?1:0);return n===3?'count-3':n===4?'count-4':n>=5?'count-many':''})()}">${screenTilesHtml()}${us.map(tile).join('')}</div>
   <button class="vinv" data-a="invite"><span class="vi">${ic(P.add,20)}</span><span><b>Sesli Sohbet'e kişi ekle</b><small>Gruba geldiğini haber ver!</small></span><span>›</span></button>
   <div class="vbar"><button class="vc ${V.cameraBusy?'cam-loading':V.camera?'cam-on':''}" data-a="cam" aria-label="${V.cameraBusy?'Kamera hazırlanıyor':V.camera?'Kamerayı kapat':'Kamerayı aç'}" ${V.cameraBusy?'disabled':''}>${ic(V.camera?P.cam:P.camoff)}</button>${V.camera?`<button class="vc" data-a="flip" aria-label="Ön/arka kamerayı değiştir" title="Ön/arka kamera">${ic(P.flip,22)}</button>`:''}<button class="vc ${muted?'white':''}" data-a="mic" aria-label="Mikrofon">${ic(muted?P.micoff:P.mic)}</button><button class="vc ${V.sharing?'white':''}" data-a="share" aria-label="Ekran paylaş" ${MOBILE?"style=\"opacity:.45\"":""}>${ic(P.share)}</button><button class="vc ${deaf?'white':''}" data-a="deaf" aria-label="Kulaklık">${ic(P.head)}</button><button class="vc red" data-a="end" aria-label="Ayrıl">${ic(P.end)}</button></div>`;
   fu.classList.add('on');mountVideos(fu);
@@ -937,7 +947,8 @@ function closePc(id){
 function vpc(id){
  if(V.pcs[id])return V.pcs[id];
  const pc=new RTCPeerConnection(ICE);V.pcs[id]=pc;
- if(V.stream)V.stream.getTracks().forEach(t=>pc.addTrack(t,V.stream));
+ pc.polite=String(V.sid||'')>String(id||'');pc.makingOffer=false;pc.ignoreOffer=false;pc.settingRemoteAnswer=false;
+ if(V.stream)V.stream.getAudioTracks().forEach(t=>pc.addTrack(t,V.stream));
  else pc.addTransceiver('audio',{direction:'recvonly'});
  if(V.camera)V.camera.getVideoTracks().forEach(t=>pc.addTrack(t,V.camera));
  pc.onicecandidate=e=>{if(e.candidate)wsend({t:'vsig',to:id,data:{type:'ice',c:e.candidate}})};
@@ -957,8 +968,14 @@ function vpc(id){
 }
 async function voffer(id){
  const pc=vpc(id);
- const o=await pc.createOffer();await pc.setLocalDescription(o);
- wsend({t:'vsig',to:id,data:{type:'offer',sdp:pc.localDescription.sdp}});
+ if(pc.signalingState!=='stable'||pc.makingOffer)return;
+ try{
+  pc.makingOffer=true;
+  const o=await pc.createOffer();
+  if(pc.signalingState!=='stable')return;
+  await pc.setLocalDescription(o);
+  wsend({t:'vsig',to:id,data:{type:'offer',sdp:pc.localDescription.sdp}});
+ }finally{pc.makingOffer=false}
 }
 async function vflush(id,pc){
  for(const c of (V.pend[id]||[])){try{await pc.addIceCandidate(c)}catch(e){}}
@@ -968,17 +985,23 @@ async function vsig(from,d){
  if(!V.room||!d)return;
  if(d.type&&String(d.type).charAt(0)==='s'){await vsig2(from,d);return}
  try{
-  if(d.type==='offer'&&V.pcs[from]&&V.pcs[from].remoteDescription)closePc(from);
   const pc=vpc(from);
   if(d.type==='offer'){
+   const collision=pc.makingOffer||pc.signalingState!=='stable';
+   pc.ignoreOffer=!pc.polite&&collision;
+   if(pc.ignoreOffer)return;
+   if(collision)await pc.setLocalDescription({type:'rollback'});
    await pc.setRemoteDescription({type:'offer',sdp:d.sdp});
    const a=await pc.createAnswer();await pc.setLocalDescription(a);
    wsend({t:'vsig',to:from,data:{type:'answer',sdp:pc.localDescription.sdp}});
    await vflush(from,pc);
   }else if(d.type==='answer'){
-   await pc.setRemoteDescription({type:'answer',sdp:d.sdp});await vflush(from,pc);
+   if(pc.signalingState==='have-local-offer'){
+    await pc.setRemoteDescription({type:'answer',sdp:d.sdp});await vflush(from,pc);
+   }
   }else if(d.type==='ice'){
-   if(pc.remoteDescription)await pc.addIceCandidate(d.c);else(V.pend[from]=V.pend[from]||[]).push(d.c);
+   if(pc.remoteDescription){try{await pc.addIceCandidate(d.c)}catch(e){if(!pc.ignoreOffer)throw e}}
+   else(V.pend[from]=V.pend[from]||[]).push(d.c);
   }
  }catch(e){}
 }
@@ -1026,8 +1049,10 @@ async function vCamToggle(){
   old.getTracks().forEach(t=>t.stop());
   if(V.localVideoEl)V.localVideoEl.srcObject=null;
   vui();
-  Object.values(V.pcs).forEach(pc=>pc.getSenders().forEach(sender=>{if(sender.track&&sender.track.kind==='video'){try{pc.removeTrack(sender)}catch(e){}}}));
-  for(const id of Object.keys(V.pcs)){try{await voffer(id)}catch(e){}}
+  for(const pc of Object.values(V.pcs)){
+   const sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video');
+   if(sender){try{await sender.replaceTrack(null)}catch(e){}}
+  }
   V.cameraBusy=false;vtoast('Kamera kapatıldı');vui();return;
  }
  V.cameraBusy=true;vui();
@@ -1038,7 +1063,11 @@ async function vCamToggle(){
   V.camera=stream;
   if(!V.localVideoEl){V.localVideoEl=document.createElement('video');V.localVideoEl.autoplay=true;V.localVideoEl.muted=true;V.localVideoEl.playsInline=true}
   V.localVideoEl.srcObject=stream;V.localVideoEl.play().catch(()=>{});
-  for(const id of Object.keys(V.pcs)){const pc=V.pcs[id];stream.getVideoTracks().forEach(t=>pc.addTrack(t,stream));try{await voffer(id)}catch(e){}}
+  for(const id of Object.keys(V.pcs)){
+   const pc=V.pcs[id],track=stream.getVideoTracks()[0];
+   const sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video');
+   try{if(sender)await sender.replaceTrack(track);else{pc.addTrack(track,stream);await voffer(id)}}catch(e){}
+  }
   vtoast('Kamera açıldı');
  }catch(e){vtoast(e&&e.name==='NotAllowedError'?'Kamera izni verilmedi. Tarayıcı ayarlarından izin ver.':e&&e.name==='NotFoundError'?'Kamera bulunamadı.':'Kamera açılamadı; izinleri ve HTTPS bağlantısını kontrol et.')}
  finally{V.cameraBusy=false;vui()}
@@ -1046,23 +1075,32 @@ async function vCamToggle(){
 
 async function vCamFlip(){
  if(!V.room||!V.camera){vtoast('Önce kamerayı aç');return}
- const next=V.cameraFacing==='user'?'environment':'user';
+ if(V.cameraBusy)return;
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){vtoast('Bu tarayıcı kamera değiştirmeyi desteklemiyor.');return}
+ V.cameraBusy=true;vui();
+ let fresh=null;
  try{
-  const fresh=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:next}},audio:false});
+  const next=V.cameraFacing==='user'?'environment':'user';
+  fresh=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:next}},audio:false});
+  if(!V.room){fresh.getTracks().forEach(t=>t.stop());return}
   const track=fresh.getVideoTracks()[0];
   if(!track)throw new Error('no video track');
-  const jobs=[];
-  for(const pc of Object.values(V.pcs)){
-   const sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video');
-   if(sender)jobs.push(sender.replaceTrack(track));
-   else {pc.addTrack(track,fresh);jobs.push(voffer(Object.keys(V.pcs).find(id=>V.pcs[id]===pc)))}
+  const ids=Object.keys(V.pcs);
+  for(const id of ids){
+   const pc=V.pcs[id];if(!pc||pc.connectionState==='closed')continue;
+   let sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video');
+   if(!sender)sender=pc.getTransceivers().find(x=>x.receiver&&x.receiver.track&&x.receiver.track.kind==='video')?.sender;
+   if(sender)await sender.replaceTrack(track);
+   else {pc.addTrack(track,fresh);await voffer(id)}
   }
-  await Promise.all(jobs);
-  const old=V.camera;V.camera=fresh;V.cameraFacing=next;
-  if(V.localVideoEl){V.localVideoEl.srcObject=fresh;V.localVideoEl.play().catch(()=>{})}
-  old.getTracks().forEach(t=>t.stop());
-  vtoast(next==='environment'?'Arka kamera açıldı':'Ön kamera açıldı');vui();
- }catch(e){vtoast('Kamera değiştirilemedi. Cihazın diğer kamerası olmayabilir veya izin verilmemiş olabilir.')}
+  const old=V.camera;V.camera=fresh;fresh=null;V.cameraFacing=next;
+  if(V.localVideoEl){V.localVideoEl.srcObject=V.camera;V.localVideoEl.play().catch(()=>{})}
+  if(old)old.getTracks().forEach(t=>t.stop());
+  vtoast(next==='environment'?'Arka kamera açıldı':'Ön kamera açıldı');
+ }catch(e){
+  if(fresh)fresh.getTracks().forEach(t=>t.stop());
+  vtoast(e&&e.name==='NotAllowedError'?'Kamera izni verilmedi. Tarayıcı ayarlarından izin ver.':'Kamera değiştirilemedi. Diğer kamera desteklenmiyor olabilir.');
+ }finally{V.cameraBusy=false;vui()}
 }
 
 async function vleave(silent){
@@ -1407,7 +1445,7 @@ function fAction(el){
  else if(a==='adminclose')closeAdmin();
  else if(a==='adtab'){ADTAB=el.dataset.k;if(ADTAB==='users'&&!ADUSERS)sendWS({t:'adusers',q:ADUQ});if(ADTAB==='admins'&&ME.mainAdmin)sendWS({t:'adadmins'});if(ADTAB==='logs')sendWS({t:'adlogs'});if(ADTAB==='msgs'){ADMVIEW='pick';ADMCH='';ADMSGCHS=null;sendWS({t:'admsgchannels'});if(!ADSVLIST)sendWS({t:'adsvlist'})}adminRender()}
  else if(a==='aduserdel'){const nm=el.dataset.n,un=el.dataset.uname;svConfirmDlg('Kullanıcıyı sil','“'+nm+'” hesabını kalıcı olarak silmek istediğine emin misin? Arkadaşlıkları ve sunucu üyelikleri de kalkar.','Sil',()=>sendWS({t:'aduserdel',uname:un}))}
- else if(a==='svleavego'){const gid=el.dataset.id,nm=MGMT.name;svConfirmDlg('Sunucudan ayrıl','“'+nm+'” sunucusundan ayrılmak istediğine emin misin?','Ayrıl',()=>{sendWS({t:'svleave',id:gid});if(srv==='sv:'+gid){srv='home';ch='';FVIEW=true;all()}})}
+ else if(a==='svleavego'){const gid=el.dataset.id,nm=(MGMT&&MGMT.name)||'bu sunucu';svConfirmDlg('Sunucudan ayrıl','“'+nm+'” sunucusundan ayrılmak istediğine emin misin? Bu işlem sunucu üyeliğini kaldırır.','Ayrıl',()=>{if(!ws||ws.readyState!==1){fT('Bağlantı yok. İnternet bağlantını kontrol edip tekrar dene.');return}sendWS({t:'svleave',id:gid});fT('Sunucudan ayrılma isteği gönderildi…')})}
  else if(a==='svok'){const cb=SVCB;SVCB=null;closeF();if(cb)cb()}
  else if(a==='svpgo'){const v=($('svp')||{value:''}).value.trim();const adm=$('svpadm')?$('svpadm').checked:false;const cb=SVPCB;SVPCB=null;closeF();if(v&&cb)cb(v,adm)}
 }
@@ -1816,7 +1854,7 @@ function mgmtRender(){
  const chRow=c=>`<div class="frow"><div class="fi"><b>${c.kind==='voice'?'🔊':'#'} ${esc(c.name)}</b><small>${c.roles&&c.roles.length?'Kısıtlı: '+c.roles.map(rid=>esc((s2.roles.find(r=>r.id===rid)||{}).name||'?')).join(', '):'Herkese açık'}</small></div>${s2.roles.length?`<button class="ib" data-fa="chroles" data-n="${esc(c.name)}" data-k="${c.kind}" aria-label="Rol">🔑</button>`:''}${s2.channels.length>1?`<button class="ib" data-fa="chdel" data-n="${esc(c.name)}" data-k="${c.kind}" aria-label="Sil">🗑</button>`:''}</div>`;
  const roleRow=r=>`<div class="frow"><div class="fi"><b style="color:${esc(r.color)}">${esc(r.name)}</b><small>${r.admin?'Yönetici yetkisi':'Üye'}</small></div><button class="ib" data-fa="roledel" data-r="${esc(r.id)}" aria-label="Sil">🗑</button></div>`;
  const memRow=mm=>{const cur=(s2.roles.find(r=>(mm.roles||[]).includes(r.id))||{}).id||'';
-  return `<div class="frow">${fav(mm,1)}<div class="fi"><b>${esc(mm.name)}</b><small>${mm.owner?'Sahip':(cur?esc((s2.roles.find(r=>r.id===cur)||{}).name||''):'Üye')}</small></div>${(!mm.owner&&s2.roles.length)?`<select data-fa="roleassign" data-u="${esc(mm.id)}" data-old="${esc(cur)}" style="background:var(--input);color:#fff;border:0;border-radius:8px;padding:6px"><option value="">Rol yok</option>${s2.roles.map(r=>`<option value="${esc(r.id)}" ${cur===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}</select>`:''}</div>`};
+  return `<div class="frow">${fav(mm,1)}<div class="fi"><b>${esc(mm.name)}</b><small><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${mm.on?'#23a559':'#747f8d'};margin-right:5px"></span>${mm.on?'Çevrimiçi':'Çevrimdışı'} · ${mm.owner?'Sahip':(cur?esc((s2.roles.find(r=>r.id===cur)||{}).name||''):'Üye')}</small></div>${(!mm.owner&&s2.roles.length)?`<select data-fa="roleassign" data-u="${esc(mm.id)}" data-old="${esc(cur)}" style="background:var(--input);color:#fff;border:0;border-radius:8px;padding:6px"><option value="">Rol yok</option>${s2.roles.map(r=>`<option value="${esc(r.id)}" ${cur===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}</select>`:''}</div>`};
  fDlg(`<div class="fcard" style="max-height:80vh;overflow-y:auto">
   <h3>${esc(s2.name)} — Yönetim</h3>
   <div class="fsec">DAVET</div>
@@ -1833,6 +1871,14 @@ function guildMsg(m){
   MYSV=m.list||[];rail();if(srv.startsWith('sv:'))chans();if(MGMT&&MYSV.some(x=>x.id===MGMT.id))mgmtRender();
  }else if(m.t==='svres'){
   fT(m.msg||(m.ok?'Tamam':'Bir sorun oluştu'));
+  if(m.action==='leave'){
+   if(m.ok){
+    MYSV=(MYSV||[]).filter(x=>x.id!==m.id);
+    if(srv==='sv:'+m.id){srv='home';ch='';FVIEW=true;all();drawer(false)}
+    MGMT=null;MGMTMEM=null;closeF();rail();
+   }else if(MGMT){sendWS({t:'svmembers',id:MGMT.id})}
+   return;
+  }
   if(m.ok&&m.id){
    setTimeout(()=>{const s2=MYSV.find(x=>x.id===m.id);if(s2){srv='sv:'+s2.id;ch=(s2.channels.find(c=>c.kind==='text')||{}).name||'';all();drawer(false)}},250);
   }

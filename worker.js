@@ -1089,12 +1089,22 @@ export class Hub {
       await this.pushGuildsTo(me.id);
     }
     else if (t === 'svleave') {
-      const sv = await st.get('sv:' + String(m.id));
-      if (!sv || !sv.members.find(x => x.id === me.id)) return;
-      if (sv.owner === me.id) return reply('svres', { ok: false, msg: 'Sahip olduğun sunucudan ayrılamazsın, silebilirsin' });
+      const gid = String(m.id || '');
+      const sv = await st.get('sv:' + gid);
+      const fail = msg => reply('svres', { ok: false, action: 'leave', msg, id: gid });
+      if (!gid || !sv) return fail('Sunucu bulunamadı veya zaten silinmiş.');
+      if (!Array.isArray(sv.members) || !sv.members.some(x => x.id === me.id)) {
+        // Heal stale user->server index if the membership was already removed.
+        await st.put('ug:' + me.id, (await this.g('ug:' + me.id)).filter(x => x !== gid));
+        await this.pushGuildsTo(me.id);
+        return fail('Bu sunucunun üyesi değilsin; sunucu listen yenilendi.');
+      }
+      if (sv.owner === me.id) return fail('Bu sunucunun sahibisin. Ayrılmak için önce sunucuyu silmen gerekir.');
       sv.members = sv.members.filter(x => x.id !== me.id);
       await st.put('sv:' + sv.id, sv);
       await st.put('ug:' + me.id, (await this.g('ug:' + me.id)).filter(x => x !== sv.id));
+      // The client waits for this action-tagged response to close management and navigate away.
+      reply('svres', { ok: true, action: 'leave', msg: 'Sunucudan ayrıldın.', id: sv.id });
       await this.pushGuildsTo(me.id);
       await this.broadcastGuild(sv.id);
     }
