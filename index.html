@@ -78,11 +78,20 @@ button:active{transform:scale(.94)}
 .m:hover .del{display:block}
 #typ{height:18px;padding:0 16px;font-size:12px;color:var(--muted);font-style:italic}
 .scrim{display:none}
+#memberToggle{display:none}
 @keyframes pop{from{opacity:0;transform:scale(.96)}}
 @keyframes up{from{opacity:0;transform:translateY(8px)}}
 @keyframes slide{from{opacity:0;transform:translateY(6px)}}
 @keyframes talk{50%{box-shadow:0 0 0 4px rgba(35,165,89,.45)}}
-@media(max-width:900px){.mem{display:none}}
+@media(max-width:900px){
+ .mem{display:none}
+ #memberToggle{display:inline-flex;align-items:center;justify-content:center}
+ body.members-open .mem{display:block;position:fixed;z-index:31;right:10px;top:calc(env(safe-area-inset-top,0px) + 68px);bottom:calc(env(safe-area-inset-bottom,0px) + 12px);width:min(280px,calc(100vw - 24px));max-height:none;border:1px solid var(--border,#303238);border-radius:16px;box-shadow:0 18px 50px #0009;animation:memberIn .18s ease-out}
+ body.members-open:after{content:"";position:fixed;inset:0;z-index:30;background:#0007}
+ .mem .cat{padding-top:12px;font-weight:700}
+ .mem .vu{display:flex;align-items:center;gap:8px;min-height:42px;border-radius:9px;padding:6px 8px}
+}
+@keyframes memberIn{from{opacity:0;transform:translateY(7px) scale(.98)}to{opacity:1;transform:none}}
 @media(max-width:760px){
  .menu{display:grid}
  .rail,.side{position:fixed;top:0;bottom:0;z-index:20;transition:transform .25s ease}
@@ -96,6 +105,7 @@ button:active{transform:scale(.94)}
 </style>
 <style id="lux">
 /* ---- LÜKS KATMAN ---- */
+.atab,.ftab,.ib,.srv,.vu,.frow{transition:background-color .16s ease,transform .16s ease,opacity .16s ease} .atab:active,.ftab:active,.ib:active,.srv:active{transform:scale(.97)} .ftabs{overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain} .ftab{white-space:nowrap;flex:0 0 auto} .profCard,.profile-card{max-width:min(560px,calc(100vw - 24px))}
 :root{--ease:cubic-bezier(.2,.8,.2,1)}
 ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#1a1b1e;border-radius:8px}::-webkit-scrollbar-track{background:transparent}
 .rail{background:linear-gradient(180deg,#15161a,#1e1f22)}
@@ -565,7 +575,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
   </div>
  </aside>
  <main class="main">
-  <div class="mh"><button class="ib menu" id="menu" aria-label="Menü">☰</button><span>#</span><div id="mtitle">genel</div></div>
+  <div class="mh"><button class="ib menu" id="menu" aria-label="Menü">☰</button><span>#</span><div id="mtitle">genel</div><button class="ib" id="memberToggle" type="button" aria-label="Çevrimiçi üyeler" title="Üyeler">👥 <span id="memberCount" style="font-size:12px;margin-left:3px">0</span></button></div>
   <div class="body">
    <div class="chat">
     <div class="msgs" id="msgs"></div>
@@ -604,7 +614,8 @@ const chOf=id=>{if(id&&id.startsWith('sv:')){const s2=MYSV.find(x=>'sv:'+x.id===
 function typ(){const now=Date.now();for(const name of Object.keys(TY))if(TY[name]<=now)delete TY[name];const names=Object.keys(TY);const el=$('typ');if(!el)return;el.textContent=names.length?(names.length===1?names[0]+' yazıyor…':names.length===2?names.join(' ve ')+' yazıyor…':names.slice(0,2).join(', ')+' ve '+(names.length-2)+' kişi daha yazıyor…'):''}
 setInterval(typ,500);
 function members(){
- $('mem').innerHTML=`<div class="cat">ÇEVRİMİÇİ — ${ONL.length}</div>`+ONL.map(u=>`<div class="vu">${av(u.name,'dot')}${esc(u.name)}${admTag(u.admin)}</div>`).join('');
+ const mc=$('memberCount');if(mc)mc.textContent=ONL.length;
+ $('mem').innerHTML=`<div class="cat">ÇEVRİMİÇİ — ${ONL.length}</div>`+(ONL.length?ONL.map(u=>`<div class="vu">${av(u.name,'dot')}${esc(u.name)}${admTag(u.admin)}</div>`).join(''):'<div class="vu" style="opacity:.7">Şu anda çevrimiçi üye yok</div>');
 }
 let REPLY=null,EDIT=null,PICK=null,UNR={},AC=null,NOANIM=false;
 const EMO='😀 😂 🤣 😊 😍 😘 😎 🤔 😅 😭 😡 🥳 😴 🤯 🙄 😇 👍 👎 👏 🙌 🙏 💪 👀 🔥 ✨ 💯 ❤️ 💔 🎉 🎮 🎧 ⚽ 🍕 ☕ 🚀 ⭐ ✅ ❌ 😮 😢'.split(' ');
@@ -757,6 +768,8 @@ $('inp').oninput=()=>{const n=Date.now();if($('inp').value.trim()&&key()&&n-last
 $('inp').addEventListener('blur',()=>{if(!$('inp').value.trim())typ()});
 $('menu').onclick=()=>drawer(true);
 $('scrim').onclick=()=>drawer(false);
+const memberToggle=$('memberToggle');if(memberToggle)memberToggle.onclick=()=>document.body.classList.toggle('members-open');
+document.addEventListener('click',e=>{if(document.body.classList.contains('members-open')&&!e.target.closest('#memberToggle')&&!e.target.closest('#mem'))document.body.classList.remove('members-open')});
 let x0=null;
 addEventListener('touchstart',e=>{x0=e.touches[0].clientX},{passive:true});
 addEventListener('touchend',e=>{
@@ -956,7 +969,7 @@ function vpc(id){
   const st=e.streams[0]||new MediaStream([e.track]);
   if(e.track.kind==='video'){
    let v=V.videos[id];if(!v){v=document.createElement('video');v.autoplay=true;v.playsInline=true;v.muted=true;V.videos[id]=v}
-   v.srcObject=st;v.play().catch(()=>{});if(V.ui==='full')vui();return;
+   v.srcObject=st;v.playsInline=true;v.autoplay=true;v.play().catch(()=>{const retry=()=>v.play().catch(()=>{});document.addEventListener('click',retry,{once:true});document.addEventListener('touchstart',retry,{once:true});});e.track.onended=()=>{if(V.ui==='full')vui()};if(V.ui==='full')vui();return;
   }
   let a=V.auds[id];
   if(!a){a=document.createElement('audio');a.autoplay=true;a.playsInline=true;document.body.append(a);V.auds[id]=a}
@@ -1020,7 +1033,7 @@ function voiceMsg(m){
   }
   chans();vui();
  }else if(m.t==='vpeers'){
-  if(V.room===m.room){V.sid=m.sid||V.sid;(m.peers||[]).forEach(p=>{if(!p.sid)return;V.peerMeta[p.sid]=p;voffer(p.sid).catch(()=>{})})}
+  if(V.room===m.room){V.sid=m.sid||V.sid;(m.peers||[]).forEach(p=>{if(!p.sid||p.sid===V.sid)return;V.peerMeta[p.sid]=p;/* Tek taraf teklif başlatsın: grup görüşmelerinde aynı anda offer çakışmasını azaltır. */if(String(V.sid||'')<String(p.sid||''))voffer(p.sid).catch(()=>{})})}
  }else if(m.t==='vsig'){vsig(m.from,m.data)}
 }
 async function vjoin(name,room){
@@ -1062,7 +1075,7 @@ async function vCamToggle(){
   if(!V.room){stream.getTracks().forEach(t=>t.stop());return}
   V.camera=stream;
   if(!V.localVideoEl){V.localVideoEl=document.createElement('video');V.localVideoEl.autoplay=true;V.localVideoEl.muted=true;V.localVideoEl.playsInline=true}
-  V.localVideoEl.srcObject=stream;V.localVideoEl.play().catch(()=>{});
+  V.localVideoEl.srcObject=stream;V.localVideoEl.style.transform=V.cameraFacing==='user'?'scaleX(-1)':'none';V.localVideoEl.play().catch(()=>{});
   for(const id of Object.keys(V.pcs)){
    const pc=V.pcs[id],track=stream.getVideoTracks()[0];
    const sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video');
@@ -1074,32 +1087,88 @@ async function vCamToggle(){
 }
 
 async function vCamFlip(){
- if(!V.room||!V.camera){vtoast('Önce kamerayı aç');return}
+ if(!V.room){vtoast('Önce sesli odaya katıl');return}
+ if(!V.camera){vtoast('Önce kamerayı aç');return}
  if(V.cameraBusy)return;
- if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){vtoast('Bu tarayıcı kamera değiştirmeyi desteklemiyor.');return}
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){vtoast('Bu tarayıcı kamera erişimini desteklemiyor.');return}
  V.cameraBusy=true;vui();
+ const roomAtStart=V.room;
+ const oldStream=V.camera;
+ const oldTrack=oldStream&&oldStream.getVideoTracks()[0];
+ const oldSettings=oldTrack&&oldTrack.getSettings?oldTrack.getSettings():{};
+ const oldId=oldSettings.deviceId||'';
+ const oldFacing=V.cameraFacing;
+ const next=oldFacing==='user'?'environment':'user';
  let fresh=null;
+ // Android/Chrome çoğu cihazda aynı anda ikinci kamera açılamaz. Önce eski kamerayı
+ // gerçekten durdurup sonra yeni kamerayı aç; başarısız olursa eski kamerayı geri aç.
  try{
-  const next=V.cameraFacing==='user'?'environment':'user';
-  fresh=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:next}},audio:false});
-  if(!V.room){fresh.getTracks().forEach(t=>t.stop());return}
-  const track=fresh.getVideoTracks()[0];
-  if(!track)throw new Error('no video track');
-  const ids=Object.keys(V.pcs);
-  for(const id of ids){
-   const pc=V.pcs[id];if(!pc||pc.connectionState==='closed')continue;
-   let sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video');
-   if(!sender)sender=pc.getTransceivers().find(x=>x.receiver&&x.receiver.track&&x.receiver.track.kind==='video')?.sender;
-   if(sender)await sender.replaceTrack(track);
-   else {pc.addTrack(track,fresh);await voffer(id)}
+  if(oldTrack){try{oldTrack.stop()}catch(e){}}
+  oldStream.getTracks().forEach(t=>{try{t.stop()}catch(e){}});
+  if(V.localVideoEl){V.localVideoEl.pause();V.localVideoEl.srcObject=null}
+  for(const pc of Object.values(V.pcs)){
+   if(!pc||pc.connectionState==='closed')continue;
+   const sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video')||pc.getTransceivers().find(x=>x.receiver&&x.receiver.track&&x.receiver.track.kind==='video')?.sender;
+   if(sender){try{await sender.replaceTrack(null)}catch(e){}}
   }
-  const old=V.camera;V.camera=fresh;fresh=null;V.cameraFacing=next;
-  if(V.localVideoEl){V.localVideoEl.srcObject=V.camera;V.localVideoEl.play().catch(()=>{})}
-  if(old)old.getTracks().forEach(t=>t.stop());
+  let devices=[];try{devices=await navigator.mediaDevices.enumerateDevices()}catch(e){}
+  const cams=devices.filter(d=>d.kind==='videoinput');
+  const target=cams.find(d=>d.deviceId&&d.deviceId!==oldId&&(next==='environment'?/back|rear|environment|arka|world/i.test(d.label):/front|user|ön|facetime/i.test(d.label)))||cams.find(d=>d.deviceId&&d.deviceId!==oldId);
+  const attempts=[];
+  if(target)attempts.push({video:{deviceId:{exact:target.deviceId}},audio:false});
+  attempts.push({video:{facingMode:{exact:next}},audio:false});
+  attempts.push({video:{facingMode:{ideal:next}},audio:false});
+  let lastError=null;
+  for(const constraints of attempts){
+   try{
+    fresh=await navigator.mediaDevices.getUserMedia(constraints);
+    const track=fresh.getVideoTracks()[0];
+    if(!track)throw new Error('no video track');
+    const actual=track.getSettings?track.getSettings():{};
+    if(oldId&&actual.deviceId===oldId&&cams.length>1){fresh.getTracks().forEach(t=>t.stop());fresh=null;continue}
+    break;
+   }catch(e){lastError=e;if(fresh){fresh.getTracks().forEach(t=>t.stop());fresh=null}}
+  }
+  if(!fresh)throw lastError||new Error('alternate camera unavailable');
+  if(V.room!==roomAtStart){fresh.getTracks().forEach(t=>t.stop());fresh=null;return}
+  const track=fresh.getVideoTracks()[0];
+  for(const pc of Object.values(V.pcs)){
+   if(!pc||pc.connectionState==='closed')continue;
+   let sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video')||pc.getTransceivers().find(x=>x.receiver&&x.receiver.track&&x.receiver.track.kind==='video')?.sender;
+   if(sender)await sender.replaceTrack(track);
+   else {pc.addTrack(track,fresh);const id=Object.keys(V.pcs).find(k=>V.pcs[k]===pc);if(id)await voffer(id)}
+  }
+  V.camera=fresh;fresh=null;V.cameraFacing=next;
+  if(!V.localVideoEl){V.localVideoEl=document.createElement('video');V.localVideoEl.autoplay=true;V.localVideoEl.muted=true;V.localVideoEl.playsInline=true}
+  V.localVideoEl.srcObject=V.camera;
+  V.localVideoEl.style.transform=next==='user'?'scaleX(-1)':'none';
+  try{await V.localVideoEl.play()}catch(e){}
   vtoast(next==='environment'?'Arka kamera açıldı':'Ön kamera açıldı');
  }catch(e){
-  if(fresh)fresh.getTracks().forEach(t=>t.stop());
-  vtoast(e&&e.name==='NotAllowedError'?'Kamera izni verilmedi. Tarayıcı ayarlarından izin ver.':'Kamera değiştirilemedi. Diğer kamera desteklenmiyor olabilir.');
+  if(fresh){fresh.getTracks().forEach(t=>t.stop());fresh=null}
+  // Geri dönüş: yeni kamera açılamadıysa kullanıcıyı kamerasız bırakma.
+  let restored=null;
+  try{
+   const fallback=oldId?{video:{deviceId:{exact:oldId}},audio:false}:{video:{facingMode:{ideal:oldFacing}},audio:false};
+   restored=await navigator.mediaDevices.getUserMedia(fallback);
+  }catch(restoreError){
+   try{restored=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:oldFacing}},audio:false})}catch(e2){}
+  }
+  if(restored&&V.room===roomAtStart){
+   V.camera=restored;V.cameraFacing=oldFacing;
+   const track=restored.getVideoTracks()[0];
+   for(const pc of Object.values(V.pcs)){
+    if(!pc||pc.connectionState==='closed')continue;
+    const sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video')||pc.getTransceivers().find(x=>x.receiver&&x.receiver.track&&x.receiver.track.kind==='video')?.sender;
+    if(sender)try{await sender.replaceTrack(track)}catch(e2){}
+   }
+   if(V.localVideoEl){V.localVideoEl.srcObject=restored;V.localVideoEl.style.transform=oldFacing==='user'?'scaleX(-1)':'none';try{await V.localVideoEl.play()}catch(e2){}}
+  }else if(restored){restored.getTracks().forEach(t=>t.stop())}
+  const msg=e&&e.name==='NotAllowedError'?'Kamera izni verilmedi. Chrome ayarlarından kamera iznini aç.':
+   e&&e.name==='NotReadableError'?'Telefon kamerayı açamadı. Diğer uygulamaları kapatıp tekrar dene; önceki kamera geri yüklenmeye çalışıldı.':
+   e&&e.name==='OverconstrainedError'?'Bu kamera modu desteklenmiyor; önceki kamera geri yüklenmeye çalışıldı.':
+   'Arka kamera açılamadı; önceki kamera geri yüklenmeye çalışıldı. Telefon kamerası izinlerini kontrol et.';
+  vtoast(msg);
  }finally{V.cameraBusy=false;vui()}
 }
 
