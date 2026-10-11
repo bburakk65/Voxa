@@ -1,27 +1,24 @@
-VOXA — BAĞLANTI + AYNI DOMAIN + ADMIN DÜZELTMESİ
+VOXA — HUB BAĞLANTISI DÜZELTMESİ
 
-PAKET İÇERİĞİ
-- index.html: bağlantı durumunu açıkça gösteren arayüz
-- _worker.js: Cloudflare Pages Advanced Mode giriş noktası; /ws ve /auth isteklerini Durable Object'e iletir, geri kalan GET isteklerinde Pages ASSETS dosyalarını sunar
-- worker.js: normal Cloudflare Worker dağıtımı için API Worker dosyası (Pages Advanced Mode kullanıyorsan _worker.js dosyasını kullan)
+NEDEN:
+Cloudflare ekran görüntünde Durable Object binding adı HUB görünüyor. Önceki worker.js kodu ise env.MERKEZ adını kullanıyordu. Bu isim uyuşmazlığı /ws bağlantısının kurulmasını engelleyebilir.
 
-ÖNEMLİ: Bu paket tek başına canlı siteye yüklenmiş değildir. Aynı hesap/mesajların tarayıcılar arasında eşitlenmesi için bütün tarayıcılar aynı yayınlanmış domain ve aynı Durable Object namespace'ine bağlanmalıdır.
+BU PAKETTE:
+- worker.js: mevcut HUB binding adıyla eşleştirildi.
+- _worker.js: aynı isim düzeltmesi yapıldı (yalnızca Pages Advanced Mode kullanıyorsan gerekir).
+- index.html: bağlantı durumu/hata ekranı bulunan arayüz.
 
-CLOUDFLARE PAGES KULLANIYORSAN
-1. Pages projesinin Build output directory/çıktı klasörüne index.html ve _worker.js koy. Advanced Mode için _worker.js, yayınlanan çıktı klasörünün kökünde olmalı.
-2. Pages projesine Durable Object binding ekle: binding adı MERKEZ, class name Hub. Var olan Durable Object namespace'ini kullan; yeni/boş bir namespace oluşturursan eski hesap ve mesajlar orada görünmez.
-3. Worker/Pages ortam değişkeni olarak DISCORD_SECRET tanımla (en az 32 karakterlik rastgele gizli değer). Ana yönetici ilk kaydı için ADMIN_SETUP_KEY secret'ı da tanımla.
-4. _worker.js içindeki Hub class'ının Durable Object migration/namespace ayarının mevcut namespace ile eşleştiğini kontrol et. Var olan namespace'i silme veya değiştirme.
-5. Deploy et. Aynı site adresini farklı tarayıcıda açıp aynı kullanıcıyla giriş yap. Bağlantı başarısızsa artık alt kısımda sebebi kontrol etmeyi söyleyen durum mesajı görünür.
+ÖNEMLİ — HANGİ DOSYAYI KULLANMALI:
+Cloudflare ekranında Build command yok ve Deploy command `npx wrangler deploy` olduğu için büyük olasılıkla normal Worker dağıtımı kullanıyorsun. Bu durumda GitHub deposundaki worker.js dosyasını bu paketteki worker.js ile değiştir; index.html'i de mevcut projendeki aynı konumda güncel tut. _worker.js dosyasını ayrıca deploy etme; o sadece Pages Advanced Mode içindir.
 
-NORMAL CLOUDFLARE WORKER + PAGES AYRI KULLANIYORSAN
-- index.html'in geldiği domain üzerinde /ws ve /auth/* yolları bu worker'a route edilmelidir. Worker'ın MERKEZ binding'i ve secrets'ı doğru olmalı.
-- Başka bir domain kullanıyorsan yalnızca HTML'i taşımak yeterli değildir; /ws ve /auth aynı backend'e gitmelidir.
+YAYINLAMA:
+1. ZIP'i indir ve aç.
+2. GitHub'da bburakk65/Voxa deposunu aç.
+3. worker.js dosyasını paketteki worker.js içeriğiyle değiştir (Edit > tüm kodu değiştir > Commit changes). Mobilde zor gelirse bilgisayarda yapmak daha kolaydır.
+4. index.html dosyasını da pakettekine göre güncelle; depo yapın index.html kullanıyorsa mevcut dosyanın üzerine koy.
+5. Cloudflare'ın GitHub üzerinden otomatik deploy etmesini bekle; tamamlanınca https://voxa.voxaweb.workers.dev adresini yenile.
 
-ADMIN
-- Admin simgesi yalnızca sunucu hesabı admin yetkisini verdiğinde görünür.
-- Ana yönetici adı voxaadmin. İlk kayıtta ADMIN_SETUP_KEY gerekir. Normal hesabı tarayıcıdan admin yapacak bir istemci kısayolu eklenmedi; yetki sunucuda tutulur ve aynı backend'e bağlanan tüm tarayıcılara gelir.
-
-DOĞRULAMA
-- JS sözdizimi kontrolü yapılmalıdır; canlı Cloudflare deploy/test bu paketten yapılamaz.
-- WebRTC kamera/mikrofon için HTTPS ve tarayıcı izinleri gerekir.
+GÜVENLİK / VERİ:
+- HUB Durable Object binding'ini silme veya yeni bir namespace oluşturma; mevcut verilerin korunması için aynı namespace kullanılmalı.
+- DISCORD_SECRET sırrını silme/değiştirme.
+- Bu dosyalar düzeltilmiş olsa da canlı deploy ve cihazlar arası test bu ortamdan yapılamadı.

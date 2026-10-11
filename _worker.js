@@ -77,7 +77,7 @@ async function discordCallback(req, env, u) {
     if (gr && gr.ok) guilds = (await gr.json()).slice(0, 200).map(g => ({ id: String(g.id), name: String(g.name), icon: g.icon ? String(g.icon) : null }));
   } catch {}
   try {
-    await env.MERKEZ.get(env.MERKEZ.idFromName('main')).fetch('https://hub/internal/guilds', { method: 'POST', body: JSON.stringify({ id: 'd' + d.id, guilds }) });
+    await env.HUB.get(env.HUB.idFromName('main')).fetch('https://hub/internal/guilds', { method: 'POST', body: JSON.stringify({ id: 'd' + d.id, guilds }) });
   } catch {}
   const pic = d.avatar ? 'https://cdn.discordapp.com/avatars/' + d.id + '/' + d.avatar + '.png?size=64' : '';
   const tok = await sign(env.DISCORD_SECRET, { id: 'd' + d.id, name: d.global_name || d.username, picture: pic });
@@ -90,13 +90,13 @@ async function discordCallback(req, env, u) {
 export default {
   async fetch(req, env) {
     const u = new URL(req.url);
-    if (u.pathname === '/ws') return env.MERKEZ.get(env.MERKEZ.idFromName('main')).fetch(req);
+    if (u.pathname === '/ws') return env.HUB.get(env.HUB.idFromName('main')).fetch(req);
     if (req.method === 'POST' && ['/auth/login', '/auth/register', '/auth/check'].includes(u.pathname)) {
       const bad = (msg, s) => new Response(JSON.stringify({ ok: false, msg }), { status: s, headers: { 'Content-Type': 'application/json' } });
       if (Number(req.headers.get('content-length') || 0) > 2048) return bad('İstek çok büyük', 413);
       let b; try { b = await req.json(); } catch { return bad('Geçersiz istek', 400); }
       b.ip = req.headers.get('CF-Connecting-IP') || '';
-      return env.MERKEZ.get(env.MERKEZ.idFromName('main')).fetch('https://hub/internal/' + u.pathname.slice(6), { method: 'POST', body: JSON.stringify(b) });
+      return env.HUB.get(env.HUB.idFromName('main')).fetch('https://hub/internal/' + u.pathname.slice(6), { method: 'POST', body: JSON.stringify(b) });
     }
     if (env.ENABLE_DISCORD === '1') {
       if (u.pathname === '/auth/discord/start') return discordStart(u);
