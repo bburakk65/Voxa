@@ -481,6 +481,16 @@ const chOf=id=>{if(id&&id.startsWith('sv:')){const s2=MYSV.find(x=>'sv:'+x.id===
 function typ(){const n=Object.keys(TY).filter(k=>TY[k]>Date.now());$('typ').textContent=n.length?n.join(', ')+' yazıyor…':''}
 setInterval(typ,1000);
 function members(){
+ if(srv.startsWith('sv:')){
+  const gid=srv.slice(3);
+  if(SVMEMFOR!==gid){SVMEM=null;SVMEMFOR=gid;sendWS({t:'svmembers',id:gid})}
+  if(!SVMEM){$('mem').innerHTML='<p class="hint" style="padding:14px">Yükleniyor…</p>';return}
+  const on=SVMEM.filter(u=>u.on),off=SVMEM.filter(u=>!u.on);
+  const row=u=>`<div class="vu">${av(u.name,u.on?'dot':'dot offl')}${esc(u.name)}${admTag(u.admin)}${u.owner?' 👑':''}</div>`;
+  $('mem').innerHTML=(on.length?`<div class="cat">ÇEVRİMİÇİ — ${on.length}</div>`+on.map(row).join(''):'')+
+   (off.length?`<div class="cat">ÇEVRİMDIŞI — ${off.length}</div>`+off.map(row).join(''):'')||'<p class="hint" style="padding:14px">Üye yok.</p>';
+  return;
+ }
  $('mem').innerHTML=`<div class="cat">ÇEVRİMİÇİ — ${ONL.length}</div>`+ONL.map(u=>`<div class="vu">${av(u.name,'dot')}${esc(u.name)}${admTag(u.admin)}</div>`).join('');
 }
 let REPLY=null,EDIT=null,PICK=null,UNR={},AC=null,NOANIM=false;
@@ -585,7 +595,7 @@ function connect(){
  ws.onmessage=e=>{
   const m=JSON.parse(e.data);
   if(m.t==='ready'){if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;ME.mainAdmin=!!m.me.mainAdmin;profUI()}HIST=m.hist||{};ONL=m.online||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
-  else if(m.t==='online'){ONL=m.online||[];members()}
+  else if(m.t==='online'){ONL=m.online||[];if(srv.startsWith('sv:'))SVMEMFOR='';members()}
   else if(m.t==='msg'){
    const L=(HIST[m.ch]=HIST[m.ch]||[]);const prev=L[L.length-1];L.push(m.msg);delete TY[m.msg.u];typ();
    if(m.ch===key()){const b=$('msgs');const nb=b.scrollHeight-b.scrollTop-b.clientHeight<120||m.msg.id===ME.id;addMsg(b,m.msg,prev);if(nb)b.scrollTop=1e9}
@@ -674,7 +684,7 @@ function screenTilesHtml(){
 }
 function camTilesHtml(){
  const parts=[];
- if(V.cam)parts.push(`<div class="vtile vscreen" data-cslot="me"><div class="vvideo" data-cvid="me"></div><div class="vname">🎥<span>Sen</span></div></div>`);
+ if(V.cam)parts.push(`<div class="vtile vscreen" data-cslot="me"><div class="vvideo" data-cvid="me"></div><div class="vname">🎥<span>${esc(ME.name)}</span></div></div>`);
  for(const id in V.cvid){const u=(rusers(V.room)||[]).find(x=>x.id===id);parts.push(`<div class="vtile vscreen" data-cslot="${esc(id)}"><div class="vvideo" data-cvid="${esc(id)}"></div><div class="vname">🎥<span>${esc(u?u.name:'Kamera')}</span></div></div>`)}
  return parts.join('');
 }
@@ -721,7 +731,7 @@ function vui(){
  if(V.ui==='full'&&V.room){
   const us=rusers(V.room);
   fu.innerHTML=`<div class="vh"><button class="vb" data-a="min" aria-label="Küçült">${ic(P.down)}</button><div class="vt">${esc(V.name)}</div><span class="gap"></span><button class="vb" data-a="invite" aria-label="Davet et">${ic(P.add,20)}</button><button class="vb" data-a="chat" aria-label="Sohbet">${ic(P.chat,20)}</button></div>
-  <div class="vgrid ${(us.length>2||V.screen||V.cam||Object.keys(V.svid).length||Object.keys(V.cvid).length)?'sm':''}">${screenTilesHtml()}${camTilesHtml()}${us.map(tile).join('')}</div>
+  <div class="vgrid ${(us.length>2||V.screen||V.cam||Object.keys(V.svid).length||Object.keys(V.cvid).length)?'sm':''}">${screenTilesHtml()}${camTilesHtml()}${us.filter(u=>!(u.id===ME.id?V.cam:V.cvid[u.id])).map(tile).join('')}</div>
   <button class="vinv" data-a="invite"><span class="vi">${ic(P.add,20)}</span><span><b>Sesli Sohbet'e kişi ekle</b><small>Gruba geldiğini haber ver!</small></span><span>›</span></button>
   <div class="vbar"><button class="vc ${V.camOn?'white':''}" data-a="cam" aria-label="Kamera">${ic(P.camoff)}</button><button class="vc ${muted?'white':''}" data-a="mic" aria-label="Mikrofon">${ic(muted?P.micoff:P.mic)}</button><button class="vc ${V.sharing?'white':''}" data-a="share" aria-label="Ekran paylaş" ${MOBILE?"style=\"opacity:.45\"":""}>${ic(P.share)}</button><button class="vc ${deaf?'white':''}" data-a="deaf" aria-label="Kulaklık">${ic(P.head)}</button><button class="vc red" data-a="end" aria-label="Ayrıl">${ic(P.end)}</button></div>`;
   fu.classList.add('on');mountVideos(fu);
@@ -1502,7 +1512,7 @@ try{
 
 
 /* ===== GİZLİ YÖNETİM PANELİ ===== */
-let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADPROMOQ='',MUTE_UN='',ADMVIEW='pick',ADMCH='',ADMCHL='',ADMQ='',ADMQT=null,ADMSGS=null,ADREPORTS=null;
+let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADPROMOQ='',MUTE_UN='',ADMVIEW='pick',ADMCH='',ADMCHL='',ADMQ='',ADMQT=null,ADMSGS=null,ADREPORTS=null,SVMEM=null,SVMEMFOR='';
 function openAdmin(){
  if(!ME.admin)return;
  ADSTATS=null;ADSVLIST=null;ADUSERS=null;ADTAB='dash';ADUQ='';
@@ -1682,7 +1692,8 @@ function guildMsg(m){
   if(!m.ok){fT(m.msg||'Davet oluşturulamadı');return}
   MGMTCODE=m.code;mgmtRender();fCopy(m.code,'Davet kodu kopyalandı: '+m.code);
  }else if(m.t==='svmembers'){
-  MGMTMEM=m.list||[];mgmtRender();
+  if(MGMT&&String(m.id)===String(MGMT.id)){MGMTMEM=m.list||[];mgmtRender()}
+  if(srv==='sv:'+m.id){SVMEM=m.list||[];members()}
  }
 }
 /* --- özellikler: mesaj işlemleri, emoji, profil, PWA --- */
