@@ -218,6 +218,11 @@ html,body{font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif
 .vbar{display:flex;align-items:center;justify-content:center;gap:12px;margin:10px 16px 18px;padding:10px 14px;background:#1e1f22;border-radius:34px}
 .vc{width:56px;height:56px;border-radius:50%;background:#2f3136;display:grid;place-items:center;color:#fff;flex:none;transition:transform .15s,background .2s}
 .vc.white{background:#fff;color:#ed4245}
+.vc.cam-on{background:#23a559;color:#fff;box-shadow:0 0 0 4px rgba(35,165,89,.2);animation:camPulse 1.8s ease-in-out infinite}
+.vc.cam-on svg{filter:drop-shadow(0 0 5px rgba(255,255,255,.35))}
+@keyframes camPulse{0%,100%{box-shadow:0 0 0 3px rgba(35,165,89,.16)}50%{box-shadow:0 0 0 7px rgba(35,165,89,.28)}}
+.vtile.vhasvideo .vvideo video{animation:camFade .28s ease-out both}
+@keyframes camFade{from{opacity:.15;transform:scale(1.025)}to{opacity:1;transform:scale(1)}}
 .vc.red{background:#f23f43}
 .vc.s{width:38px;height:38px}
 .vjoin{flex:1;height:56px;border-radius:30px;background:#23a559;color:#fff;font-weight:700;font-size:16px;box-shadow:0 8px 22px rgba(35,165,89,.35)}
@@ -753,7 +758,7 @@ addEventListener('load',()=>{
 
 /* ===== SESLİ ODALAR (WebRTC) ===== */
 let VST={};
-const V={room:null,name:'',sid:null,joinSeq:0,ui:null,sheet:'',sheetRoom:'',pcs:{},auds:{},ana:{},pend:{},peerMeta:{},vol:{},umute:{},prev:null,speak:{},stream:null,ctx:null,timer:null,spcs:{},svid:{},spend:{},screen:null,sharing:false,localVideoEl:null,camera:null,videos:{}};
+const V={room:null,name:'',sid:null,joinSeq:0,ui:null,sheet:'',sheetRoom:'',pcs:{},auds:{},ana:{},pend:{},peerMeta:{},vol:{},umute:{},prev:null,speak:{},stream:null,ctx:null,timer:null,spcs:{},svid:{},spend:{},screen:null,sharing:false,localVideoEl:null,camera:null,cameraFacing:'user',videos:{}};
 const ICE={iceServers:[{urls:['stun:stun.cloudflare.com:3478','stun:stun.l.google.com:19302']}]};
 const P={
  mic:'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z',
@@ -761,6 +766,8 @@ const P={
  end:'M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08a.956.956 0 0 1-.29-.7c0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28a11.27 11.27 0 0 0-2.67-1.85.996.996 0 0 1-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z',
  head:'M12 1a9 9 0 0 0-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7a9 9 0 0 0-9-9z',
  camoff:'M21 6.5l-4 4V7c0-.55-.45-1-1-1H9.82L21 17.18V6.5zM3.27 2L2 3.27 4.73 6H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.21 0 .39-.08.54-.18L19.73 21 21 19.73 3.27 2z',
+ cam:'M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7-7h-3.17l-1.84-2H9L7.17 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h15a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 14H4V7h4.05l1.83-2h3.24l1.83 2H19v12zm-7-1a5 5 0 1 1 0-10 5 5 0 0 1 0 10z',
+ flip:'M16 17v-3l4 4-4 4v-3H4v-2h12zM8 7V4L4 8l4 4V9h12V7H8z',
  share:'M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.11-.9-2-2-2H4c-1.11 0-2 .89-2 2v10c0 1.1.89 2 2 2H0v2h24v-2h-4zm-7-3.53v-2.19c-2.78 0-4.61.85-6 2.72.56-2.67 2.11-5.33 6-5.87V7l4 3.73-4 3.74z',
  add:'M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z',
  chat:'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z',
@@ -820,7 +827,7 @@ function vui(){
   fu.innerHTML=`<div class="vh"><button class="vb" data-a="min" aria-label="Küçült">${ic(P.down)}</button><div class="vt">${esc(V.name)}</div><span class="gap"></span><button class="vb" data-a="invite" aria-label="Davet et">${ic(P.add,20)}</button><button class="vb" data-a="chat" aria-label="Sohbet">${ic(P.chat,20)}</button></div>
   <div class="vgrid ${(us.length>2||V.screen||Object.keys(V.svid).length)?'sm':''}">${screenTilesHtml()}${us.map(tile).join('')}</div>
   <button class="vinv" data-a="invite"><span class="vi">${ic(P.add,20)}</span><span><b>Sesli Sohbet'e kişi ekle</b><small>Gruba geldiğini haber ver!</small></span><span>›</span></button>
-  <div class="vbar"><button class="vc" data-a="cam" aria-label="Kamera">${ic(P.camoff)}</button><button class="vc ${muted?'white':''}" data-a="mic" aria-label="Mikrofon">${ic(muted?P.micoff:P.mic)}</button><button class="vc ${V.sharing?'white':''}" data-a="share" aria-label="Ekran paylaş" ${MOBILE?"style=\"opacity:.45\"":""}>${ic(P.share)}</button><button class="vc ${deaf?'white':''}" data-a="deaf" aria-label="Kulaklık">${ic(P.head)}</button><button class="vc red" data-a="end" aria-label="Ayrıl">${ic(P.end)}</button></div>`;
+  <div class="vbar"><button class="vc ${V.camera?'cam-on':''}" data-a="cam" aria-label="${V.camera?'Kamerayı kapat':'Kamerayı aç'}">${ic(V.camera?P.cam:P.camoff)}</button>${V.camera?`<button class="vc" data-a="flip" aria-label="Ön/arka kamerayı değiştir" title="Ön/arka kamera">${ic(P.flip,22)}</button>`:''}<button class="vc ${muted?'white':''}" data-a="mic" aria-label="Mikrofon">${ic(muted?P.micoff:P.mic)}</button><button class="vc ${V.sharing?'white':''}" data-a="share" aria-label="Ekran paylaş" ${MOBILE?"style=\"opacity:.45\"":""}>${ic(P.share)}</button><button class="vc ${deaf?'white':''}" data-a="deaf" aria-label="Kulaklık">${ic(P.head)}</button><button class="vc red" data-a="end" aria-label="Ayrıl">${ic(P.end)}</button></div>`;
   fu.classList.add('on');mountVideos(fu);
  }else fu.classList.remove('on');
  if(V.ui==='mini'&&V.room){
@@ -1015,7 +1022,7 @@ async function vCamToggle(){
  }
  try{
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('unsupported');
-  const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
+  const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:V.cameraFacing}},audio:false});
   if(!V.room){stream.getTracks().forEach(t=>t.stop());return}
   V.camera=stream;
   if(!V.localVideoEl){V.localVideoEl=document.createElement('video');V.localVideoEl.autoplay=true;V.localVideoEl.muted=true;V.localVideoEl.playsInline=true}
@@ -1023,6 +1030,28 @@ async function vCamToggle(){
   for(const id of Object.keys(V.pcs)){const pc=V.pcs[id];stream.getVideoTracks().forEach(t=>pc.addTrack(t,stream));try{await voffer(id)}catch(e){}}
   vtoast('Kamera açıldı');vui();
  }catch(e){vtoast(e&&e.name==='NotAllowedError'?'Kamera izni verilmedi. Tarayıcı ayarlarından izin ver.':e&&e.name==='NotFoundError'?'Kamera bulunamadı.':'Kamera açılamadı; izinleri ve HTTPS bağlantısını kontrol et.')}
+}
+
+
+async function vCamFlip(){
+ if(!V.room||!V.camera){vtoast('Önce kamerayı aç');return}
+ const next=V.cameraFacing==='user'?'environment':'user';
+ try{
+  const fresh=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:next}},audio:false});
+  const track=fresh.getVideoTracks()[0];
+  if(!track)throw new Error('no video track');
+  const jobs=[];
+  for(const pc of Object.values(V.pcs)){
+   const sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video');
+   if(sender)jobs.push(sender.replaceTrack(track));
+   else {pc.addTrack(track,fresh);jobs.push(voffer(Object.keys(V.pcs).find(id=>V.pcs[id]===pc)))}
+  }
+  await Promise.all(jobs);
+  const old=V.camera;V.camera=fresh;V.cameraFacing=next;
+  if(V.localVideoEl){V.localVideoEl.srcObject=fresh;V.localVideoEl.play().catch(()=>{})}
+  old.getTracks().forEach(t=>t.stop());
+  vtoast(next==='environment'?'Arka kamera açıldı':'Ön kamera açıldı');vui();
+ }catch(e){vtoast('Kamera değiştirilemedi. Cihazın diğer kamerası olmayabilir veya izin verilmemiş olabilir.')}
 }
 
 async function vleave(silent){
@@ -1133,6 +1162,7 @@ document.addEventListener('click',e=>{
  else if(a==='invite')vinvite();
  else if(a==='share'){if(V.sharing)vShareStop();else vShareStart()}
  else if(a==='cam'){vCamToggle();return;}
+ else if(a==='flip'){vCamFlip();return;}
  vui();
 });
 
