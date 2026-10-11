@@ -93,8 +93,36 @@ export default {
     if (u.pathname === '/ws') return env.HUB.get(env.HUB.idFromName('main')).fetch(req);
     if (req.method === 'POST' && ['/auth/login', '/auth/register', '/auth/check'].includes(u.pathname)) {
       const bad = (msg, s) => new Response(JSON.stringify({ ok: false, msg }), { status: s, headers: { 'Content-Type': 'application/json' } });
-      if (Number(req.headers.get('content-length') || 0) > 2048) return bad('İstek çok büyük', 413);
-      let b; try { b = await req.json(); } catch { return bad('Geçersiz istek', 400); }
+      // Content-Length istemciden geldiği için tek başına güvenilir değildir.
+      // Akışı gerçekten sınırla; büyük/chunked JSON istekleri belleği tüketmesin.
+      const declaredLength = Number(req.headers.get('content-length') || 0);
+      if (declaredLength > 2048) return bad('İstek çok büyük', 413);
+      let raw = '';
+      if (req.body) {
+        const reader = req.body.getReader();
+        const chunks = [];
+        let total = 0;
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            total += value.byteLength;
+            if (total > 2048) {
+              try { await reader.cancel(); } catch {}
+              return bad('İstek çok büyük', 413);
+            }
+            chunks.push(value);
+          }
+        } finally {
+          try { reader.releaseLock(); } catch {}
+        }
+        const bytes = new Uint8Array(total);
+        let offset = 0;
+        for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+        raw = new TextDecoder().decode(bytes);
+      }
+      let b; try { b = JSON.parse(raw); } catch { return bad('Geçersiz istek', 400); }
+      if (!b || typeof b !== 'object' || Array.isArray(b)) return bad('Geçersiz istek', 400);
       b.ip = req.headers.get('CF-Connecting-IP') || '';
       return env.HUB.get(env.HUB.idFromName('main')).fetch('https://hub/internal/' + u.pathname.slice(6), { method: 'POST', body: JSON.stringify(b) });
     }
