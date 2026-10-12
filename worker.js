@@ -431,20 +431,19 @@ export class Hub {
       if (pw.toLowerCase().includes(lower)) return R({ ok: false, field: 'password', msg: 'Şifre kullanıcı adını içermemeli' });
       if (await st.get('u:' + lower)) return R({ ok: false, field: 'username', msg: 'Bu kullanıcı adı alınmış' });
       const email = String(b.email || '').trim().toLowerCase();
-      if (email) {
-        if (!EMAIL_RE.test(email) || email.length > 200) return R({ ok: false, field: 'email', msg: 'Geçerli bir e-posta yaz' });
-        if (await st.get('email:' + email)) return R({ ok: false, field: 'email', msg: 'Bu e-posta zaten kullanılıyor' });
-      }
+      if (!email || !EMAIL_RE.test(email) || email.length > 200) return R({ ok: false, field: 'email', msg: 'Kayıt için geçerli bir e-posta zorunlu' });
+      if (await st.get('email:' + email)) return R({ ok: false, field: 'email', msg: 'Bu e-posta zaten kullanılıyor' });
+      if (!this.env.RESEND_API_KEY) return R({ ok: false, field: 'email', msg: 'E-posta gönderimi henüz kurulmadı. Daha sonra tekrar dene.' });
       const salt = crypto.getRandomValues(new Uint8Array(16));
       const hash = await pbkdf2(pw, salt);
       const id = 'l' + rcode(10).toLowerCase();
-      await st.put('u:' + lower, { id, name: uname, salt: b64u(salt), hash, ts: Date.now(), email: email || '', emailVerified: false });
-      let emailMsg = '';
-      if (email) {
-        const r = await this.sendVerifyEmail(lower, uname, email, String(b.origin || ''));
-        if (!r.ok) emailMsg = ' (doğrulama e-postası gönderilemedi: ' + r.msg + ')';
+      await st.put('u:' + lower, { id, name: uname, salt: b64u(salt), hash, ts: Date.now(), email: '', pendingEmail: email, emailVerified: false });
+      const mailResult = await this.sendVerifyEmail(lower, uname, email, String(b.origin || ''));
+      if (!mailResult.ok) {
+        await st.delete('u:' + lower);
+        return R({ ok: false, field: 'email', msg: 'Doğrulama e-postası gönderilemedi. Gönderici adresi ayarlarını kontrol et.' });
       }
-      return R({ ok: true, token: await sign(secret, { id, name: uname, picture: '', admin: ADMIN_UNAMES.has(lower) }), name: uname, emailMsg });
+      return R({ ok: true, verificationRequired: true, name: uname, msg: 'Doğrulama bağlantısı e-postana gönderildi. Gelen kutunu kontrol et.' });
     }
     if (path === '/internal/login') {
       if (!hit('li:' + ip, 20, 600000)) return R({ ok: false, msg: 'Çok fazla deneme, birkaç dakika sonra tekrar dene' }, 429);
@@ -454,6 +453,7 @@ export class Hub {
       if (fl.until > Date.now()) return R({ ok: false, msg: 'Çok fazla hatalı deneme. 10 dakika sonra tekrar dene.' }, 429);
       const acc = /^[a-z0-9_.]{3,20}$/.test(loginKey) ? await st.get('u:' + loginKey) : null;
       const h = await pbkdf2(pw.slice(0, 100), acc ? b64(acc.salt) : new Uint8Array(16));
+      if (acc && acc.pendingEmail && !acc.emailVerified) return R({ ok: false, msg: 'Önce e-postandaki doğrulama bağlantısına tıkla.' });
       if (!acc || !safeEq(h, acc.hash)) {
         if (acc) { fl.n++; if (fl.n >= 5) { fl.until = Date.now() + 600000; fl.n = 0; } await st.put('lf:' + loginKey, fl); }
         return R({ ok: false, msg: 'Kullanıcı adı ya da şifre hatalı' });
@@ -508,7 +508,7 @@ export class Hub {
       const acc = await st.get('u:' + rec.un);
       if (!acc) return R({ ok: false, msg: 'Hesap bulunamadı' });
       if (await st.get('email:' + rec.email)) return R({ ok: false, msg: 'Bu e-posta başka bir hesapta kullanılıyor' });
-      acc.email = rec.email; acc.emailVerified = true;
+      acc.email = rec.email; acc.pendingEmail = ''; acc.emailVerified = true;
       await st.put('u:' + rec.un, acc);
       await st.put('email:' + rec.email, rec.un);
       await st.delete('evt:' + hash);

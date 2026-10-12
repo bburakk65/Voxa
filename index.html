@@ -1560,7 +1560,7 @@ async function doVerify(tok){
 async function auSubmit(){
  if(AU.busy)return;
  const reg=AU.mode==='reg',u=$('au').value.trim(),p=$('ap').value;
- $('aerr').textContent='';document.querySelectorAll('.af').forEach(x=>x.classList.remove('bad'));
+ $('aerr').textContent='';$('aerr').style.color='';document.querySelectorAll('.af').forEach(x=>x.classList.remove('bad'));
  if(!u)return auBad('au','Kullanıcı adını yaz');
  if(reg&&!auUserOK(u))return auBad('au','Kullanıcı adı 3-20 karakter olmalı (harf, rakam, _ ve .)');
  if(!p)return auBad('ap','Şifreni yaz');
@@ -1576,6 +1576,12 @@ async function auSubmit(){
   const res=await fetch('/auth/'+(reg?'register':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(reg?{username:u,password:p,email:em}:{username:u,password:p})});
   r=await res.json();
  }catch(e){auBusy(false);$('aerr').textContent='Bağlantı hatası, internetini kontrol edip tekrar dene';return}
+ if(reg && r && r.ok && r.verificationRequired){
+  auBusy(false);
+  $('aerr').textContent=r.msg||'Doğrulama bağlantısı e-postana gönderildi. Gelen kutunu kontrol et.';
+  $('aerr').style.color='#5ac26b';
+  return;
+ }
  if(!r||!r.ok||!r.token){
   auBusy(false);
   const f=r&&r.field==='username'?'au':(r&&r.field==='email'?'aem':'ap');
