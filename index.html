@@ -78,11 +78,20 @@ button:active{transform:scale(.94)}
 .m:hover .del{display:block}
 #typ{height:18px;padding:0 16px;font-size:12px;color:var(--muted);font-style:italic}
 .scrim{display:none}
+#memberToggle{display:none}
 @keyframes pop{from{opacity:0;transform:scale(.96)}}
 @keyframes up{from{opacity:0;transform:translateY(8px)}}
 @keyframes slide{from{opacity:0;transform:translateY(6px)}}
 @keyframes talk{50%{box-shadow:0 0 0 4px rgba(35,165,89,.45)}}
-@media(max-width:900px){.mem{display:none}}
+@media(max-width:900px){
+ .mem{display:none}
+ #memberToggle{display:inline-flex;align-items:center;justify-content:center}
+ body.members-open .mem{display:block;position:fixed;z-index:31;right:10px;top:calc(env(safe-area-inset-top,0px) + 68px);bottom:calc(env(safe-area-inset-bottom,0px) + 12px);width:min(280px,calc(100vw - 24px));max-height:none;border:1px solid var(--border,#303238);border-radius:16px;box-shadow:0 18px 50px #0009;animation:memberIn .18s ease-out}
+ body.members-open:after{content:"";position:fixed;inset:0;z-index:30;background:#0007}
+ .mem .cat{padding-top:12px;font-weight:700}
+ .mem .vu{display:flex;align-items:center;gap:8px;min-height:42px;border-radius:9px;padding:6px 8px}
+}
+@keyframes memberIn{from{opacity:0;transform:translateY(7px) scale(.98)}to{opacity:1;transform:none}}
 @media(max-width:760px){
  .menu{display:grid}
  .rail,.side{position:fixed;top:0;bottom:0;z-index:20;transition:transform .25s ease}
@@ -96,6 +105,7 @@ button:active{transform:scale(.94)}
 </style>
 <style id="lux">
 /* ---- LÜKS KATMAN ---- */
+.atab,.ftab,.ib,.srv,.vu,.frow{transition:background-color .16s ease,transform .16s ease,opacity .16s ease} .atab:active,.ftab:active,.ib:active,.srv:active{transform:scale(.97)} .ftabs{overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain} .ftab{white-space:nowrap;flex:0 0 auto} .profCard,.profile-card{max-width:min(560px,calc(100vw - 24px))}
 :root{--ease:cubic-bezier(.2,.8,.2,1)}
 ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#1a1b1e;border-radius:8px}::-webkit-scrollbar-track{background:transparent}
 .rail{background:linear-gradient(180deg,#15161a,#1e1f22)}
@@ -203,11 +213,21 @@ html,body{font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif
 .vb{width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.08);display:grid;place-items:center;color:#fff}
 .vbody{flex:1;display:grid;place-items:center;padding:12px 20px;text-align:center;overflow:auto}
 .vempty{color:#b5bac1;line-height:1.6}
-.vgrid{flex:1;display:grid;grid-template-columns:1fr;gap:12px;padding:12px 16px;align-content:center;overflow:auto;width:100%}
-.vgrid.sm{grid-template-columns:1fr 1fr}
-.vtile{position:relative;border-radius:24px;min-height:180px;display:grid;place-items:center;overflow:hidden;color:#111}
-.vgrid:not(.sm) .vtile{min-height:260px}
-.vtile .av{width:104px;height:104px;font-size:42px}
+ .vgrid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);grid-auto-rows:minmax(0,1fr);gap:12px;padding:12px 16px;align-content:stretch;justify-content:stretch;overflow:auto;width:100%;overscroll-behavior:contain}
+.vgrid.sm{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(140px,1fr)}
+.vtile{position:relative;border-radius:18px;min-height:0;min-width:0;display:grid;place-items:center;overflow:hidden;color:#111;aspect-ratio:16/9;background:#24262b}
+.vgrid:not(.sm) .vtile{min-height:0;aspect-ratio:auto;height:100%;max-height:100%}
+.vtile .av{width:clamp(64px,12vw,140px);height:clamp(64px,12vw,140px);font-size:clamp(28px,5vw,54px)}
+.vgrid.count-3,.vgrid.count-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+.vgrid.count-many{grid-template-columns:repeat(3,minmax(0,1fr))}
+.vgrid.count-many .vtile .av{width:clamp(42px,7vw,84px);height:clamp(42px,7vw,84px);font-size:clamp(20px,3vw,36px)}
+.vgrid.count-many .vname{left:8px;right:8px;bottom:8px;transform:none;max-width:none;font-size:12px;padding:4px 8px}
+.vgrid .vtile video{object-fit:cover}
+#vfull .vbar{flex:none;margin-bottom:max(10px,env(safe-area-inset-bottom,0px))}
+@media(min-width:761px){#vfull .vgrid{padding:18px 5vw;gap:16px}#vfull .vgrid.sm{grid-template-columns:repeat(2,minmax(0,1fr))}#vfull .vgrid.count-3{grid-template-columns:repeat(2,minmax(0,1fr))}#vfull .vgrid.count-many{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){#vfull .vh{padding:10px 10px 4px}.vgrid{gap:7px;padding:8px}.vgrid.sm{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(100px,1fr)}.vtile{border-radius:12px}.vname{bottom:7px;font-size:11px;padding:4px 8px}.vgrid.count-many{grid-template-columns:repeat(2,minmax(0,1fr))}#vfull .vbar{gap:8px;margin:6px 8px 10px;padding:8px;flex-wrap:wrap}.vc{width:48px;height:48px}}
+@media(max-width:380px){#vfull .vbar{gap:5px}.vc{width:42px;height:42px}.vgrid{gap:5px;padding:5px}}
+
 .vtile .av.sp{box-shadow:0 0 0 5px #fff,0 0 0 9px rgba(35,165,89,.6);animation:none}
 .vname{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.62);color:#fff;padding:6px 12px;border-radius:999px;font-size:14px;font-weight:600;white-space:nowrap;max-width:85%}
 .vname span{overflow:hidden;text-overflow:ellipsis}
@@ -218,6 +238,19 @@ html,body{font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif
 .vbar{display:flex;align-items:center;justify-content:center;gap:12px;margin:10px 16px 18px;padding:10px 14px;background:#1e1f22;border-radius:34px}
 .vc{width:56px;height:56px;border-radius:50%;background:#2f3136;display:grid;place-items:center;color:#fff;flex:none;transition:transform .15s,background .2s}
 .vc.white{background:#fff;color:#ed4245}
+.vc.cam-on{background:#23a559;color:#fff;box-shadow:0 0 0 4px rgba(35,165,89,.2);animation:camPulse 1.8s ease-in-out infinite}
+.vc.cam-on svg{filter:drop-shadow(0 0 5px rgba(255,255,255,.35))}
+.vc.cam-loading{position:relative;isolation:isolate;background:#5865f2;color:#fff;animation:camTap .42s ease-in-out infinite alternate;box-shadow:0 0 0 4px rgba(88,101,242,.28),0 0 24px rgba(88,101,242,.72)}
+.vc.cam-loading::after{content:"";position:absolute;inset:-7px;border:3px solid rgba(123,134,255,.95);border-radius:50%;pointer-events:none;animation:camRing .8s ease-out infinite}
+.vc.cam-loading svg{animation:camIcon .42s ease-in-out infinite alternate}
+.vc.cam-press{animation:camClick .42s cubic-bezier(.2,.8,.2,1)}
+@keyframes camClick{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(88,101,242,0)}35%{transform:scale(.86);box-shadow:0 0 0 9px rgba(88,101,242,.4)}70%{transform:scale(1.12);box-shadow:0 0 0 15px rgba(88,101,242,.12)}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(88,101,242,0)}}
+@keyframes camRing{0%{transform:scale(.86);opacity:.95}100%{transform:scale(1.35);opacity:0}}
+@keyframes camTap{from{transform:scale(.96)}to{transform:scale(1.07)}}
+@keyframes camIcon{from{opacity:.5;transform:scale(.82) rotate(-5deg)}to{opacity:1;transform:scale(1.14) rotate(5deg)}}
+@keyframes camPulse{0%,100%{box-shadow:0 0 0 3px rgba(35,165,89,.16)}50%{box-shadow:0 0 0 7px rgba(35,165,89,.28)}}
+.vtile.vhasvideo .vvideo video{animation:camFade .28s ease-out both}
+@keyframes camFade{from{opacity:.15;transform:scale(1.025)}to{opacity:1;transform:scale(1)}}
 .vc.red{background:#f23f43}
 .vc.s{width:38px;height:38px}
 .vjoin{flex:1;height:56px;border-radius:30px;background:#23a559;color:#fff;font-weight:700;font-size:16px;box-shadow:0 8px 22px rgba(35,165,89,.35)}
@@ -227,7 +260,7 @@ html,body{font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif
 .vmt{flex:1;min-width:0}.vmt b{display:block;font-size:14px}.vmt small{color:#949ba4}
 .vu span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vu .mi{margin-left:auto;display:inline-flex;color:#f23f43}
-.vtile{cursor:pointer}
+.vtile{cursor:pointer}.vtile .vvideo{position:absolute;inset:0}.vtile .vvideo video{width:100%;height:100%;object-fit:cover;background:#000}.vtile.vhasvideo .vname{z-index:2;background:rgba(0,0,0,.48);color:#fff}.vtile.vhasvideo .vname .av{display:none}
 .slash{position:relative;display:inline-flex}
 .slash::after{content:"";position:absolute;left:-2px;right:-2px;top:50%;height:2px;background:#f23f43;transform:rotate(-45deg)}
 #vpop{position:fixed;left:0;right:0;bottom:0;z-index:70;display:none;padding:12px}
@@ -276,38 +309,38 @@ html,body{font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif
 .pc3 .pr{display:flex;gap:10px;align-items:center}
 .up .who,.up .av{cursor:pointer}
 </style>
-<style id="emailcss">
-.alink{display:block;width:100%;background:none;border:0;color:#8f9bff;font-size:13px;font-weight:600;text-align:right;padding:2px 2px 10px;cursor:pointer}
-.alink:hover{text-decoration:underline}.alink[hidden]{display:none}
-.apanel{text-align:left;animation:pageIn .25s var(--ease)}.apanel[hidden]{display:none}
-.aph{font-size:19px;margin:6px 0 6px}.apd{color:var(--muted);font-size:13px;margin:0 0 14px;line-height:1.45}
-.aerr.good{color:#3ecf72}
-.emsec{margin-top:10px;font-size:13px}.emsec small{display:block;margin:6px 0;color:var(--muted)}.emsec .emok{color:#3ecf72}
-</style>
 <style id="adminfullcss">
 #adminFull{position:fixed;inset:0;z-index:85;display:none;flex-direction:column;background:var(--main);color:#fff;padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0)}
 #adminFull.on{display:flex;animation:pageIn .3s var(--ease)}
 @keyframes pageIn{from{opacity:0;transform:translateX(16px)}}
-#adminFull .adbody{flex:1;overflow-y:auto;padding-bottom:24px}
-.adgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:4px 16px 18px}
-.adstat{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px 8px;text-align:center}
-.adstat b{display:block;font-size:22px;font-weight:800}
-.adstat small{color:var(--muted);font-size:11px}
+#adminFull .adbody{flex:1;overflow-y:auto;padding-bottom:24px;animation:adminTabIn .22s ease both}
+@keyframes adminTabIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.logintro{padding:0 20px 10px;color:var(--muted);font-size:12px}
+.logitem{border-bottom:1px solid rgba(255,255,255,.06);cursor:default}
+.logmark{width:28px;height:28px;flex:0 0 28px;border-radius:9px;display:grid;place-items:center;font-weight:800;background:rgba(255,255,255,.08)}
+.logmark.good{color:#4ade80;background:rgba(74,222,128,.12)}.logmark.bad{color:#fb7185;background:rgba(251,113,133,.12)}
+.logitem .fi b{font-size:13px}.logitem .fi small{display:block;line-height:1.45;white-space:normal;overflow-wrap:anywhere}
+@media(prefers-reduced-motion:reduce){#adminFull .adbody,.frow{animation:none!important;transition:none!important}}
+#adminFull .vh{flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.07)}
+#adminFull .ftabs{padding-left:16px;padding-right:16px;gap:8px}
+#adminFull .ftab{min-height:40px;justify-content:center}
+#adminFull .adbody{overscroll-behavior:contain;scrollbar-gutter:stable}
+.adgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:8px 16px 20px}
+.adstat{position:relative;overflow:hidden;min-width:0;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:17px 12px;text-align:left;box-shadow:0 8px 22px rgba(0,0,0,.08);transition:transform .18s,border-color .18s,background .18s}
+.adstat::after{content:"";position:absolute;right:-18px;top:-24px;width:66px;height:66px;border-radius:50%;background:rgba(88,101,242,.12);pointer-events:none}
+.adstat b{position:relative;z-index:1;display:block;font-size:clamp(20px,2vw,27px);font-weight:800;letter-spacing:-.5px;line-height:1.25;font-variant-numeric:tabular-nums}
+.adstat small{position:relative;z-index:1;display:block;margin-top:6px;color:var(--muted);font-size:12px;font-weight:600}
+#adminFull .frow{border:1px solid transparent}
+#adminFull .frow:hover{border-color:rgba(255,255,255,.07);background:rgba(255,255,255,.035)}
+#adminFull .ib,#adminFull .fbtn{min-height:38px}
+@media(max-width:760px){.adgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:8px 12px 16px}.adstat{padding:14px 12px;border-radius:14px}#adminFull .ftabs{padding-left:12px;padding-right:12px;gap:5px}#adminFull .ftab{padding:8px 11px;font-size:13px;min-height:38px}}
+@media(max-width:360px){.adgrid{grid-template-columns:minmax(0,1fr)}#adminFull .ftab{padding:7px 9px;font-size:12px}}
 </style>
 <style id="admincss">.adminTag{display:inline-block;background:#000;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:6px;letter-spacing:.3px;vertical-align:middle;border:1px solid rgba(255,255,255,.25)}.srv.adm{background:linear-gradient(135deg,#ed4245,#f0b132);box-shadow:0 0 0 3px rgba(237,66,69,.35),0 6px 16px rgba(237,66,69,.35);animation:admpulse 2.4s ease-in-out infinite}.srv.adm:hover{transform:translateY(-1px) scale(1.04)}@keyframes admpulse{0%,100%{box-shadow:0 0 0 3px rgba(237,66,69,.35),0 6px 16px rgba(237,66,69,.35)}50%{box-shadow:0 0 0 6px rgba(237,66,69,.12),0 6px 20px rgba(237,66,69,.45)}}</style>
 <style id="sharecss">
 .vtile.vscreen{background:#000;padding:0;overflow:hidden}
 .vtile.vscreen .vvideo{position:absolute;inset:0}
 .vtile.vscreen video{width:100%;height:100%;object-fit:contain;background:#000}
-</style>
-<style id="gridcss">
-.vgrid.fill{flex:1;min-height:0;display:grid;grid-template-columns:repeat(var(--c,1),minmax(0,1fr));grid-template-rows:repeat(var(--r,1),minmax(0,1fr));gap:8px;padding:8px;align-content:stretch;overflow:hidden}
-.vgrid.fill .vtile{min-height:0;height:100%;width:100%;border-radius:18px}
-.vgrid.fill .vtile .av{width:var(--avs,104px);height:var(--avs,104px);font-size:calc(var(--avs,104px)*.4)}
-.vtile.vscreen.vcam video{object-fit:cover}
-.vgrid.fill .vname{bottom:10px;font-size:13px}
-@media (orientation:landscape) and (max-height:520px){#vfull .vinv{display:none}#vfull .vh{padding:6px 12px 2px}#vfull .vbar{padding-top:4px;padding-bottom:6px}}
-@media (min-width:900px){#vfull .vinv{display:none}#vfull{padding-left:12px;padding-right:12px}.vgrid.fill{gap:12px;padding:12px}.vgrid.fill .vname{font-size:15px;padding:7px 14px}}
 </style>
 <style id="fsys">
 /* ---- ARKADAŞ SİSTEMİ ---- */
@@ -414,6 +447,89 @@ body.dmopen #dmcall{display:grid}
 .adiv::before,.adiv::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.1)}
 .note a{color:#9aa3ff;text-decoration:none}.note a:hover{text-decoration:underline}
 </style>
+<style id="voxa-responsive-polish">
+/* Voxa responsive visual polish — presentation only; preserves existing app logic */
+:root{--vx-border:rgba(255,255,255,.075);--vx-glass:rgba(255,255,255,.035);--vx-shadow:0 16px 42px rgba(0,0,0,.18)}
+html{background:#0d0e12;scrollbar-gutter:stable}
+body{background:radial-gradient(ellipse at 65% -20%,rgba(88,101,242,.09),transparent 48%),var(--rail);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button,input,textarea{touch-action:manipulation}
+button{transition:background-color .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease,transform .18s ease}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid #8b95ff;outline-offset:3px}
+#app{min-width:0;isolation:isolate}
+.rail{border-right:1px solid rgba(255,255,255,.035);padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom))}
+.side{border-right:1px solid var(--vx-border);box-shadow:8px 0 28px rgba(0,0,0,.08)}
+.sh,.mh{background:rgba(20,21,26,.74);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid var(--vx-border);box-shadow:none}
+.sh{height:56px;letter-spacing:.1px}
+.mh{height:56px;padding-left:clamp(12px,1.5vw,24px);padding-right:clamp(12px,1.5vw,24px)}
+.main{background:linear-gradient(145deg,rgba(34,35,42,.98),rgba(25,26,31,.99));min-width:0}
+.ch{min-height:36px;border:1px solid transparent;border-radius:8px;padding:7px 10px}
+.ch:hover{border-color:rgba(255,255,255,.045)}.ch.on{box-shadow:inset 2px 0 #8992ff;background:linear-gradient(90deg,rgba(88,101,242,.2),rgba(88,101,242,.07));color:#fff}
+.srv{box-shadow:0 3px 10px rgba(0,0,0,.12)}.srv.on{box-shadow:0 6px 18px rgba(88,101,242,.3)}
+.ib{width:36px;height:36px;border-radius:9px}.ib:hover{box-shadow:inset 0 0 0 1px var(--vx-border)}
+.up,.vp{background:rgba(16,17,21,.72);border-top:1px solid var(--vx-border)}
+.up{min-height:58px;height:auto;padding-top:8px;padding-bottom:max(8px,env(safe-area-inset-bottom))}
+.m{padding:7px clamp(12px,1.5vw,24px);margin-top:8px;border-radius:8px;animation:slide .18s ease both}
+.m:hover{background:rgba(255,255,255,.035)}.m p{line-height:1.55}
+.m .del{border:1px solid rgba(242,63,67,.24);background:#24252c;border-radius:8px;padding:5px 10px;box-shadow:0 5px 18px rgba(0,0,0,.2)}
+.cin{padding-left:clamp(12px,1.5vw,24px);padding-right:clamp(12px,1.5vw,24px)}
+.cin div{min-height:48px;border:1px solid rgba(255,255,255,.045);box-shadow:0 8px 26px rgba(0,0,0,.1)}
+.cin input{font-size:15px;min-height:44px}
+#login{padding:clamp(16px,4vw,40px)}.card{width:min(100%,420px);border-color:rgba(255,255,255,.12);box-shadow:0 28px 90px rgba(0,0,0,.42),inset 0 1px rgba(255,255,255,.06)}
+.gbtn{min-height:46px;border-radius:10px}.logo{box-shadow:0 10px 30px rgba(88,101,242,.35)}
+#toast{max-width:min(92vw,420px);border:1px solid rgba(255,255,255,.1);box-shadow:var(--vx-shadow);backdrop-filter:blur(18px)}
+/* Large displays: improve breathing room without enlarging or distorting media */
+@media(min-width:1400px){.side{width:260px}.mem{width:260px}.msgs{padding-top:18px;padding-bottom:18px}.m{padding-top:8px;padding-bottom:8px}.cin{padding-bottom:20px}}
+@media(min-width:1920px){.side{width:280px}.mem{width:280px}.sh,.mh{height:62px}.m{padding-left:28px;padding-right:28px}.cin{padding-left:28px;padding-right:28px}}
+@media(max-width:760px){
+ html,body{width:100%;height:100%;height:100dvh;overscroll-behavior:none}
+ #app{height:100%;height:100dvh;min-height:0}
+ .main{width:100%;height:100%;min-height:0}
+ .mh{height:calc(52px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top);gap:10px}
+ .menu{width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.045)}
+ .msgs{padding-top:8px;padding-bottom:8px;overscroll-behavior:contain}
+ .m{gap:10px;padding:7px 12px;margin-top:5px;border-radius:0}
+ .m .av{width:34px;height:34px;font-size:14px}
+ .m .del{display:block;position:static;margin-left:auto;align-self:flex-start;opacity:.82;padding:5px 8px}
+ .cin{padding:0 10px max(10px,env(safe-area-inset-bottom))}
+ .cin div{padding-left:12px;border-radius:12px;min-height:46px}
+ .cin input{font-size:16px}
+ .scrim{z-index:30}.rail{z-index:32;padding-top:max(12px,env(safe-area-inset-top))}.side{z-index:31;padding-top:env(safe-area-inset-top)}
+ .up{padding-bottom:max(8px,env(safe-area-inset-bottom))}
+ .card{padding:clamp(22px,7vw,34px) clamp(18px,6vw,28px);border-radius:22px}
+}
+@media(max-width:380px){.m{gap:8px;padding-left:9px;padding-right:9px}.m .av{width:30px;height:30px}.mh{padding-left:8px;padding-right:8px}.cin{padding-left:7px;padding-right:7px}}
+@media(hover:none){.m .del{opacity:.9}.srv:hover,.ch:hover,.ib:hover{transform:none}}
+@media(prefers-reduced-motion:reduce){html:focus-within{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
+</style>
+
+
+<style id="live-chat-polish">
+/* Voxa live chat polish — visual-only enhancements; existing message protocol retained */
+.conn-status{display:inline-flex;align-items:center;gap:7px;margin-left:auto;padding:5px 10px;border:1px solid rgba(255,255,255,.08);border-radius:999px;background:rgba(255,255,255,.035);font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
+.conn-status::before{content:"";width:7px;height:7px;border-radius:50%;background:#f0b132;box-shadow:0 0 0 3px rgba(240,177,50,.12)}
+.conn-status[data-state="live"]{color:#b9f4d0;border-color:rgba(35,165,89,.22);background:rgba(35,165,89,.07)}
+.conn-status[data-state="live"]::before{background:#23a559;box-shadow:0 0 0 3px rgba(35,165,89,.14);animation:connPulse 2.2s ease-out infinite}
+.conn-status[data-state="retry"]{color:#ffd88a}
+.conn-status[data-state="off"]{color:#ffb4b6}
+@keyframes connPulse{0%{box-shadow:0 0 0 0 rgba(35,165,89,.32)}70%,100%{box-shadow:0 0 0 6px rgba(35,165,89,0)}}
+.m{animation:messageEnter .24s var(--ease, ease-out) both;will-change:opacity,transform}
+@keyframes messageEnter{from{opacity:0;transform:translateY(7px) scale(.995)}to{opacity:1;transform:translateY(0) scale(1)}}
+.m .mb{min-width:0;flex:1}
+.m p{line-height:1.58;overflow-wrap:anywhere}
+.m .mtb{opacity:0;transform:translateY(3px);transition:opacity .16s ease,transform .16s ease}
+.m:hover .mtb,.m:focus-within .mtb{opacity:1;transform:none}
+#typ{display:flex;align-items:center;gap:5px;min-height:18px}
+#typ:not(:empty)::after{content:"";width:4px;height:4px;border-radius:50%;background:currentColor;box-shadow:6px 0 currentColor,12px 0 currentColor;margin-left:8px;animation:typingDots 1s ease-in-out infinite}
+@keyframes typingDots{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-2px)}}
+.ch,.srv,.ib,.rx,.mtb button{transition:transform .16s var(--ease, ease-out),background-color .16s ease,color .16s ease,box-shadow .16s ease}
+.ch:active,.srv:active,.ib:active,.rx:active,.mtb button:active{transform:scale(.95)}
+.cin div{transition:box-shadow .18s ease,border-color .18s ease,transform .18s ease}
+.cin div:focus-within{box-shadow:0 0 0 1px rgba(88,101,242,.8),0 0 0 5px rgba(88,101,242,.12);transform:translateY(-1px)}
+.vu{transition:background .16s ease,transform .16s ease}.vu:hover{background:rgba(255,255,255,.035);transform:translateX(2px)}
+@media(max-width:760px){.conn-status{font-size:10px;padding:4px 8px;gap:5px}.mh{gap:7px}.m{margin:2px 3px;padding:8px 9px;gap:10px}.m .av{width:36px;height:36px}.cin{padding-left:9px;padding-right:9px}.cin div{padding-left:12px}.mtb{opacity:1!important;transform:none!important}}
+@media(prefers-reduced-motion:reduce){.conn-status::before,#typ:not(:empty)::after{animation:none!important}.m{animation:none!important;will-change:auto}.m .mtb,.cin div,.vu{transition:none!important}}
+</style>
+
 </head>
 <body>
 <div id="login">
@@ -429,30 +545,15 @@ body.dmopen #dmcall{display:grid}
   <p>Arkadaşlarınla yaz, konuş, takıl.</p>
   <div class="atabs" role="tablist"><button type="button" class="atab on" data-at="login">Giriş Yap</button><button type="button" class="atab" data-at="reg">Kayıt Ol</button><i class="aind"></i></div>
   <form id="aform" novalidate>
-   <label class="af"><span id="aulabel">Kullanıcı adı veya e-posta</span><input id="au" name="username" autocomplete="username" maxlength="200" autocapitalize="none" spellcheck="false"><em id="au_s" class="afs"></em></label>
+   <label class="af hide" id="emailWrap"><span>E-posta adresi</span><input id="aemail" name="email" type="email" autocomplete="email" maxlength="254" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="ornek@eposta.com"></label>
+   <label class="af"><span>Kullanıcı adı</span><input id="au" name="username" autocomplete="username" maxlength="20" autocapitalize="none" spellcheck="false"><em id="au_s" class="afs"></em></label>
    <label class="af"><span>Şifre</span><div class="pw"><input id="ap" name="password" type="password" autocomplete="current-password" maxlength="100"><button type="button" id="apeye" aria-label="Şifreyi göster">👁</button></div></label>
-   <button type="button" class="alink" id="aforgot">Şifremi Unuttum?</button>
-   <div class="fold" id="afold"><div><div class="ameter"><b id="amb"></b></div><small id="amt" class="amt"></small><label class="af"><span>Şifre (tekrar)</span><input id="ap2" type="password" autocomplete="new-password" maxlength="100"></label><label class="af"><span>E-posta (isteğe bağlı — şifreni unutursan lazım olur)</span><input id="aem" type="email" autocomplete="email" maxlength="200" autocapitalize="none" spellcheck="false"></label></div></div>
+   <div class="fold" id="afold"><div><div class="ameter"><b id="amb"></b></div><small id="amt" class="amt"></small><label class="af"><span>Şifre (tekrar)</span><input id="ap2" type="password" autocomplete="new-password" maxlength="100"></label><label class="af hide" id="adminSetupWrap"><span>Yönetici kurulum anahtarı</span><input id="adminSetupKey" type="password" autocomplete="off" maxlength="100"><small class="note">Yalnızca ilk yönetici hesabını kurarken gerekir.</small></label></div></div>
+   <div class="hide" id="verifyWrap"><label class="af"><span>E-posta doğrulama kodu</span><input id="verifyCode" inputmode="text" autocomplete="one-time-code" maxlength="12" placeholder="E-postana gelen kod"></label><button type="button" class="abtn" id="verifyBtn"><span class="ab-t">E-postayı Doğrula</span></button><button type="button" class="abtn" id="resendBtn" style="margin-top:8px;background:transparent"><span class="ab-t">Kodu Tekrar Gönder</span></button></div>
    <div id="aerr" class="aerr" role="alert" aria-live="polite"></div>
    <button class="abtn" id="asub" type="submit"><span class="ab-t">Giriş Yap</span><i class="spin"></i></button>
   </form>
-  <div id="afp" class="apanel" hidden>
-   <h2 class="aph">Şifreni sıfırla</h2>
-   <p class="apd">Hesabına bağlı ve doğrulanmış e-posta adresini yaz. Sana 15 dakika geçerli, tek kullanımlık bir bağlantı göndereceğiz.</p>
-   <label class="af"><span>E-posta</span><input id="afe" type="email" autocomplete="email" maxlength="200" autocapitalize="none" spellcheck="false"></label>
-   <div id="afmsg" class="aerr" role="alert" aria-live="polite"></div>
-   <button class="abtn" id="afgo" type="button"><span class="ab-t">Bağlantı Gönder</span><i class="spin"></i></button>
-   <button type="button" class="alink" id="afback" style="text-align:center;margin-top:8px">← Girişe dön</button>
-  </div>
-  <div id="arp" class="apanel" hidden>
-   <h2 class="aph">Yeni şifre belirle</h2>
-   <p class="apd">Yeni şifren en az 8 karakter olmalı ve kullanıcı adını içermemeli.</p>
-   <label class="af"><span>Yeni şifre</span><input id="arp1" type="password" autocomplete="new-password" maxlength="100"></label>
-   <label class="af"><span>Yeni şifre (tekrar)</span><input id="arp2" type="password" autocomplete="new-password" maxlength="100"></label>
-   <div id="armsg" class="aerr" role="alert" aria-live="polite"></div>
-   <button class="abtn" id="argo" type="button"><span class="ab-t">Şifreyi Değiştir</span><i class="spin"></i></button>
-   <button type="button" class="alink" id="arback" style="text-align:center;margin-top:8px">← Girişe dön</button>
-  </div>
+  <button type="button" id="forgotPasswordBtn" class="abtn" style="margin-top:10px;background:transparent"><span class="ab-t">Şifremi unuttum</span></button>
   <p class="note">Devam ederek <a href="/sartlar.html">Şartlar</a> ve <a href="/gizlilik.html">Gizlilik Politikası</a>'nı kabul edersin.</p>
   <div class="chips"><span>💬 Canlı sohbet</span><span>🎙 Sesli odalar</span><span>⚡ Ücretsiz</span></div>
  </div>
@@ -477,7 +578,7 @@ body.dmopen #dmcall{display:grid}
   </div>
  </aside>
  <main class="main">
-  <div class="mh"><button class="ib menu" id="menu" aria-label="Menü">☰</button><span>#</span><div id="mtitle">genel</div></div>
+  <div class="mh"><button class="ib menu" id="menu" aria-label="Menü">☰</button><span>#</span><div id="mtitle">genel</div><button class="ib" id="memberToggle" type="button" aria-label="Çevrimiçi üyeler" title="Üyeler">👥 <span id="memberCount" style="font-size:12px;margin-left:3px">0</span></button></div>
   <div class="body">
    <div class="chat">
     <div class="msgs" id="msgs"></div>
@@ -503,8 +604,9 @@ const CH={
  tayfa:{text:['genel','oyun-sohbeti','müzik'],voice:['Genel Ses','Oyun Sesi']},
  oyun:{text:['duyurular','takım-ara'],voice:['Takım 1','Takım 2']}
 };
-let GUILDS=[],MYSV=[],MGMT=null,MGMTCODE='',MGMTMEM=null,SVCB=null,SVPCB=null,TY={},lastT=0,HIST={},ONL=[],srv='tayfa',ch='genel',voice=null,muted=false,deaf=false,TOKEN=null,ws=null;
+let GUILDS=[],MYSV=[],ALLMEM=[],MGMT=null,MGMTCODE='',MGMTMEM=null,SVCB=null,SVPCB=null,TY={},lastT=0,HIST={},ONL=[],srv='tayfa',ch='genel',voice=null,muted=false,deaf=false,TOKEN=null,ws=null;
 const key=()=>srv==='home'?ch:srv+'/'+ch;
+const HIST_PENDING=new Map();
 const hm=t=>new Date(t).toLocaleTimeString('tr',{hour:'2-digit',minute:'2-digit'});
 
 function av(n,x=''){return `<div class="av ${x}" style="background:${col(n)}">${esc(String(n)[0]||'?').toUpperCase()}</div>`}
@@ -513,20 +615,13 @@ function rail(){
 }
 const SV=()=>[{id:'home',name:'Arkadaşlar',short:'👥'},...SERVERS,...GUILDS.map(g=>({id:'dg:'+g.id,name:g.name,short:(g.name||'?')[0].toUpperCase(),icon:g.icon,gid:g.id})),...MYSV.map(s2=>({id:'sv:'+s2.id,name:s2.name,short:(s2.name||'?')[0].toUpperCase(),icon:s2.icon||'',gid:null}))];
 const chOf=id=>{if(id&&id.startsWith('sv:')){const s2=MYSV.find(x=>'sv:'+x.id===id);return s2?{text:s2.channels.filter(c=>c.kind==='text').map(c=>c.name),voice:s2.channels.filter(c=>c.kind==='voice').map(c=>c.name)}:{text:[],voice:[]}}return CH[id]||{text:['genel','sohbet'],voice:['Sesli Oda']}};
-function typ(){const n=Object.keys(TY).filter(k=>TY[k]>Date.now());$('typ').textContent=n.length?n.join(', ')+' yazıyor…':''}
-setInterval(typ,1000);
+function typ(){const now=Date.now();for(const name of Object.keys(TY))if(TY[name]<=now)delete TY[name];const names=Object.keys(TY);const el=$('typ');if(!el)return;el.textContent=names.length?(names.length===1?names[0]+' yazıyor…':names.length===2?names.join(' ve ')+' yazıyor…':names.slice(0,2).join(', ')+' ve '+(names.length-2)+' kişi daha yazıyor…'):''}
+setInterval(typ,500);
 function members(){
- if(srv.startsWith('sv:')){
-  const gid=srv.slice(3);
-  if(SVMEMFOR!==gid){SVMEM=null;SVMEMFOR=gid;sendWS({t:'svmembers',id:gid})}
-  if(!SVMEM){$('mem').innerHTML='<p class="hint" style="padding:14px">Yükleniyor…</p>';return}
-  const on=SVMEM.filter(u=>u.on),off=SVMEM.filter(u=>!u.on);
-  const row=u=>`<div class="vu">${av(u.name,u.on?'dot':'dot offl')}${esc(u.name)}${admTag(u.admin)}${u.owner?' 👑':''}</div>`;
-  $('mem').innerHTML=(on.length?`<div class="cat">ÇEVRİMİÇİ — ${on.length}</div>`+on.map(row).join(''):'')+
-   (off.length?`<div class="cat">ÇEVRİMDIŞI — ${off.length}</div>`+off.map(row).join(''):'')||'<p class="hint" style="padding:14px">Üye yok.</p>';
-  return;
- }
- $('mem').innerHTML=`<div class="cat">ÇEVRİMİÇİ — ${ONL.length}</div>`+ONL.map(u=>`<div class="vu">${av(u.name,'dot')}${esc(u.name)}${admTag(u.admin)}</div>`).join('');
+ const online=ALLMEM.length?ALLMEM.filter(u=>u.on):ONL;
+ const offline=ALLMEM.filter(u=>!u.on);
+ const mc=$('memberCount');if(mc)mc.textContent=online.length;
+ $('mem').innerHTML=`<div class="cat">ÇEVRİMİÇİ — ${online.length}</div>`+(online.length?online.map(u=>`<div class="vu">${av(u.name,'dot')}${esc(u.name)}${admTag(u.admin)}</div>`).join(''):'<div class="vu" style="opacity:.7">Şu anda çevrimiçi üye yok</div>')+`<div class="cat" style="margin-top:14px">ÇEVRİMDIŞI — ${offline.length}</div>`+(offline.length?offline.map(u=>`<div class="vu" style="opacity:.58">${av(u.name)}${esc(u.name)}${admTag(u.admin)}</div>`).join(''):'<div class="vu" style="opacity:.7">Çevrimdışı üye yok</div>');
 }
 let REPLY=null,EDIT=null,PICK=null,UNR={},AC=null,NOANIM=false;
 const EMO='😀 😂 🤣 😊 😍 😘 😎 🤔 😅 😭 😡 🥳 😴 🤯 🙄 😇 👍 👎 👏 🙌 🙏 💪 👀 🔥 ✨ 💯 ❤️ 💔 🎉 🎮 🎧 ⚽ 🍕 ☕ 🚀 ⭐ ✅ ❌ 😮 😢'.split(' ');
@@ -571,8 +666,12 @@ function msgs(){
  box.classList.toggle('noanim',NOANIM);
  const k=key();
  if(k&&HIST[k]===undefined){
-  const l=document.createElement('p');l.className='hint';l.style.textAlign='center';l.textContent='Geçmiş yükleniyor…';box.append(l);
-  sendWS({t:'hist',ch:k});
+  const l=document.createElement('p');l.className='hint';l.style.textAlign='center';l.textContent='Geçmiş yükleniyor…';l.dataset.histLoading=k;box.append(l);
+  if(ws&&ws.readyState===1){
+   const old=HIST_PENDING.get(k);if(old)clearTimeout(old);
+   HIST_PENDING.set(k,setTimeout(()=>{if(HIST[k]===undefined&&key()===k){HIST[k]=[];box.innerHTML='<div class="wel"><h2>Geçmiş yüklenemedi</h2><p>Sunucu yanıt vermedi. Bağlantıyı ve Cloudflare Worker dağıtımını kontrol et; tekrar denemek için kanala yeniden gir.</p></div>';}HIST_PENDING.delete(k)},8000));
+   sendWS({t:'hist',ch:k});
+  }else{l.textContent='Sunucuya bağlanılıyor…';}
  }else{
   let prev=null;(HIST[k]||[]).forEach(m=>{addMsg(box,m,prev);prev=m});
  }
@@ -621,18 +720,30 @@ function enter(u,tok){
  if(u.picture){a.textContent='';a.style.background='url('+u.picture+') center/cover'}
  all();connect();
 }
-function logout(){try{localStorage.removeItem('voxa_user')}catch(e){}TOKEN=null;if(ws)ws.close();location.reload()}
+function logout(){userClosed=true;if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null}try{localStorage.removeItem('voxa_user')}catch(e){}TOKEN=null;if(ws)ws.close();location.reload()}
 
 /* --- canlı bağlantı --- */
+let reconnectDelay=1000, reconnectTimer=null, userClosed=false;
+function connectionState(state,label){
+ // Kullanıcıya gerçek bağlantı durumunu göster; başarılıymış gibi sonsuza kadar bekletme.
+ let el=document.getElementById('voxaConnState');
+ if(!el){el=document.createElement('div');el.id='voxaConnState';el.setAttribute('role','status');el.style.cssText='position:fixed;z-index:99999;left:50%;bottom:14px;transform:translateX(-50%);max-width:calc(100vw - 24px);padding:10px 14px;border-radius:10px;background:#252833;color:#fff;font:13px/1.4 system-ui,sans-serif;box-shadow:0 4px 20px #0006;text-align:center;display:none';document.body.appendChild(el)}
+ if(state==='live'){el.style.display='none';el.textContent=''}
+ else {el.style.display='block';el.style.background=state==='off'?'#8b2525':'#252833';el.textContent=state==='off'?'VOXA sunucusuna bağlanılamadı. Cloudflare Worker, MERKEZ bağlantısı ve /ws yönlendirmesini kontrol et. Yeniden deneniyor…':(label||'VOXA sunucusuna bağlanılıyor…')}
+}
 function connect(){
- ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
- ws.onopen=()=>ws.send(JSON.stringify({t:'auth',token:TOKEN}));
+ if(!TOKEN||userClosed)return;
+ if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null}
+ connectionState('retry','Bağlanıyor');
+ try{ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws')}
+ catch(err){connectionState('off','Bağlantı yok');scheduleReconnect();return}
+ ws.onopen=()=>{reconnectDelay=1000;connectionState('retry','Doğrulanıyor');ws.send(JSON.stringify({t:'auth',token:TOKEN}))};
  ws.onmessage=e=>{
-  const m=JSON.parse(e.data);
-  if(m.t==='ready'){if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;ME.mainAdmin=!!m.me.mainAdmin;profUI()}HIST=m.hist||{};ONL=m.online||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
-  else if(m.t==='online'){ONL=m.online||[];if(srv.startsWith('sv:'))SVMEMFOR='';members()}
+  let m;try{m=JSON.parse(e.data)}catch(err){return}
+  if(m.t==='ready'){connectionState('live','Canlı');if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;ME.mainAdmin=!!m.me.mainAdmin;profUI()}HIST=m.hist||{};ONL=m.online||[];ALLMEM=m.members||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
+  else if(m.t==='online'){ONL=m.online||[];ALLMEM=m.members||ALLMEM;members();if(MGMT&&ws&&ws.readyState===1)sendWS({t:'svmembers',id:MGMT.id})}
   else if(m.t==='msg'){
-   const L=(HIST[m.ch]=HIST[m.ch]||[]);const prev=L[L.length-1];L.push(m.msg);delete TY[m.msg.u];typ();
+   const L=(HIST[m.ch]=HIST[m.ch]||[]);const prev=L[L.length-1];L.push(m.msg);if(m.msg&&m.msg.u)delete TY[m.msg.u];typ();
    if(m.ch===key()){const b=$('msgs');const nb=b.scrollHeight-b.scrollTop-b.clientHeight<120||m.msg.id===ME.id;addMsg(b,m.msg,prev);if(nb)b.scrollTop=1e9}
    if(m.msg.id!==ME.id&&(m.ch!==key()||document.hidden)){if(m.ch!==key()){UNR[m.ch]=(UNR[m.ch]||0)+1;chans();rail()}utitle();ping()}
   }
@@ -643,19 +754,19 @@ function connect(){
    HIST[m.ch]=(HIST[m.ch]||[]).filter(x=>x.mid!==m.mid);
    if(m.ch===key()){const n=document.querySelector('[data-mid="'+m.mid+'"]');if(n)n.remove()}
   }
-  else if(m.t==='typing'){if(m.ch===key()){TY[m.name]=Date.now()+3000;typ()}}
+  else if(m.t==='typing'){if(m.ch===key()&&m.name&&m.name!==ME.name){TY[m.name]=Date.now()+3000;typ()}}
   else if(m.t==='session'){try{localStorage.setItem('voxa_user',JSON.stringify({token:m.token}))}catch(e){}TOKEN=m.token}
   else if(m.t==='social'||m.t==='freq'||m.t==='fnew'||m.t==='fsearch'||m.t==='fres'||m.t==='fprof'||m.t==='frep'||m.t==='merr'||m.t==='vinv'||m.t==='finv'||m.t==='aud'||m.t==='ring'||m.t==='ringx'||m.t==='fringr'){socialMsg(m)}
   else if(m.t==='svservers'||m.t==='svres'||m.t==='svinvite'||m.t==='svmembers'){guildMsg(m)}
-  else if(m.t==='hist'){HIST[m.ch]=m.msgs||[];if(m.ch===key())msgs()}
-  else if(m.t==='emailstatus'){EMS=m;emRender()}
-  else if(m.t==='addemail'){fT(m.msg||(m.ok?'Gönderildi':'Hata'));if(m.ok)sendWS({t:'emailstatus'})}
-  else if(m.t==='adstats'||m.t==='adsvlist'||m.t==='adsvdel'||m.t==='adusers'||m.t==='aduserdel'||m.t==='adsvopen'||m.t==='adadmins'||m.t==='adpromote'||m.t==='addemote'||m.t==='admute'||m.t==='adunmute'||m.t==='adban'||m.t==='adunban'||m.t==='modstate'||m.t==='admsgs'||m.t==='admsgdel'||m.t==='adreports'||m.t==='adreportclear'){adminMsg(m)}
+  else if(m.t==='hist'){const pending=HIST_PENDING.get(m.ch);if(pending)clearTimeout(pending);HIST_PENDING.delete(m.ch);HIST[m.ch]=m.msgs||[];if(m.ch===key()){if(m.denied){$('msgs').innerHTML='<div class="wel"><h2>Erişim yok</h2><p>'+esc(m.msg||'Bu kanalın geçmişine erişilemiyor.')+'</p></div>'}else msgs()}}
+  else if(m.t==='adstats'||m.t==='adsvlist'||m.t==='adsvdel'||m.t==='adusers'||m.t==='aduserdel'||m.t==='adsvopen'||m.t==='adadmins'||m.t==='adlogs'||m.t==='adpromote'||m.t==='addemote'||m.t==='admute'||m.t==='adunmute'||m.t==='adban'||m.t==='adunban'||m.t==='modstate'||m.t==='admsgs'||m.t==='admsgdel'||m.t==='adreports'||m.t==='adreportclear'){adminMsg(m)}
   else if(m.t==='vstate'||m.t==='vpeers'||m.t==='vsig'){voiceMsg(m)}
-  else if(m.t==='error'){logout()}
+  else if(m.t==='error'){connectionState('off',m.msg||'Sunucu isteği reddetti');fT(m.msg||'İşlem tamamlanamadı')}
  };
- ws.onclose=()=>{if(window.voiceReset)voiceReset();if(TOKEN)setTimeout(connect,2000)};
+ ws.onerror=()=>connectionState('off','Bağlantı sorunu');
+ ws.onclose=ev=>{if(window.voiceReset)voiceReset();if(TOKEN&&!userClosed){connectionState('off',ev&&ev.code===1006?'Sunucu bağlantıyı kapattı (1006). /ws yönlendirmesi ve Worker dağıtımını kontrol et.':'Bağlantı kesildi. Yeniden bağlanılıyor…');scheduleReconnect()}};
 }
+function scheduleReconnect(){if(!TOKEN||userClosed||reconnectTimer)return;const wait=reconnectDelay;reconnectDelay=Math.min(15000,Math.round(reconnectDelay*1.7));reconnectTimer=setTimeout(()=>{reconnectTimer=null;connect()},wait)}
 
 /* --- arayüz olayları --- */
 $('rail').onclick=e=>{const b=e.target.closest('.srv');if(!b)return;if(b.dataset.add){openServerAdd();return}if(b.dataset.admin){openAdmin();return}srv=b.dataset.s;if(srv==='home'){ch='';FVIEW=true}else ch=chOf(srv).text[0]||'';all()};
@@ -667,9 +778,12 @@ $('form').onsubmit=e=>{
  else sendWS({t:'msg',ch:key(),text:v,reply:REPLY?REPLY.mid:undefined});
  REPLY=null;$('inp').value='';bar();
 };
-$('inp').oninput=()=>{const n=Date.now();if(key()&&n-lastT>2000&&ws&&ws.readyState===1){lastT=n;ws.send(JSON.stringify({t:'typing',ch:key()}))}};
+$('inp').oninput=()=>{const n=Date.now();if($('inp').value.trim()&&key()&&n-lastT>1200&&ws&&ws.readyState===1){lastT=n;ws.send(JSON.stringify({t:'typing',ch:key()}))}};
+$('inp').addEventListener('blur',()=>{if(!$('inp').value.trim())typ()});
 $('menu').onclick=()=>drawer(true);
 $('scrim').onclick=()=>drawer(false);
+const memberToggle=$('memberToggle');if(memberToggle)memberToggle.onclick=()=>document.body.classList.toggle('members-open');
+document.addEventListener('click',e=>{if(document.body.classList.contains('members-open')&&!e.target.closest('#memberToggle')&&!e.target.closest('#mem'))document.body.classList.remove('members-open')});
 let x0=null;
 addEventListener('touchstart',e=>{x0=e.touches[0].clientX},{passive:true});
 addEventListener('touchend',e=>{
@@ -678,8 +792,6 @@ addEventListener('touchend',e=>{
 });
 
 addEventListener('load',()=>{
- const hr=location.hash.match(/(?:^|[#&])(reset|verify)=([\w-]{20,60})/);
- if(hr){history.replaceState(null,'',location.pathname);if(hr[1]==='reset'){showReset(hr[2]);return}doVerify(hr[2])}
  const fh=location.hash.match(/(?:^|[#&])f=([A-Za-z0-9]{4,12})/);
  if(fh){try{localStorage.setItem('voxa_pf',fh[1].toUpperCase())}catch(e){}if(!/vt=/.test(location.hash))history.replaceState(null,'',location.pathname)}
  const hv=location.hash.match(/vt=([\w.\-]+)/);
@@ -691,7 +803,7 @@ addEventListener('load',()=>{
 
 /* ===== SESLİ ODALAR (WebRTC) ===== */
 let VST={};
-const V={room:null,name:'',ui:null,sheet:'',sheetRoom:'',pcs:{},auds:{},ana:{},pend:{},vol:{},umute:{},prev:null,speak:{},stream:null,ctx:null,timer:null,spcs:{},svid:{},spend:{},screen:null,sharing:false,localVideoEl:null,cpcs:{},cvid:{},cpend:{},cam:null,camOn:false,localCamEl:null};
+const V={room:null,name:'',sid:null,joinSeq:0,ui:null,sheet:'',sheetRoom:'',pcs:{},auds:{},ana:{},pend:{},peerMeta:{},vol:{},umute:{},prev:null,speak:{},stream:null,ctx:null,timer:null,spcs:{},svid:{},spend:{},screen:null,sharing:false,localVideoEl:null,camera:null,cameraBusy:false,cameraFacing:'user',videos:{}};
 const ICE={iceServers:[{urls:['stun:stun.cloudflare.com:3478','stun:stun.l.google.com:19302']}]};
 const P={
  mic:'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z',
@@ -699,6 +811,8 @@ const P={
  end:'M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08a.956.956 0 0 1-.29-.7c0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28a11.27 11.27 0 0 0-2.67-1.85.996.996 0 0 1-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z',
  head:'M12 1a9 9 0 0 0-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7a9 9 0 0 0-9-9z',
  camoff:'M21 6.5l-4 4V7c0-.55-.45-1-1-1H9.82L21 17.18V6.5zM3.27 2L2 3.27 4.73 6H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.21 0 .39-.08.54-.18L19.73 21 21 19.73 3.27 2z',
+ cam:'M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7-7h-3.17l-1.84-2H9L7.17 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h15a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 14H4V7h4.05l1.83-2h3.24l1.83 2H19v12zm-7-1a5 5 0 1 1 0-10 5 5 0 0 1 0 10z',
+ flip:'M16 17v-3l4 4-4 4v-3H4v-2h12zM8 7V4L4 8l4 4V9h12V7H8z',
  share:'M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.11-.9-2-2-2H4c-1.11 0-2 .89-2 2v10c0 1.1.89 2 2 2H0v2h24v-2h-4zm-7-3.53v-2.19c-2.78 0-4.61.85-6 2.72.56-2.67 2.11-5.33 6-5.87V7l4 3.73-4 3.74z',
  add:'M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z',
  chat:'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z',
@@ -706,25 +820,19 @@ const P={
 };
 const ic=(p,s=24)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="currentColor"><path d="${p}"/></svg>`;
 const vroom=n=>srv+'/'+n;
-const rusers=r=>VST[r]||[];
+const rsessions=r=>VST[r]||[];
+const rusers=r=>{const byId=new Map();for(const u of rsessions(r)){const old=byId.get(u.id);if(!old||(u.ss&&!old.ss))byId.set(u.id,u)}return [...byId.values()]};
 const wsend=o=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))};
 const vtoast=m=>{if(window.toast)window.toast(m)};
 const pastel=n=>'hsl('+([...String(n)].reduce((a,c)=>a+c.charCodeAt(0),0)*37%360)+',70%,88%)';
 const vav=u=>`<div class="av ${V.speak[u.id]?'sp':''}" data-uid="${esc(u.id)}" style="background:${u.p?'url('+esc(u.p)+') center/cover':col(u.name)}">${u.p?'':esc(String(u.name)[0]||'?').toUpperCase()}</div>`;
 const stIcon=u=>u.d?'<span class="slash">'+ic(P.head,14)+'</span>':(u.m?ic(P.micoff,14):'');
 const ssIcon=u=>u.ss?' '+ic(P.share,12):'';
-const camIcon=u=>u.cam?' 🎥':'';
-const tile=u=>`<div class="vtile" data-pid="${esc(u.id)}" style="background:${pastel(u.name)}">${vav(u)}<div class="vname">${stIcon(u)}<span>${esc(u.name)}</span>${ssIcon(u)}${camIcon(u)}</div></div>`;
+const tile=u=>{const vid=(u.id===ME.id?'me':(u.sid||u.id));const live=(u.id===ME.id?V.camera:V.videos[vid]);return `<div class="vtile ${live?'vhasvideo':''}" data-pid="${esc(u.id)}" style="background:${pastel(u.name)}">${live?`<div class="vvideo" data-vid="${esc(vid)}"></div>`:vav(u)}<div class="vname">${stIcon(u)}<span>${esc(u.id===ME.id?(ME.name||u.name):u.name)}</span>${ssIcon(u)}</div></div>`};
 function screenTilesHtml(){
  const parts=[];
  if(V.screen)parts.push(`<div class="vtile vscreen" data-vslot="me"><div class="vvideo" data-vid="me"></div><div class="vname">${ic(P.share,14)}<span>Ekranını paylaşıyorsun</span></div></div>`);
- for(const id in V.svid){const u=(rusers(V.room)||[]).find(x=>x.id===id);parts.push(`<div class="vtile vscreen" data-vslot="${esc(id)}"><div class="vvideo" data-vid="${esc(id)}"></div><div class="vname">${ic(P.share,14)}<span>${esc(u?u.name:'Ekran')}</span></div></div>`)}
- return parts.join('');
-}
-function camTilesHtml(){
- const parts=[];
- if(V.cam)parts.push(`<div class="vtile vscreen vcam" data-cslot="me"><div class="vvideo" data-cvid="me"></div><div class="vname">🎥<span>${esc(ME.name)}</span></div></div>`);
- for(const id in V.cvid){const u=(rusers(V.room)||[]).find(x=>x.id===id);parts.push(`<div class="vtile vscreen vcam" data-cslot="${esc(id)}"><div class="vvideo" data-cvid="${esc(id)}"></div><div class="vname">🎥<span>${esc(u?u.name:'Kamera')}</span></div></div>`)}
+ for(const id in V.svid){const u=rsessions(V.room).find(x=>(x.sid||x.id)===id);parts.push(`<div class="vtile vscreen" data-vslot="${esc(id)}"><div class="vvideo" data-vid="${esc(id)}"></div><div class="vname">${ic(P.share,14)}<span>${esc(u?u.name:'Ekran')}</span></div></div>`)}
  return parts.join('');
 }
 function mountVideos(root){
@@ -732,17 +840,9 @@ function mountVideos(root){
   const id=slot.dataset.vid;
   if(id==='me'){
    if(!V.localVideoEl){V.localVideoEl=document.createElement('video');V.localVideoEl.autoplay=true;V.localVideoEl.muted=true;V.localVideoEl.playsInline=true}
-   if(V.screen)V.localVideoEl.srcObject=V.screen;
-   slot.appendChild(V.localVideoEl);
-  }else{const v=V.svid[id];if(v)slot.appendChild(v)}
- });
- root.querySelectorAll('.vvideo[data-cvid]').forEach(slot=>{
-  const id=slot.dataset.cvid;
-  if(id==='me'){
-   if(!V.localCamEl){V.localCamEl=document.createElement('video');V.localCamEl.autoplay=true;V.localCamEl.muted=true;V.localCamEl.playsInline=true;V.localCamEl.style.transform='scaleX(-1)'}
-   if(V.cam)V.localCamEl.srcObject=V.cam;
-   slot.appendChild(V.localCamEl);
-  }else{const v=V.cvid[id];if(v)slot.appendChild(v)}
+   const stream=V.screen||V.camera;if(stream&&V.localVideoEl.srcObject!==stream)V.localVideoEl.srcObject=stream;
+   if(V.localVideoEl.parentElement!==slot)slot.appendChild(V.localVideoEl);
+  }else{const v=V.videos[id]||V.svid[id];if(v&&v.parentElement!==slot)slot.appendChild(v)}
  });
 }
 
@@ -758,20 +858,6 @@ vpanel=function(){
  vui();
 };
 
-let __vrz=null;addEventListener('resize',()=>{clearTimeout(__vrz);__vrz=setTimeout(()=>{if(V.ui==='full'&&V.room)vui()},150)});
-function vgridDims(n,w,h){
- n=Math.max(1,n);
- const IW=w||window.innerWidth||360,IH=h||window.innerHeight||640,land=IW>IH&&IH<520;
- const W=Math.max(240,IW-16);
- const H=Math.max(160,IH-(land?150:(IW>=900?175:255)));
- let best={c:1,r:n,s:1e9,tw:W,th:H};
- for(let c=1;c<=n;c++){
-  const r=Math.ceil(n/c),tw=(W-(c-1)*8)/c,th=(H-(r-1)*8)/r,asp=tw/th;
-  const sc=Math.abs(Math.log(asp/1.2))+2.0*((c*r-n)/(c*r));
-  if(sc<best.s)best={c,r,s:sc,tw,th};
- }
- return {c:best.c,r:best.r,av:Math.round(Math.max(56,Math.min(200,Math.min(best.tw,best.th)*0.42)))};
-}
 function vui(){
  const sh=$('vsheet'),fu=$('vfull'),mi=$('vmini');
  if(V.ui==='sheet'){
@@ -784,9 +870,9 @@ function vui(){
  if(V.ui==='full'&&V.room){
   const us=rusers(V.room);
   fu.innerHTML=`<div class="vh"><button class="vb" data-a="min" aria-label="Küçült">${ic(P.down)}</button><div class="vt">${esc(V.name)}</div><span class="gap"></span><button class="vb" data-a="invite" aria-label="Davet et">${ic(P.add,20)}</button><button class="vb" data-a="chat" aria-label="Sohbet">${ic(P.chat,20)}</button></div>
-  ${(()=>{const shown=us.filter(u=>!(u.id===ME.id?V.cam:V.cvid[u.id]));const n=(V.screen?1:0)+Object.keys(V.svid).length+(V.cam?1:0)+Object.keys(V.cvid).length+shown.length;const g=vgridDims(n);return `<div class="vgrid fill" data-n="${n}" style="--c:${g.c};--r:${g.r};--avs:${g.av}px">${screenTilesHtml()}${camTilesHtml()}${shown.map(tile).join('')}</div>`})()}
+  <div class="vgrid ${((us.length+Object.keys(V.svid).length+(V.screen?1:0))>1)?'sm':''} ${(()=>{const n=us.length+Object.keys(V.svid).length+(V.screen?1:0);return n===3?'count-3':n===4?'count-4':n>=5?'count-many':''})()}">${screenTilesHtml()}${us.map(tile).join('')}</div>
   <button class="vinv" data-a="invite"><span class="vi">${ic(P.add,20)}</span><span><b>Sesli Sohbet'e kişi ekle</b><small>Gruba geldiğini haber ver!</small></span><span>›</span></button>
-  <div class="vbar"><button class="vc ${V.camOn?'white':''}" data-a="cam" aria-label="Kamera">${ic(P.camoff)}</button><button class="vc ${muted?'white':''}" data-a="mic" aria-label="Mikrofon">${ic(muted?P.micoff:P.mic)}</button><button class="vc ${V.sharing?'white':''}" data-a="share" aria-label="Ekran paylaş" ${MOBILE?"style=\"opacity:.45\"":""}>${ic(P.share)}</button><button class="vc ${deaf?'white':''}" data-a="deaf" aria-label="Kulaklık">${ic(P.head)}</button><button class="vc red" data-a="end" aria-label="Ayrıl">${ic(P.end)}</button></div>`;
+  <div class="vbar"><button class="vc ${V.cameraBusy?'cam-loading':V.camera?'cam-on':''}" data-a="cam" aria-label="${V.cameraBusy?'Kamera hazırlanıyor':V.camera?'Kamerayı kapat':'Kamerayı aç'}" ${V.cameraBusy?'disabled':''}>${ic(V.camera?P.cam:P.camoff)}</button>${V.camera?`<button class="vc" data-a="flip" aria-label="Ön/arka kamerayı değiştir" title="Ön/arka kamera">${ic(P.flip,22)}</button>`:''}<button class="vc ${muted?'white':''}" data-a="mic" aria-label="Mikrofon">${ic(muted?P.micoff:P.mic)}</button><button class="vc ${V.sharing?'white':''}" data-a="share" aria-label="Ekran paylaş" ${MOBILE?"style=\"opacity:.45\"":""}>${ic(P.share)}</button><button class="vc ${deaf?'white':''}" data-a="deaf" aria-label="Kulaklık">${ic(P.head)}</button><button class="vc red" data-a="end" aria-label="Ayrıl">${ic(P.end)}</button></div>`;
   fu.classList.add('on');mountVideos(fu);
  }else fu.classList.remove('on');
  if(V.ui==='mini'&&V.room){
@@ -865,75 +951,6 @@ function vShareStop(){
  if(V.room)wsend({t:'vstream_stop'});
  vui();
 }
-
-/* ===== GÖRÜNTÜLÜ ARAMA (kamera) ===== */
-function closeCpc(id){
- const pc=V.cpcs[id];if(pc){try{pc.close()}catch(e){}delete V.cpcs[id]}
- const v=V.cvid[id];if(v){v.srcObject=null;try{v.remove()}catch(e){}delete V.cvid[id]}
- delete V.cpend[id];
- if(V.ui==='full')vui();
-}
-function cpcFor(id){
- if(V.cpcs[id])return V.cpcs[id];
- const pc=new RTCPeerConnection(ICE);V.cpcs[id]=pc;
- pc.onicecandidate=e=>{if(e.candidate)wsend({t:'vsig',to:id,data:{type:'cice',c:e.candidate}})};
- pc.ontrack=e=>{
-  const st=e.streams[0]||new MediaStream([e.track]);
-  if(!V.cvid[id]){const v=document.createElement('video');v.autoplay=true;v.playsInline=true;v.muted=true;V.cvid[id]=v}
-  V.cvid[id].srcObject=st;if(V.ui==='full')vui();
- };
- pc.onconnectionstatechange=()=>{if(pc.connectionState==='failed'||pc.connectionState==='closed')closeCpc(id)};
- return pc;
-}
-async function vflush3(id,pc){
- for(const c of (V.cpend[id]||[])){try{await pc.addIceCandidate(c)}catch(e){}}
- V.cpend[id]=[];
-}
-async function offerCamTo(id){
- if(!V.cam)return;
- const pc=cpcFor(id);
- V.cam.getTracks().forEach(t=>{if(!pc.getSenders().find(s=>s.track===t))pc.addTrack(t,V.cam)});
- try{
-  const o=await pc.createOffer();await pc.setLocalDescription(o);
-  wsend({t:'vsig',to:id,data:{type:'coffer',sdp:pc.localDescription.sdp}});
- }catch(e){}
-}
-async function vsig3(from,d){
- if(!V.room)return;
- try{
-  if(d.type==='coffer'){
-   const pc=cpcFor(from);
-   await pc.setRemoteDescription({type:'offer',sdp:d.sdp});
-   const a=await pc.createAnswer();await pc.setLocalDescription(a);
-   wsend({t:'vsig',to:from,data:{type:'canswer',sdp:pc.localDescription.sdp}});
-   await vflush3(from,pc);
-  }else if(d.type==='canswer'){
-   const pc=V.cpcs[from];if(pc){await pc.setRemoteDescription({type:'answer',sdp:d.sdp});await vflush3(from,pc)}
-  }else if(d.type==='cice'){
-   const pc=V.cpcs[from];
-   if(pc&&pc.remoteDescription)await pc.addIceCandidate(d.c);else(V.cpend[from]=V.cpend[from]||[]).push(d.c);
-  }else if(d.type==='cstop'){
-   closeCpc(from);
-  }
- }catch(e){}
-}
-async function vCamStart(){
- if(!V.room){vtoast('Önce bir sesli odaya katıl');return}
- if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){vtoast('Bu tarayıcı kamerayı desteklemiyor');return}
- let st;try{st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false})}catch(e){vtoast('Kamera başlatılamadı ya da izin verilmedi');return}
- V.cam=st;V.camOn=true;
- try{st.getVideoTracks()[0].onended=()=>vCamStop()}catch(e){}
- for(const id of Object.keys(V.pcs))await offerCamTo(id);
- wsend({t:'vstream_cam_start'});vui();
-}
-function vCamStop(){
- if(V.cam){try{V.cam.getTracks().forEach(t=>t.stop())}catch(e){}V.cam=null}
- V.camOn=false;
- const peers=Object.keys(V.cpcs);
- peers.forEach(id=>{if(!V.cvid[id]){wsend({t:'vsig',to:id,data:{type:'cstop'}});closeCpc(id)}});
- if(V.room)wsend({t:'vstream_cam_stop'});
- vui();
-}
 function vmeter(id,stream){
  if(!V.ctx)return;
  try{const src=V.ctx.createMediaStreamSource(stream),an=V.ctx.createAnalyser();an.fftSize=512;src.connect(an);V.ana[id]={an,src,buf:new Uint8Array(an.fftSize)}}catch(e){}
@@ -942,36 +959,51 @@ function vtick(){
  for(const id in V.ana){
   const a=V.ana[id];a.an.getByteTimeDomainData(a.buf);
   let s=0;for(let i=0;i<a.buf.length;i++){const x=(a.buf[i]-128)/128;s+=x*x}
-  let on=Math.sqrt(s/a.buf.length)>0.035;if(id===ME.id&&muted)on=false;
-  if(!!V.speak[id]!==on){V.speak[id]=on;document.querySelectorAll('[data-uid="'+id+'"]').forEach(e=>e.classList.toggle('sp',on))}
+  const session=rsessions(V.room).find(u=>(u.sid||u.id)===id);const uid=id===ME.id?ME.id:(session?session.id:id);
+  let on=Math.sqrt(s/a.buf.length)>0.035;if(uid===ME.id&&muted)on=false;
+  if(!!V.speak[uid]!==on){V.speak[uid]=on;document.querySelectorAll('[data-uid="'+uid+'"]').forEach(e=>e.classList.toggle('sp',on))}
  }
 }
 function closePc(id){
  const pc=V.pcs[id];if(pc){try{pc.close()}catch(e){}delete V.pcs[id]}
  const a=V.auds[id];if(a){a.srcObject=null;a.remove();delete V.auds[id]}
+ const v=V.videos[id];if(v){v.srcObject=null;v.remove();delete V.videos[id]}
  if(V.ana[id]){try{V.ana[id].src.disconnect()}catch(e){}delete V.ana[id]}
- delete V.speak[id];delete V.pend[id];
+ const meta=rsessions(V.room).find(u=>(u.sid||u.id)===id);if(meta&&!rsessions(V.room).some(u=>u.id===meta.id&&(u.sid||u.id)!==id&&V.ana[u.sid||u.id]))delete V.speak[meta.id];delete V.pend[id];
 }
 function vpc(id){
  if(V.pcs[id])return V.pcs[id];
  const pc=new RTCPeerConnection(ICE);V.pcs[id]=pc;
- if(V.stream)V.stream.getTracks().forEach(t=>pc.addTrack(t,V.stream));
+ pc.polite=String(V.sid||'')>String(id||'');pc.makingOffer=false;pc.ignoreOffer=false;pc.settingRemoteAnswer=false;
+ if(V.stream)V.stream.getAudioTracks().forEach(t=>pc.addTrack(t,V.stream));
  else pc.addTransceiver('audio',{direction:'recvonly'});
+ if(V.camera)V.camera.getVideoTracks().forEach(t=>pc.addTrack(t,V.camera));
  pc.onicecandidate=e=>{if(e.candidate)wsend({t:'vsig',to:id,data:{type:'ice',c:e.candidate}})};
  pc.ontrack=e=>{
   const st=e.streams[0]||new MediaStream([e.track]);
+  if(e.track.kind==='video'){
+   let v=V.videos[id];if(!v){v=document.createElement('video');v.autoplay=true;v.playsInline=true;v.muted=true;V.videos[id]=v}
+   v.srcObject=st;v.playsInline=true;v.autoplay=true;v.play().catch(()=>{const retry=()=>v.play().catch(()=>{});document.addEventListener('click',retry,{once:true});document.addEventListener('touchstart',retry,{once:true});});e.track.onended=()=>{if(V.ui==='full')vui()};if(V.ui==='full')vui();return;
+  }
   let a=V.auds[id];
   if(!a){a=document.createElement('audio');a.autoplay=true;a.playsInline=true;document.body.append(a);V.auds[id]=a}
-  a.srcObject=st;a.muted=deaf||!!V.umute[id];a.volume=V.vol[id]==null?1:V.vol[id];a.play().catch(()=>{});
+  a.srcObject=st;a.autoplay=true;a.playsInline=true;a.muted=deaf||!!V.umute[id];a.volume=V.vol[id]==null?1:V.vol[id];
+  a.play().catch(()=>{const retry=()=>{a.play().catch(()=>{})};document.addEventListener('click',retry,{once:true});document.addEventListener('touchstart',retry,{once:true});});
   if(!V.ana[id])vmeter(id,st);
  };
- pc.onconnectionstatechange=()=>{if(pc.connectionState==='failed'){try{pc.restartIce()}catch(e){}}};
+ pc.onconnectionstatechange=()=>{if(pc.connectionState==='failed'&&V.room){try{pc.restartIce();voffer(id).catch(()=>{})}catch(e){}}};
  return pc;
 }
 async function voffer(id){
  const pc=vpc(id);
- const o=await pc.createOffer();await pc.setLocalDescription(o);
- wsend({t:'vsig',to:id,data:{type:'offer',sdp:pc.localDescription.sdp}});
+ if(pc.signalingState!=='stable'||pc.makingOffer)return;
+ try{
+  pc.makingOffer=true;
+  const o=await pc.createOffer();
+  if(pc.signalingState!=='stable')return;
+  await pc.setLocalDescription(o);
+  wsend({t:'vsig',to:id,data:{type:'offer',sdp:pc.localDescription.sdp}});
+ }finally{pc.makingOffer=false}
 }
 async function vflush(id,pc){
  for(const c of (V.pend[id]||[])){try{await pc.addIceCandidate(c)}catch(e){}}
@@ -979,19 +1011,25 @@ async function vflush(id,pc){
 }
 async function vsig(from,d){
  if(!V.room||!d)return;
- if(d.type){const __c0=String(d.type).charAt(0);if(__c0==='s'){await vsig2(from,d);return}if(__c0==='c'){await vsig3(from,d);return}}
+ if(d.type&&String(d.type).charAt(0)==='s'){await vsig2(from,d);return}
  try{
-  if(d.type==='offer'&&V.pcs[from]&&V.pcs[from].remoteDescription)closePc(from);
   const pc=vpc(from);
   if(d.type==='offer'){
+   const collision=pc.makingOffer||pc.signalingState!=='stable';
+   pc.ignoreOffer=!pc.polite&&collision;
+   if(pc.ignoreOffer)return;
+   if(collision)await pc.setLocalDescription({type:'rollback'});
    await pc.setRemoteDescription({type:'offer',sdp:d.sdp});
    const a=await pc.createAnswer();await pc.setLocalDescription(a);
    wsend({t:'vsig',to:from,data:{type:'answer',sdp:pc.localDescription.sdp}});
    await vflush(from,pc);
   }else if(d.type==='answer'){
-   await pc.setRemoteDescription({type:'answer',sdp:d.sdp});await vflush(from,pc);
+   if(pc.signalingState==='have-local-offer'){
+    await pc.setRemoteDescription({type:'answer',sdp:d.sdp});await vflush(from,pc);
+   }
   }else if(d.type==='ice'){
-   if(pc.remoteDescription)await pc.addIceCandidate(d.c);else(V.pend[from]=V.pend[from]||[]).push(d.c);
+   if(pc.remoteDescription){try{await pc.addIceCandidate(d.c)}catch(e){if(!pc.ignoreOffer)throw e}}
+   else(V.pend[from]=V.pend[from]||[]).push(d.c);
   }
  }catch(e){}
 }
@@ -1000,45 +1038,178 @@ function voiceMsg(m){
   VST=m.rooms||{};
   if(V.room){
    const us=VST[V.room]||[];
-   const ids=new Set(us.map(u=>u.id));
+   const ids=new Set(us.map(u=>u.sid||u.id));
    Object.keys(V.pcs).forEach(id=>{if(!ids.has(id))closePc(id)});
    Object.keys(V.spcs).forEach(id=>{if(!ids.has(id))closeSpc(id)});
-   Object.keys(V.cpcs).forEach(id=>{if(!ids.has(id))closeCpc(id)});
-   us.forEach(u=>{if(u.id!==ME.id&&!u.ss&&V.svid[u.id])closeSpc(u.id)});
-   us.forEach(u=>{if(u.id!==ME.id&&!u.cam&&V.cvid[u.id])closeCpc(u.id)});
-   if(V.sharing)ids.forEach(id=>{if(id!==ME.id&&!V.spcs[id])offerScreenTo(id).catch(()=>{})});
-   if(V.camOn)ids.forEach(id=>{if(id!==ME.id&&!V.cpcs[id])offerCamTo(id).catch(()=>{})});
+   us.forEach(u=>{const sid=u.sid||u.id;if(u.id!==ME.id&&!u.ss&&V.svid[sid])closeSpc(sid)});
+   if(V.sharing)ids.forEach(sid=>{const u=us.find(x=>(x.sid||x.id)===sid);if(u&&u.id!==ME.id&&!V.spcs[sid])offerScreenTo(sid).catch(()=>{})});
    if(V.prev&&!deaf){let up=false,dn=false;ids.forEach(id=>{if(!V.prev.has(id))up=true});V.prev.forEach(id=>{if(!ids.has(id))dn=true});if(up)beep(true);else if(dn)beep(false)}
-   if(ids.has(ME.id))V.prev=ids;
+   if(V.sid&&ids.has(V.sid))V.prev=ids;
   }
   chans();vui();
  }else if(m.t==='vpeers'){
-  if(V.room===m.room)(m.peers||[]).forEach(p=>voffer(p.id).catch(()=>{}));
+  if(V.room===m.room){
+   // Server sends this list to each socket; do not overwrite our sid if a stale
+   // or unexpected packet belongs to another local session.
+   if(!V.sid||V.sid===m.sid)V.sid=m.sid||V.sid;
+   if(V.sid===m.sid)(m.peers||[]).forEach(p=>{if(!p.sid||p.sid===V.sid)return;V.peerMeta[p.sid]=p;/* Offer initiator is deterministic to avoid glare. */if(String(V.sid||'')<String(p.sid||''))voffer(p.sid).catch(()=>{})});
+  }
  }else if(m.t==='vsig'){vsig(m.from,m.data)}
 }
 async function vjoin(name,room){
  if(V.room)await vleave(true);
- V.room=room;V.name=name;voice=name;V.prev=null;
+ const joinSeq=++V.joinSeq;
+ V.room=room;V.name=name;V.sid=null;V.peerMeta={};voice=name;V.prev=null;
  try{if(!V.ctx)V.ctx=new (window.AudioContext||window.webkitAudioContext)();if(V.ctx.state==='suspended')V.ctx.resume()}catch(e){}
  try{
-  V.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
- }catch(e){V.stream=null;muted=true;vtoast('Mikrofon izni yok, sadece dinleyebilirsin')}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('unsupported');
+  const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+  if(joinSeq!==V.joinSeq||V.room!==room){stream.getTracks().forEach(t=>t.stop());return}
+  V.stream=stream;
+ }catch(e){if(joinSeq!==V.joinSeq||V.room!==room)return;V.stream=null;muted=true;vtoast(e&&e.name==='NotAllowedError'?'Mikrofon izni verilmedi; tarayıcı ayarlarından izin verip tekrar katıl.':'Mikrofon açılamadı; HTTPS bağlantısını ve cihaz izinlerini kontrol et.')}
+ if(joinSeq!==V.joinSeq||V.room!==room){if(V.stream){V.stream.getTracks().forEach(t=>t.stop());V.stream=null}return}
  if(V.stream){V.stream.getAudioTracks().forEach(t=>t.enabled=!muted);vmeter(ME.id,V.stream)}
  clearInterval(V.timer);V.timer=setInterval(vtick,150);
  wsend({t:'vjoin',room,muted,deaf});
  try{navigator.mediaSession.metadata=new MediaMetadata({title:name,artist:'Voxa sesli oda'});navigator.mediaSession.setActionHandler('hangup',()=>{vleave().then(()=>{V.ui=null;vui()})})}catch(e){}
  vpanel();chans();
 }
+async function vCamToggle(){
+ if(!V.room){vtoast('Önce sesli odaya katıl');return}
+ if(V.cameraBusy)return;
+ if(V.camera){
+  const old=V.camera;V.camera=null;V.cameraBusy=true;
+  old.getTracks().forEach(t=>t.stop());
+  if(V.localVideoEl)V.localVideoEl.srcObject=null;
+  vui();
+  for(const pc of Object.values(V.pcs)){
+   const sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video');
+   if(sender){try{await sender.replaceTrack(null)}catch(e){}}
+  }
+  V.cameraBusy=false;vtoast('Kamera kapatıldı');vui();return;
+ }
+ V.cameraBusy=true;vui();
+ try{
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('unsupported');
+  const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:V.cameraFacing}},audio:false});
+  if(!V.room){stream.getTracks().forEach(t=>t.stop());return}
+  V.camera=stream;
+  if(!V.localVideoEl){V.localVideoEl=document.createElement('video');V.localVideoEl.autoplay=true;V.localVideoEl.muted=true;V.localVideoEl.playsInline=true}
+  V.localVideoEl.srcObject=stream;V.localVideoEl.style.transform=V.cameraFacing==='user'?'scaleX(-1)':'none';V.localVideoEl.play().catch(()=>{});
+  for(const id of Object.keys(V.pcs)){
+   const pc=V.pcs[id],track=stream.getVideoTracks()[0];
+   const sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video');
+   try{if(sender)await sender.replaceTrack(track);else{pc.addTrack(track,stream);await voffer(id)}}catch(e){}
+  }
+  vtoast('Kamera açıldı');
+ }catch(e){vtoast(e&&e.name==='NotAllowedError'?'Kamera izni verilmedi. Tarayıcı ayarlarından izin ver.':e&&e.name==='NotFoundError'?'Kamera bulunamadı.':'Kamera açılamadı; izinleri ve HTTPS bağlantısını kontrol et.')}
+ finally{V.cameraBusy=false;vui()}
+}
+
+async function vCamFlip(){
+ if(!V.room){vtoast('Önce sesli odaya katıl');return}
+ if(!V.camera){vtoast('Önce kamerayı aç');return}
+ if(V.cameraBusy)return;
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){vtoast('Bu tarayıcı kamera erişimini desteklemiyor.');return}
+ V.cameraBusy=true;vui();
+ const roomAtStart=V.room;
+ const oldStream=V.camera;
+ const oldTrack=oldStream&&oldStream.getVideoTracks()[0];
+ const oldSettings=oldTrack&&oldTrack.getSettings?oldTrack.getSettings():{};
+ const oldId=oldSettings.deviceId||'';
+ const oldFacing=V.cameraFacing;
+ const next=oldFacing==='user'?'environment':'user';
+ let fresh=null;
+ // Android/Chrome çoğu cihazda aynı anda ikinci kamera açılamaz. Önce eski kamerayı
+ // gerçekten durdurup sonra yeni kamerayı aç; başarısız olursa eski kamerayı geri aç.
+ try{
+  if(oldTrack){try{oldTrack.stop()}catch(e){}}
+  oldStream.getTracks().forEach(t=>{try{t.stop()}catch(e){}});
+  if(V.localVideoEl){V.localVideoEl.pause();V.localVideoEl.srcObject=null}
+  for(const pc of Object.values(V.pcs)){
+   if(!pc||pc.connectionState==='closed')continue;
+   const sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video')||pc.getTransceivers().find(x=>x.receiver&&x.receiver.track&&x.receiver.track.kind==='video')?.sender;
+   if(sender){try{await sender.replaceTrack(null)}catch(e){}}
+  }
+  let devices=[];try{devices=await navigator.mediaDevices.enumerateDevices()}catch(e){}
+  const cams=devices.filter(d=>d.kind==='videoinput');
+  const target=cams.find(d=>d.deviceId&&d.deviceId!==oldId&&(next==='environment'?/back|rear|environment|arka|world/i.test(d.label):/front|user|ön|facetime/i.test(d.label)))||cams.find(d=>d.deviceId&&d.deviceId!==oldId);
+  const attempts=[];
+  if(target)attempts.push({video:{deviceId:{exact:target.deviceId}},audio:false});
+  attempts.push({video:{facingMode:{exact:next}},audio:false});
+  attempts.push({video:{facingMode:{ideal:next}},audio:false});
+  let lastError=null;
+  for(const constraints of attempts){
+   try{
+    fresh=await navigator.mediaDevices.getUserMedia(constraints);
+    const track=fresh.getVideoTracks()[0];
+    if(!track)throw new Error('no video track');
+    const actual=track.getSettings?track.getSettings():{};
+    if(oldId&&actual.deviceId===oldId&&cams.length>1){fresh.getTracks().forEach(t=>t.stop());fresh=null;continue}
+    break;
+   }catch(e){lastError=e;if(fresh){fresh.getTracks().forEach(t=>t.stop());fresh=null}}
+  }
+  if(!fresh)throw lastError||new Error('alternate camera unavailable');
+  if(V.room!==roomAtStart){fresh.getTracks().forEach(t=>t.stop());fresh=null;return}
+  const track=fresh.getVideoTracks()[0];
+  for(const pc of Object.values(V.pcs)){
+   if(!pc||pc.connectionState==='closed')continue;
+   let sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video')||pc.getTransceivers().find(x=>x.receiver&&x.receiver.track&&x.receiver.track.kind==='video')?.sender;
+   if(sender)await sender.replaceTrack(track);
+   else {pc.addTrack(track,fresh);const id=Object.keys(V.pcs).find(k=>V.pcs[k]===pc);if(id)await voffer(id)}
+  }
+  V.camera=fresh;fresh=null;V.cameraFacing=next;
+  if(!V.localVideoEl){V.localVideoEl=document.createElement('video');V.localVideoEl.autoplay=true;V.localVideoEl.muted=true;V.localVideoEl.playsInline=true}
+  V.localVideoEl.srcObject=V.camera;
+  V.localVideoEl.style.transform=next==='user'?'scaleX(-1)':'none';
+  try{await V.localVideoEl.play()}catch(e){}
+  vtoast(next==='environment'?'Arka kamera açıldı':'Ön kamera açıldı');
+ }catch(e){
+  if(fresh){fresh.getTracks().forEach(t=>t.stop());fresh=null}
+  // Geri dönüş: yeni kamera açılamadıysa kullanıcıyı kamerasız bırakma.
+  let restored=null;
+  try{
+   const fallback=oldId?{video:{deviceId:{exact:oldId}},audio:false}:{video:{facingMode:{ideal:oldFacing}},audio:false};
+   restored=await navigator.mediaDevices.getUserMedia(fallback);
+  }catch(restoreError){
+   try{restored=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:oldFacing}},audio:false})}catch(e2){}
+  }
+  if(restored&&V.room===roomAtStart){
+   V.camera=restored;V.cameraFacing=oldFacing;
+   const track=restored.getVideoTracks()[0];
+   for(const pc of Object.values(V.pcs)){
+    if(!pc||pc.connectionState==='closed')continue;
+    const sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video')||pc.getTransceivers().find(x=>x.receiver&&x.receiver.track&&x.receiver.track.kind==='video')?.sender;
+    if(sender)try{await sender.replaceTrack(track)}catch(e2){}
+   }
+   if(V.localVideoEl){V.localVideoEl.srcObject=restored;V.localVideoEl.style.transform=oldFacing==='user'?'scaleX(-1)':'none';try{await V.localVideoEl.play()}catch(e2){}}
+  }else if(restored){restored.getTracks().forEach(t=>t.stop())}
+  const msg=e&&e.name==='NotAllowedError'?'Kamera izni verilmedi. Chrome ayarlarından kamera iznini aç.':
+   e&&e.name==='NotReadableError'?'Telefon kamerayı açamadı. Diğer uygulamaları kapatıp tekrar dene; önceki kamera geri yüklenmeye çalışıldı.':
+   e&&e.name==='OverconstrainedError'?'Bu kamera modu desteklenmiyor; önceki kamera geri yüklenmeye çalışıldı.':
+   'Arka kamera açılamadı; önceki kamera geri yüklenmeye çalışıldı. Telefon kamerası izinlerini kontrol et.';
+  vtoast(msg);
+ }finally{V.cameraBusy=false;vui()}
+}
+
 async function vleave(silent){
  if(!V.room)return;
+ V.joinSeq++;
  if(V.sharing)vShareStop();
- if(V.camOn)vCamStop();
- if(typeof CALL!=='undefined'&&CALL&&V.room===CALL.room){if(CALL.out&&(VST[V.room]||[]).length<2)sendWS({t:'fringx',id:CALL.id,why:'cancel'});clearTimeout(CALL.to);CALL=null}
+ if(typeof CALL!=='undefined'&&CALL&&V.room===CALL.room){if(CALL.out&&rusers(V.room).length<2)sendWS({t:'fringx',id:CALL.id,why:'cancel'});clearTimeout(CALL.to);CALL=null}
  wsend({t:'vleave'});
  Object.keys(V.pcs).forEach(closePc);
+ // Ekran paylaşımına ait ayrı WebRTC bağlantılarını da kapat; odadan çıkınca bağlantı sızdırma.
+ Object.keys(V.spcs).forEach(id=>closeSpc(id));
+ if(V.screen){try{V.screen.getTracks().forEach(t=>t.stop())}catch(e){}V.screen=null}
+ V.sharing=false;
  if(V.stream){V.stream.getTracks().forEach(t=>t.stop());V.stream=null}
+ if(V.camera){V.camera.getTracks().forEach(t=>t.stop());V.camera=null}
+ V.cameraBusy=false;
+ if(V.localVideoEl)V.localVideoEl.srcObject=null;
  if(V.ana[ME.id]){try{V.ana[ME.id].src.disconnect()}catch(e){}delete V.ana[ME.id]}
- clearInterval(V.timer);V.prev=null;V.room=null;V.name='';voice=null;V.speak={};
+ Object.keys(V.auds).forEach(id=>{const a=V.auds[id];try{a.pause();a.srcObject=null;a.remove()}catch(e){}delete V.auds[id]});
+ clearInterval(V.timer);V.prev=null;V.room=null;V.name='';V.sid=null;V.peerMeta={};voice=null;V.speak={};V.pend={};V.spend={};
  if(!silent)V.ui=null;
  vpanel();chans();
 }
@@ -1117,6 +1288,13 @@ $('sname').addEventListener('click',()=>{
 $('leave').onclick=()=>{vleave()};
 $('mic').onclick=vmute;
 $('deaf').onclick=vdeaf;
+document.addEventListener('pointerdown',e=>{
+ const b=e.target.closest('#vsheet [data-a="cam"],#vfull [data-a="cam"],#vmini [data-a="cam"]');
+ if(!b||b.disabled)return;
+ b.classList.remove('cam-press');
+ void b.offsetWidth;
+ b.classList.add('cam-press');
+},{passive:true});
 document.addEventListener('click',e=>{
  const b=e.target.closest('#vsheet [data-a],#vfull [data-a],#vmini [data-a]');
  if(!b){if(e.target.closest('#vmini')&&V.room){V.ui='full';vui()}return}
@@ -1129,7 +1307,8 @@ document.addEventListener('click',e=>{
  else if(a==='end'){vleave();V.ui=null}
  else if(a==='invite')vinvite();
  else if(a==='share'){if(V.sharing)vShareStop();else vShareStart()}
- else if(a==='cam'){if(V.camOn)vCamStop();else vCamStart()}
+ else if(a==='cam'){vCamToggle();return;}
+ else if(a==='flip'){vCamFlip();return;}
  vui();
 });
 
@@ -1346,15 +1525,18 @@ function fAction(el){
  else if(a==='adunban'){svConfirmDlg('Yasağı kaldır','“'+el.dataset.n+'” kullanıcısının yasağını kaldırmak istediğine emin misin?','Kaldır',()=>sendWS({t:'adunban',uname:el.dataset.uname}))}
  else if(a==='admchpick'){ADMVIEW=el.dataset.ch==='r'?'reports':'pick';ADMCH='';if(ADMVIEW==='reports'&&!ADREPORTS)sendWS({t:'adreports'});adminRender()}
  else if(a==='admopench'){ADMVIEW='pick';ADMCH=el.dataset.ch;ADMCHL=el.dataset.l;ADMQ='';ADMSGS=null;sendWS({t:'admsgs',ch:ADMCH});adminRender()}
- else if(a==='admchback'){ADMCH='';ADMSGS=null;adminRender()}
+ else if(a==='admchback'){ADMCH='';ADMSGS=null;ADMSGCHS=null;sendWS({t:'admsgchannels'});adminRender()}
  else if(a==='admsgdel'){const ch=el.dataset.ch,mid=el.dataset.mid,nm=el.dataset.n;svConfirmDlg('Mesajı sil','“'+nm+'” kullanıcısının mesajını silmek istediğine emin misin?','Sil',()=>sendWS({t:'admsgdel',ch,mid}))}
+ else if(a==='admsgclearall'){svConfirmDlg('Tüm mesajları sil','Tüm kanallardaki mesajlar kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?','Tümünü sil',()=>sendWS({t:'admsgclearall'}))}
  else if(a==='admjump'){ADTAB='msgs';ADMVIEW='pick';ADMCH=el.dataset.ch;ADMCHL=el.dataset.ch.split('/').slice(1).join('/')||el.dataset.ch;ADMQ='';ADMSGS=null;sendWS({t:'admsgs',ch:ADMCH});adminRender()}
  else if(a==='adreportclear')sendWS({t:'adreportclear',id:el.dataset.id});
  else if(a==='adsvdel'){const nm=el.dataset.n,gid=el.dataset.id;svConfirmDlg('Sunucuyu sil (admin)','“'+nm+'” sunucusunu kalıcı olarak silmek istediğine emin misin? Sahibi sen olmasan bile silinir.','Sil',()=>sendWS({t:'adsvdel',id:gid}))}
  else if(a==='adminclose')closeAdmin();
- else if(a==='adtab'){ADTAB=el.dataset.k;if(ADTAB==='users'&&!ADUSERS)sendWS({t:'adusers',q:ADUQ});if(ADTAB==='admins'&&ME.mainAdmin)sendWS({t:'adadmins'});if(ADTAB==='msgs'){ADMVIEW='pick';ADMCH='';if(!ADSVLIST)sendWS({t:'adsvlist'})}adminRender()}
+ else if(a==='aduserfilter'){ADUFILTER=el.dataset.filter||'all';adminRender()}
+ else if(a==='aduserrefresh'){ADUSERS=null;sendWS({t:'adusers',q:ADUQ});sendWS({t:'adstats'});adminRender()}
+ else if(a==='adtab'){ADTAB=el.dataset.k;if(ADTAB==='users'&&!ADUSERS)sendWS({t:'adusers',q:ADUQ});if(ADTAB==='admins'&&ME.mainAdmin)sendWS({t:'adadmins'});if(ADTAB==='logs')sendWS({t:'adlogs'});if(ADTAB==='msgs'){ADMVIEW='pick';ADMCH='';ADMSGCHS=null;sendWS({t:'admsgchannels'});if(!ADSVLIST)sendWS({t:'adsvlist'})}adminRender()}
  else if(a==='aduserdel'){const nm=el.dataset.n,un=el.dataset.uname;svConfirmDlg('Kullanıcıyı sil','“'+nm+'” hesabını kalıcı olarak silmek istediğine emin misin? Arkadaşlıkları ve sunucu üyelikleri de kalkar.','Sil',()=>sendWS({t:'aduserdel',uname:un}))}
- else if(a==='svleavego'){const gid=el.dataset.id,nm=MGMT.name;svConfirmDlg('Sunucudan ayrıl','“'+nm+'” sunucusundan ayrılmak istediğine emin misin?','Ayrıl',()=>{sendWS({t:'svleave',id:gid});if(srv==='sv:'+gid){srv='home';ch='';FVIEW=true;all()}})}
+ else if(a==='svleavego'){const gid=el.dataset.id,nm=(MGMT&&MGMT.name)||'bu sunucu';svConfirmDlg('Sunucudan ayrıl','“'+nm+'” sunucusundan ayrılmak istediğine emin misin? Bu işlem sunucu üyeliğini kaldırır.','Ayrıl',()=>{if(!ws||ws.readyState!==1){fT('Bağlantı yok. İnternet bağlantını kontrol edip tekrar dene.');return}sendWS({t:'svleave',id:gid});fT('Sunucudan ayrılma isteği gönderildi…')})}
  else if(a==='svok'){const cb=SVCB;SVCB=null;closeF();if(cb)cb()}
  else if(a==='svpgo'){const v=($('svp')||{value:''}).value.trim();const adm=$('svpadm')?$('svpadm').checked:false;const cb=SVPCB;SVPCB=null;closeF();if(v&&cb)cb(v,adm)}
 }
@@ -1376,6 +1558,7 @@ try{
  document.addEventListener('input',e=>{
   if(e.target.id==='admq'){ADMQ=e.target.value;clearTimeout(ADMQT);ADMQT=setTimeout(()=>sendWS({t:'admsgs',ch:ADMCH,q:ADMQ}),300);return}
   if(e.target.id==='adpromoq'){ADPROMOQ=e.target.value;return}
+  if(e.target.id==='adlogq'){ADLOGQ=e.target.value;const pos=e.target.selectionStart;const y=$('adminFull').querySelector('.adbody').scrollTop;adminRender();const b=$('adminFull').querySelector('.adbody');if(b)b.scrollTop=y;const inp=$('adlogq');if(inp){inp.focus();try{inp.setSelectionRange(pos,pos)}catch(x){}}return}
   if(e.target.id==='aduq'){ADUQ=e.target.value;clearTimeout(ADUT);ADUT=setTimeout(()=>sendWS({t:'adusers',q:ADUQ}),300);return}
   if(e.target.id==='ffq'){FFQ=e.target.value;fList();return}
   if(e.target.id!=='fq')return;
@@ -1465,7 +1648,7 @@ async function startCall(id){
  V.ui='full';vui();
  sendWS({t:'fring',id});
  const c=CALL;
- if(c)c.to=setTimeout(()=>{if(CALL===c&&(VST[room]||[]).length<2){sendWS({t:'fringx',id,why:'cancel'});endCall();fT('Cevap vermedi')}},45000);
+ if(c)c.to=setTimeout(()=>{if(CALL===c&&rusers(room).length<2){sendWS({t:'fringx',id,why:'cancel'});endCall();fT('Cevap vermedi')}},45000);
 }
 function endCall(){
  if(CALL){clearTimeout(CALL.to);const r=CALL.room;CALL=null;if(V.room===r){vleave();V.ui=null;vui()}}
@@ -1495,7 +1678,7 @@ function showRing(from,room){
 }
 
 /* ===== KAYIT / GİRİŞ ===== */
-const AU={mode:'login',busy:false,ck:null};
+const AU={mode:'login',busy:false,ck:null,verifyUser:'',verifyPending:false};
 const auUserOK=u=>/^[A-Za-z0-9_.]{3,20}$/.test(u);
 function auStrength(p){let n=0;if(p.length>=8)n++;if(p.length>=12)n++;if(/[a-z]/.test(p)&&/[A-Z]/.test(p))n++;if(/\d/.test(p))n++;if(/[^A-Za-z0-9]/.test(p))n++;return Math.min(4,n)}
 function auMode(m){
@@ -1503,11 +1686,14 @@ function auMode(m){
  document.querySelector('.atabs').classList.toggle('reg',reg);
  document.querySelectorAll('.atab').forEach(b=>b.classList.toggle('on',b.dataset.at===m));
  $('afold').classList.toggle('open',reg);
+ $('emailWrap').classList.toggle('hide',!reg);
+ $('verifyWrap').classList.add('hide'); AU.verifyPending=false;
  $('ap').autocomplete=reg?'new-password':'current-password';
- $('aulabel').textContent=reg?'Kullanıcı adı':'Kullanıcı adı veya e-posta';$('au').maxLength=reg?20:200;$('aforgot').hidden=reg;
- $('asub').querySelector('.ab-t').textContent=reg?'Hesap Oluştur':'Giriş Yap';
+ $('asub').classList.remove('hide');
+ $('asub').querySelector('.ab-t').textContent=reg?'Doğrulama E-postası Gönder':'Giriş Yap';
  $('aerr').textContent='';$('au_s').textContent='';$('au_s').className='afs';
  document.querySelectorAll('.af').forEach(x=>x.classList.remove('bad'));
+ $('adminSetupWrap').classList.toggle('hide',!(reg&&$('au').value.trim().toLowerCase()==='voxaadmin'));
  const f=$('aform');f.classList.remove('swap');void f.offsetWidth;f.classList.add('swap');
 }
 function auBad(id,msg){
@@ -1515,85 +1701,70 @@ function auBad(id,msg){
  $('aerr').textContent=msg;if($(id).focus)$(id).focus();
 }
 function auBusy(on){AU.busy=on;$('asub').disabled=on;$('asub').classList.toggle('load',on)}
-function auPanel(p){
- const main=p==='main';
- document.querySelector('#login .atabs').hidden=!main;$('aform').hidden=!main;
- $('afp').hidden=p!=='forgot';$('arp').hidden=p!=='reset';
- $('afmsg').textContent='';$('armsg').textContent='';$('afmsg').classList.remove('good');
- if(p==='forgot')setTimeout(()=>$('afe').focus(),50);
-}
-async function auForgot(){
- if(AU.busy)return;
- const em=$('afe').value.trim(),m=$('afmsg');m.classList.remove('good');m.textContent='';
- if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){m.textContent='Geçerli bir e-posta yaz';return}
- AU.busy=true;$('afgo').disabled=true;$('afgo').classList.add('load');
- try{
-  const r=await (await fetch('/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:em})})).json();
-  if(r&&r.ok){m.classList.add('good');m.textContent=r.msg||'Bu e-posta kayıtlıysa, sıfırlama bağlantısı gönderildi.'}
-  else m.textContent=(r&&r.msg)||'Bir sorun çıktı, tekrar dene';
- }catch(e){m.textContent='Bağlantı hatası, internetini kontrol edip tekrar dene'}
- AU.busy=false;$('afgo').disabled=false;$('afgo').classList.remove('load');
-}
-async function auReset(){
- if(AU.busy)return;
- const p1=$('arp1').value,p2=$('arp2').value,m=$('armsg');m.textContent='';
- if(p1.length<8){m.textContent='Şifre en az 8 karakter olmalı';return}
- if(p1!==p2){m.textContent='Şifreler aynı değil';return}
- AU.busy=true;$('argo').disabled=true;$('argo').classList.add('load');
- let r;
- try{r=await (await fetch('/auth/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:AU.rt,password:p1})})).json()}
- catch(e){AU.busy=false;$('argo').disabled=false;$('argo').classList.remove('load');m.textContent='Bağlantı hatası, internetini kontrol edip tekrar dene';return}
- AU.busy=false;$('argo').disabled=false;$('argo').classList.remove('load');
- if(!r||!r.ok||!r.token){m.textContent=(r&&r.msg)||'Bir sorun çıktı, tekrar dene';return}
- AU.rt='';
- try{localStorage.setItem('voxa_user',JSON.stringify({token:r.token}))}catch(e){}
- $('argo').classList.add('ok');$('argo').querySelector('.ab-t').textContent='Şifren değişti ✓';
- setTimeout(()=>{enter(jwt(r.token),r.token);setTimeout(()=>fT('Şifren değiştirildi'),1200)},700);
-}
-function showReset(tok){AU.rt=tok;auPanel('reset')}
-async function doVerify(tok){
- try{
-  const r=await (await fetch('/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok})})).json();
-  setTimeout(()=>fT(r&&r.ok?'E-postan doğrulandı ✓':((r&&r.msg)||'Doğrulama başarısız')),900);
- }catch(e){setTimeout(()=>fT('Doğrulama için sunucuya ulaşılamadı'),900)}
-}
 async function auSubmit(){
  if(AU.busy)return;
  const reg=AU.mode==='reg',u=$('au').value.trim(),p=$('ap').value;
- $('aerr').textContent='';$('aerr').style.color='';document.querySelectorAll('.af').forEach(x=>x.classList.remove('bad'));
+ $('aerr').textContent='';document.querySelectorAll('.af').forEach(x=>x.classList.remove('bad'));
  if(!u)return auBad('au','Kullanıcı adını yaz');
  if(reg&&!auUserOK(u))return auBad('au','Kullanıcı adı 3-20 karakter olmalı (harf, rakam, _ ve .)');
+ if(reg&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test($('aemail').value.trim()))return auBad('aemail','Geçerli bir e-posta adresi yaz');
  if(!p)return auBad('ap','Şifreni yaz');
- const em=reg?$('aem').value.trim():'';
  if(reg){
   if(p.length<8)return auBad('ap','Şifre en az 8 karakter olmalı');
   if(p!==$('ap2').value)return auBad('ap2','Şifreler aynı değil');
-  if(em&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))return auBad('aem','Geçerli bir e-posta yaz');
  }
  auBusy(true);
  let r;
  try{
-  const res=await fetch('/auth/'+(reg?'register':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(reg?{username:u,password:p,email:em}:{username:u,password:p})});
+  const payload={username:u,password:p};
+  if(reg){payload.email=$('aemail').value.trim();if(u.toLowerCase()==='voxaadmin')payload.adminSetupKey=$('adminSetupKey').value;}
+  const res=await fetch('/auth/'+(reg?'register':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   r=await res.json();
  }catch(e){auBusy(false);$('aerr').textContent='Bağlantı hatası, internetini kontrol edip tekrar dene';return}
- if(reg && r && r.ok && r.verificationRequired){
+ if(!r||!r.ok){
   auBusy(false);
-  $('aerr').textContent=r.msg||'Doğrulama bağlantısı e-postana gönderildi. Gelen kutunu kontrol et.';
-  $('aerr').style.color='#5ac26b';
-  return;
+  const f=r&&r.field==='username'?'au':(r&&r.field==='email'?'aemail':(r&&r.field==='password'?'ap':'ap'));
+  $('aerr').textContent=(r&&r.msg)||'Bir sorun çıktı, tekrar dene'; if(f!=='ap' || r.field) { const el=$(f); if(el) el.focus(); } return;
  }
- if(!r||!r.ok||!r.token){
-  auBusy(false);
-  const f=r&&r.field==='username'?'au':(r&&r.field==='email'?'aem':'ap');
-  auBad(f,(r&&r.msg)||'Bir sorun çıktı, tekrar dene');return;
+ if(reg&&r.verificationRequired){
+  auBusy(false);AU.verifyPending=true;AU.verifyUser=u;$('verifyWrap').classList.remove('hide');$('asub').classList.add('hide');$('aerr').textContent=r.msg||'E-postana gelen kodu gir.';$('verifyCode').focus();return;
  }
+ if(!r.token){auBusy(false);$('aerr').textContent='Sunucu oturum oluşturmadı. Tekrar dene.';return;}
  try{localStorage.setItem('voxa_user',JSON.stringify({token:r.token}))}catch(e){}
- if(reg&&em)AU.after=r.emailMsg?('Hesap oluşturuldu'+r.emailMsg):'Doğrulama bağlantısı e-postana gönderildi, gelen kutunu kontrol et';
  $('asub').classList.remove('load');$('asub').classList.add('ok');$('asub').querySelector('.ab-t').textContent='Hoş geldin, '+(r.name||u)+' ✓';
- setTimeout(()=>{const c=document.querySelector('#login .card');if(c)c.classList.add('out');setTimeout(()=>{enter(jwt(r.token),r.token);if(AU.after){const m=AU.after;AU.after='';setTimeout(()=>fT(m),1200)}},420)},550);
+ setTimeout(()=>{const c=document.querySelector('#login .card');if(c)c.classList.add('out');setTimeout(()=>enter(jwt(r.token),r.token),420)},550);
+}
+async function auVerify(resend=false){
+ if(AU.busy)return;const u=AU.verifyUser||$('au').value.trim();if(!u)return;
+ AU.busy=true;$('verifyBtn').disabled=true;$('resendBtn').disabled=true;$('aerr').textContent='';
+ try{
+  const path=resend?'/auth/resend-verification':'/auth/verify-email';
+  const body=resend?{username:u}:{username:u,code:$('verifyCode').value.trim()};
+  const res=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const r=await res.json();
+  if(!r.ok){$('aerr').textContent=r.msg||'İşlem başarısız oldu.';return;}
+  if(resend){$('aerr').textContent=r.msg||'Yeni kod gönderildi.';return;}
+  if(!r.token){$('aerr').textContent='Doğrulama tamamlandı ancak oturum oluşturulamadı. Giriş yapmayı dene.';return;}
+  try{localStorage.setItem('voxa_user',JSON.stringify({token:r.token}))}catch(e){}
+  $('aerr').textContent='E-posta doğrulandı. VOXA açılıyor…';setTimeout(()=>{const c=document.querySelector('#login .card');if(c)c.classList.add('out');setTimeout(()=>enter(jwt(r.token),r.token),420)},500);
+ }catch(e){$('aerr').textContent='Bağlantı hatası. İnternetini kontrol edip tekrar dene.'}
+ finally{AU.busy=false;$('verifyBtn').disabled=false;$('resendBtn').disabled=false;}
 }
 try{
  document.querySelectorAll('.atab').forEach(b=>b.addEventListener('click',()=>auMode(b.dataset.at)));
+ $('verifyBtn').addEventListener('click',()=>auVerify(false));$('resendBtn').addEventListener('click',()=>auVerify(true));
+ $('forgotPasswordBtn').addEventListener('click',async()=>{
+  const email=prompt('Şifre yenileme kodunu almak için kayıtlı e-posta adresini yaz:'); if(!email)return;
+  $('aerr').textContent='Kod isteniyor…';
+  try{
+   const res=await fetch('/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.trim()})});const r=await res.json();
+   if(!r.ok){$('aerr').textContent=r.msg||'Kod gönderilemedi.';return;}
+   const code=prompt((r.msg||'E-postanı kontrol et.')+'\n\nE-postadaki kodu buraya yaz:');if(!code)return;
+   const password=prompt('Yeni şifreni yaz (en az 8 karakter):');if(!password)return;
+   const rr=await fetch('/auth/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.trim(),code:code.trim(),password})});const out=await rr.json();
+   $('aerr').textContent=out.msg||'İşlem tamamlandı.';if(out.ok){auMode('login');$('aerr').textContent=out.msg||'Şifren yenilendi. Yeni şifrenle giriş yap.';}
+  }catch(e){$('aerr').textContent='Bağlantı hatası. Tekrar dene.';}
+ });
+
  $('aform').addEventListener('submit',e=>{e.preventDefault();auSubmit()});
  $('apeye').addEventListener('click',()=>{const t=$('ap').type==='password'?'text':'password';$('ap').type=t;$('ap2').type=t;$('apeye').style.opacity=t==='text'?'1':''});
  $('ap').addEventListener('input',()=>{
@@ -1601,14 +1772,8 @@ try{
   const n=auStrength($('ap').value),L=['Çok zayıf','Zayıf','Orta','İyi','Güçlü'],C=['#f23f43','#f23f43','#f0b132','#5ac26b','#23a559'];
   $('amb').style.width=($('ap').value?(n+1)*20:0)+'%';$('amb').style.background=C[n];$('amt').textContent=$('ap').value?'Şifre gücü: '+L[n]:'';
  });
-$('aforgot').addEventListener('click',()=>auPanel('forgot'));
- $('afback').addEventListener('click',()=>auPanel('main'));
- $('arback').addEventListener('click',()=>auPanel('main'));
- $('afgo').addEventListener('click',auForgot);
- $('afe').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();auForgot()}});
- $('argo').addEventListener('click',auReset);
- $('arp2').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();auReset()}});
  $('au').addEventListener('input',()=>{
+  $('adminSetupWrap').classList.toggle('hide',!(AU.mode==='reg'&&$('au').value.trim().toLowerCase()==='voxaadmin'));
   const s=$('au_s');s.textContent='';s.className='afs';clearTimeout(AU.ck);
   if(AU.mode!=='reg')return;
   const u=$('au').value.trim();if(u.length<3)return;
@@ -1624,18 +1789,11 @@ $('aforgot').addEventListener('click',()=>auPanel('forgot'));
 
 
 /* ===== GİZLİ YÖNETİM PANELİ ===== */
-let EMS=null;
-function emRender(){
- const el=$('emsec');if(!el||!EMS||!EMS.supported){if(el)el.innerHTML='';return}
- const form=(label)=>`<small>${label}</small><label>E-posta<input id="emin" type="email" maxlength="200" autocapitalize="none" spellcheck="false" placeholder="ornek@posta.com"></label><button class="vjoin sm" id="emadd" style="background:#5865f2;margin-top:6px">Doğrulama Bağlantısı Gönder</button>`;
- if(EMS.verified)el.innerHTML=`<small class="emok">✅ ${esc(EMS.email)} — doğrulandı</small>`;
- else if(EMS.email)el.innerHTML=`<small>⏳ ${esc(EMS.email)} — henüz doğrulanmadı</small>`+form('E-postanı yanlış yazdıysan yenisini gir, ya da bağlantıyı yeniden gönder:');
- else el.innerHTML=form('E-posta ekle: şifreni unutursan hesabını bununla kurtarabilirsin.');
-}
-let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADPROMOQ='',MUTE_UN='',ADMVIEW='pick',ADMCH='',ADMCHL='',ADMQ='',ADMQT=null,ADMSGS=null,ADREPORTS=null,SVMEM=null,SVMEMFOR='';
+let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUFILTER='all',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADLOGS=null,ADLOGQ='',ADPROMOQ='',MUTE_UN='',ADMVIEW='pick',ADMCH='',ADMCHL='',ADMQ='',ADMQT=null,ADMSGS=null,ADREPORTS=null,ADMSGCHS=null;
+let ADMSGCOUNT_EXPECTED=null,ADMSGCOUNT_AT=0;
 function openAdmin(){
  if(!ME.admin)return;
- ADSTATS=null;ADSVLIST=null;ADUSERS=null;ADTAB='dash';ADUQ='';
+ ADSTATS=null;ADSVLIST=null;ADUSERS=null;ADLOGS=null;ADTAB='dash';ADUQ='';ADUFILTER='all';
  sendWS({t:'adstats'});sendWS({t:'adsvlist'});
  $('adminFull').classList.add('on');
  adminRender();
@@ -1645,7 +1803,8 @@ function adminRender(){
  const el=$('adminFull');if(!el.classList.contains('on'))return;
  const tabBtn=(k,l)=>`<button class="ftab ${ADTAB===k?'on':''}" data-fa="adtab" data-k="${k}">${l}</button>`;
  const adminRow=u2=>`<div class="frow">${av(u2.name,'dot')}<div class="fi"><b>${esc(u2.name)}${admTag(true)}</b><small>Voxa ID: ${esc(u2.code||'')}</small></div><button class="fbtn no" style="padding:7px 10px;font-size:13px" data-fa="addemote" data-id="${esc(u2.id)}" data-n="${esc(u2.name)}">Yetkiyi Kaldır</button></div>`;
- const logRow=l2=>`<div class="frow" style="padding:7px 0"><div class="fi"><small>${l2.ok?'✅':'❌'} <b>${l2.action==='promote'?'Admin yapıldı':'Yetki kaldırıldı'}</b> — ${esc((l2.by&&l2.by.name)||'?')} → ${esc((l2.target&&l2.target.name)||(l2.target&&l2.target.uname)||'?')}${l2.msg?' ('+esc(l2.msg)+')':''}<br>${new Date(l2.ts).toLocaleString('tr')}</small></div></div>`;
+ const actionName=a=>({'promote':'Admin yetkisi verildi','demote':'Admin yetkisi kaldırıldı','mute':'Kullanıcı susturuldu','unmute':'Susturma kaldırıldı','ban':'Kullanıcı yasaklandı','unban':'Yasak kaldırıldı','msgdel':'Mesaj silindi','msgclearall':'Tüm mesajlar silindi','userdel':'Kullanıcı silindi','svdel':'Sunucu silindi','reportclear':'Şikâyet kapatıldı'}[a]||String(a||'İşlem').replace(/[_-]/g,' '));
+ const logRow=l2=>`<div class="frow logitem" style="padding:10px 8px;align-items:flex-start"><div class="logmark ${l2.ok?'good':'bad'}">${l2.ok?'✓':'!'}</div><div class="fi"><b>${esc(actionName(l2.action))}</b><small>${esc((l2.by&&l2.by.name)||'Bilinmeyen yönetici')} → ${esc((l2.target&& (l2.target.name||l2.target.uname||l2.target.ch||l2.target.id))||'—')}${l2.msg?' · '+esc(l2.msg):''}</small><small>${new Date(l2.ts||Date.now()).toLocaleString('tr')}</small></div></div>`;
  const svRow=s2=>`<div class="frow"><div class="fi"><b>${s2.icon?esc(s2.icon)+' ':''}${esc(s2.name)}</b><small>Sahibi: ${esc(s2.ownerName)} · ${s2.memberCount} üye</small></div><button class="fbtn no" style="padding:7px 10px;font-size:13px" data-fa="adsvopen" data-mode="manage" data-id="${esc(s2.id)}">Yönet</button><button class="fbtn" style="padding:7px 10px;font-size:13px" data-fa="adsvopen" data-mode="join" data-id="${esc(s2.id)}">Katıl</button><button class="ib" data-fa="adsvdel" data-id="${esc(s2.id)}" data-n="${esc(s2.name)}" aria-label="Sil">🗑</button></div>`;
 const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Yasaklı</span>':(u2.muted?'<span style="color:#f0b132;font-weight:700">🔇 Susturuldu ('+Math.max(1,Math.ceil((u2.muted-Date.now())/60000))+' dk)</span>':'');
  const uRow=u2=>`<div class="frow">${av(u2.name,u2.on?'dot':'dot offl')}<div class="fi"><b>${esc(u2.name)}${admTag(u2.admin)}</b><small>${modStatus(u2)?modStatus(u2)+' · ':''}${u2.on?'Çevrimiçi':'Çevrimdışı'} · ${new Date(u2.ts).toLocaleDateString('tr')} kayıt</small></div>${u2.admin?'':`<div class="fact">${u2.banned?`<button class="ib" data-fa="adunban" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Yasağı kaldır">✅</button>`:`<button class="ib" data-fa="adban" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Yasakla">⛔</button>`}${u2.muted?`<button class="ib" data-fa="adunmute" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Susturmayı kaldır">🔊</button>`:`<button class="ib" data-fa="admute" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Sustur">🔇</button>`}<button class="ib" data-fa="aduserdel" data-uname="${esc(u2.uname)}" data-n="${esc(u2.name)}" aria-label="Sil">🗑</button></div>`}</div>`;
@@ -1660,8 +1819,11 @@ const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Y
   <div class="fsec" style="padding-left:16px">TÜM SUNUCULAR</div>
   <div style="padding:0 16px">${ADSVLIST?(ADSVLIST.length?ADSVLIST.map(svRow).join(''):'<p class="hint">Hiç sunucu yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
  }else if(ADTAB==='users'){
-  body=`<div class="fsearch" style="padding:4px 16px 10px"><input id="aduq" value="${esc(ADUQ)}" placeholder="Kullanıcı ara" autocomplete="off"></div>
-  <div style="padding:0 16px">${ADUSERS?(ADUSERS.length?ADUSERS.map(uRow).join(''):'<p class="hint">Sonuç yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
+  const allUsers=ADUSERS||[];
+  const shownUsers=allUsers.filter(u=>ADUFILTER==='all'||(ADUFILTER==='online'?!!u.on:!u.on));
+  body=`<div class="fsearch" style="padding:4px 16px 10px"><input id="aduq" value="${esc(ADUQ)}" placeholder="Tüm kullanıcıları ara" autocomplete="off"><button class="fbtn" style="width:100%;margin-top:8px" data-fa="aduserrefresh">↻ Kullanıcıları Yenile</button></div>
+  <div class="ftabs" style="padding:0 16px 10px;gap:6px"><button class="ftab ${ADUFILTER==='all'?'on':''}" data-fa="aduserfilter" data-filter="all">Tümü (${allUsers.length})</button><button class="ftab ${ADUFILTER==='online'?'on':''}" data-fa="aduserfilter" data-filter="online">Çevrimiçi (${allUsers.filter(u=>u.on).length})</button><button class="ftab ${ADUFILTER==='offline'?'on':''}" data-fa="aduserfilter" data-filter="offline">Çevrimdışı (${allUsers.filter(u=>!u.on).length})</button></div>
+  <div style="padding:0 16px">${ADUSERS?(shownUsers.length?shownUsers.map(uRow).join(''):'<p class="hint">Bu filtrede sonuç yok.</p>'):'<p class="hint">Sunucudan kullanıcılar yükleniyor…</p>'}</div>`;
 }else if(ADTAB==='msgs'){
   const chPill=(id,label,active)=>`<button class="ftab ${active?'on':''}" data-fa="admchpick" data-ch="${esc(id)}" data-l="${esc(label)}" style="margin:3px">#${esc(label)}</button>`;
   if(ADMVIEW==='reports'){
@@ -1669,33 +1831,41 @@ const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Y
    body=`<div class="ftabs" style="padding:4px 16px 10px">${chPill('','Kanallar',false)}${chPill('r','Şikayetler',true)}</div>
    <div style="padding:0 16px">${ADREPORTS?(ADREPORTS.length?ADREPORTS.map(repRow).join(''):'<p class="hint">Şikayet yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
   }else if(!ADMCH){
-   const srvChs=(sid,sname,chs)=>chs.filter(c=>c.kind==='text').map(c=>`<button class="fmi" data-fa="admopench" data-ch="${esc(sid+'/'+c.name)}" data-l="${esc(sname+' · #'+c.name)}">#${esc(c.name)} <small style="color:var(--muted)">— ${esc(sname)}</small></button>`).join('');
+   const srvChs=(sid,sname,chs)=>chs.filter(c=>c.kind==='text' && Array.isArray(ADMSGCHS) && ADMSGCHS.includes(sid+'/'+c.name)).map(c=>`<button class="fmi" data-fa="admopench" data-ch="${esc(sid+'/'+c.name)}" data-l="${esc(sname+' · #'+c.name)}">#${esc(c.name)} <small style="color:var(--muted)">— ${esc(sname)}</small></button>`).join('');
    const built=SERVERS.map(s2=>srvChs(s2.id,s2.name,CH[s2.id].text.map(n=>({name:n,kind:'text'})))).join('');
    const real=(ADSVLIST||[]).map(s2=>srvChs('sv:'+s2.id,s2.name,s2.channels||[])).join('');
    body=`<div class="ftabs" style="padding:4px 16px 10px">${chPill('','Kanallar',true)}${chPill('r','Şikayetler',false)}</div>
    <div class="fsec" style="padding-left:16px">BİR KANAL SEÇ</div>
-   <div style="padding:0 16px">${built}${real||'<p class="hint">Sunucu yükleniyor…</p>'}</div>`;
+   <div style="padding:0 16px 10px"><button class="fbtn no" style="width:100%" data-fa="admsgclearall">Tüm kanallardaki mesajları sil</button><small class="hint">Sayaç kayıtlı mesajların toplamıdır. Boş kanallar listelenmez.</small></div>
+   <div style="padding:0 16px">${ADMSGCHS===null?'<p class="hint">Mesaj bulunan kanallar yükleniyor…</p>':(built+real)||'<p class="hint">Henüz mesaj bulunan kanal yok.</p>'}</div>`;
   }else{
    const mRow=mm=>`<div class="frow" style="align-items:flex-start"><div class="fi"><b style="color:${col(mm.u)}">${esc(mm.u)}</b> <small style="color:var(--muted)">${new Date(mm.ts).toLocaleString('tr')}</small><br>${mm.au?'<small>🎤 Sesli mesaj</small>':`<small>${esc(String(mm.t).slice(0,300))}</small>`}</div><button class="ib" data-fa="admsgdel" data-ch="${esc(ADMCH)}" data-mid="${esc(mm.mid)}" data-n="${esc(mm.u)}" aria-label="Sil">🗑</button></div>`;
    body=`<div class="fhead" style="padding:8px 16px 0"><button class="ib" data-fa="admchback" aria-label="Geri">←</button><b>#${esc(ADMCHL)}</b></div>
    <div class="fsearch" style="padding:6px 16px 10px"><input id="admq" value="${esc(ADMQ)}" placeholder="Kullanıcı adı ya da metinde ara" autocomplete="off"></div>
    <div style="padding:0 16px">${ADMSGS?(ADMSGS.ok===false?`<p class="hint">${esc(ADMSGS.msg||'Görüntülenemiyor')}</p>`:(ADMSGS.list.length?[...ADMSGS.list].reverse().map(mRow).join(''):'<p class="hint">Mesaj yok.</p>')):'<p class="hint">Yükleniyor…</p>'}</div>`;
   }
+ }else if(ADTAB==='logs'){
+  const rows=(ADLOGS||[]).filter(l=>{const q=ADLOGQ.toLowerCase().trim();return !q||[actionName(l.action),l.by&&l.by.name,l.target&&l.target.name,l.target&&l.target.uname,l.target&&l.target.ch,l.msg].join(' ').toLowerCase().includes(q)});
+  body=`<div class="fsearch" style="padding:4px 16px 10px"><input id="adlogq" value="${esc(ADLOGQ)}" placeholder="İşlem, yönetici veya kullanıcı ara" autocomplete="off"></div><div class="logintro">Son 200 kayıt · Yeni yönetici işlemleri burada görünür.</div><div style="padding:0 16px">${ADLOGS?(rows.length?rows.map(logRow).join(''):'<p class="hint">Eşleşen işlem yok.</p>'):'<p class="hint">İşlem geçmişi yükleniyor…</p>'}</div>`;
  }else if(ADTAB==='admins'&&ME.mainAdmin){
   body=`<div class="fsearch" style="padding:4px 16px 2px"><input id="adpromoq" value="${esc(ADPROMOQ)}" placeholder="Admin yapmak için kullanıcı adı yaz" autocomplete="off"><button class="fbtn" style="margin-top:8px;width:100%" data-fa="adpromogo">Admin Yap</button></div>
   <div class="fsec" style="padding-left:16px">ANA YÖNETİCİ</div>
   <div style="padding:0 16px">${ADADMINS&&ADADMINS.main?`<div class="frow">${av(ADADMINS.main.name,'dot')}<div class="fi"><b>${esc(ADADMINS.main.name)}${admTag(true)}</b><small>Kaldırılamaz</small></div></div>`:'<p class="hint">Yükleniyor…</p>'}</div>
   <div class="fsec" style="padding-left:16px">YETKİLENDİRİLMİŞ ADMİNLER</div>
-  <div style="padding:0 16px">${ADADMINS?(ADADMINS.list.length?ADADMINS.list.map(adminRow).join(''):'<p class="hint">Henüz yetkilendirilmiş admin yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>
-  <div class="fsec" style="padding-left:16px">SON İŞLEMLER</div>
-  <div style="padding:0 16px">${ADADMINS?(ADADMINS.log.length?ADADMINS.log.map(logRow).join(''):'<p class="hint">Kayıt yok.</p>'):''}</div>`;
+  <div style="padding:0 16px">${ADADMINS?(ADADMINS.list.length?ADADMINS.list.map(adminRow).join(''):'<p class="hint">Henüz yetkilendirilmiş admin yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
  }
  el.innerHTML=`<div class="vh"><button class="vb" data-fa="adminclose" aria-label="Kapat">${ic(P.down)}</button><div class="vt">Yönetim Paneli</div><span class="gap"></span></div>
- <div class="ftabs" style="padding:10px 16px 0">${tabBtn('dash','Dashboard')}${tabBtn('users','Kullanıcılar')}${tabBtn('msgs','Mesajlar')}${ME.mainAdmin?tabBtn('admins','Yöneticiler'):''}</div>
+ <div class="ftabs" style="padding:10px 16px 0">${tabBtn('dash','Dashboard')}${tabBtn('users','Kullanıcılar')}${tabBtn('msgs','Mesajlar')}${tabBtn('logs','Son İşlemler')}${ME.mainAdmin?tabBtn('admins','Yöneticiler'):''}</div>
  <div class="adbody">${body}</div>`;
 }
 function adminMsg(m){
- if(m.t==='adstats'){ADSTATS=m;adminRender()}
+ if(m.t==='adstats'){
+  // A delayed stats response must not overwrite the newer count received from a message deletion.
+  if(ADMSGCOUNT_EXPECTED!==null && Date.now()-ADMSGCOUNT_AT<5000 && Number.isFinite(m.messages) && m.messages>ADMSGCOUNT_EXPECTED){
+   ADSTATS={...m,messages:ADMSGCOUNT_EXPECTED};
+  }else{ADSTATS=m;if(ADMSGCOUNT_EXPECTED!==null && Date.now()-ADMSGCOUNT_AT>=5000)ADMSGCOUNT_EXPECTED=null;}
+  adminRender();
+ }
  else if(m.t==='adsvlist'){ADSVLIST=m.list||[];adminRender()}
  else if(m.t==='adsvdel'){fT('Sunucu silindi');ADSVLIST=(ADSVLIST||[]).filter(s2=>s2.id!==m.id);adminRender();sendWS({t:'adstats'})}
  else if(m.t==='adusers'){ADUSERS=m.list||[];adminRender()}
@@ -1713,6 +1883,7 @@ function adminMsg(m){
  }
  else if(m.t==='aduserdel'){if(m.ok){fT('Kullanıcı silindi');ADUSERS=(ADUSERS||[]).filter(u2=>u2.uname!==m.uname);adminRender();sendWS({t:'adstats'})}else fT(m.msg||'Silinemedi')}
  else if(m.t==='adadmins'){ADADMINS=m;adminRender()}
+ else if(m.t==='adlogs'){ADLOGS=m.list||[];adminRender()}
  else if(m.t==='adpromote'){fT(m.msg||(m.ok?'Tamam':'İşlem başarısız'));if(m.ok){ADPROMOQ='';sendWS({t:'adadmins'})}}
  else if(m.t==='addemote'){fT(m.ok?'Yetki kaldırıldı':(m.msg||'İşlem başarısız'));if(m.ok)sendWS({t:'adadmins'})}
  else if(m.t==='admute'){fT(m.ok?'Kullanıcı susturuldu':(m.msg||'İşlem başarısız'));if(m.ok&&ADTAB==='users')sendWS({t:'adusers',q:ADUQ})}
@@ -1721,7 +1892,33 @@ function adminMsg(m){
  else if(m.t==='adunban'){fT(m.ok?'Yasak kaldırıldı':(m.msg||'İşlem başarısız'));if(m.ok&&ADTAB==='users')sendWS({t:'adusers',q:ADUQ})}
  else if(m.t==='modstate'){if(m.banned){fT('Hesabın yasaklandı')}else if(m.muted){fT('Susturuldun')}else{fT('Susturman kaldırıldı')}}
  else if(m.t==='admsgs'){if(m.ch===ADMCH)ADMSGS=m;adminRender()}
- else if(m.t==='admsgdel'){fT(m.ok?'Mesaj silindi':(m.msg||'Silinemedi'));if(m.ok&&ADMSGS&&ADMSGS.list)ADMSGS.list=ADMSGS.list.filter(x=>x.mid!==m.mid);adminRender()}
+ else if(m.t==='admsgchannels'){ADMSGCHS=Array.isArray(m.channels)?m.channels:[];adminRender()}
+ else if(m.t==='admsgclearall'){
+  if(m.ok){ADMSGCOUNT_EXPECTED=0;ADMSGCOUNT_AT=Date.now();if(ADSTATS)ADSTATS.messages=0;ADMSGS=null;fT('Tüm mesajlar silindi ('+(m.removed||0)+')');adminRender();sendWS({t:'adstats'});ADMSGCHS=null;sendWS({t:'admsgchannels'});if(ADMCH)sendWS({t:'admsgs',ch:ADMCH,q:ADMQ})}
+  else fT(m.msg||'Mesajlar silinemedi');
+ }
+ else if(m.t==='admsgdel'){
+  if(m.ok){
+   // Silme onaylanır onaylanmaz dashboard sayacını yerinde güncelle.
+   if(ADSTATS && Number.isFinite(m.messages)){ADSTATS.messages=m.messages;ADMSGCOUNT_EXPECTED=m.messages;ADMSGCOUNT_AT=Date.now();}
+   fT('Mesaj silindi · Kanalda '+m.total+' mesaj kaldı');
+   if(ADMCH===m.ch){
+    if(ADMSGS && Array.isArray(ADMSGS.list)) ADMSGS.list=ADMSGS.list.filter(x=>x.mid!==m.mid);
+    if(ADMSGS) ADMSGS.total=m.total;
+    adminRender();
+    // Arama filtresi ve son 300 mesaj görünümüyle uyumlu kalması için sunucudan doğrula.
+    sendWS({t:'admsgs',ch:m.ch,q:ADMQ});
+   }else adminRender();
+   sendWS({t:'adstats'});
+   if(ADTAB==='msgs'){if(m.channelEmpty && Array.isArray(ADMSGCHS))ADMSGCHS=ADMSGCHS.filter(c=>c!==m.ch);ADMSGCHS=null;sendWS({t:'admsgchannels'});}
+  }else{
+   if(ADSTATS && Number.isFinite(m.messages)) ADSTATS.messages=m.messages;
+   fT(m.msg||'Mesaj silinemedi');
+   adminRender();
+   if(ADMCH===m.ch)sendWS({t:'admsgs',ch:m.ch,q:ADMQ});
+   sendWS({t:'adstats'});
+  }
+ }
  else if(m.t==='adreports'){ADREPORTS=m.list||[];adminRender()}
  else if(m.t==='adreportclear'){if(m.ok){ADREPORTS=(ADREPORTS||[]).filter(x=>x.id!==m.id);fT('Şikayet kapatıldı');adminRender()}}
 }
@@ -1788,7 +1985,7 @@ function mgmtRender(){
  const chRow=c=>`<div class="frow"><div class="fi"><b>${c.kind==='voice'?'🔊':'#'} ${esc(c.name)}</b><small>${c.roles&&c.roles.length?'Kısıtlı: '+c.roles.map(rid=>esc((s2.roles.find(r=>r.id===rid)||{}).name||'?')).join(', '):'Herkese açık'}</small></div>${s2.roles.length?`<button class="ib" data-fa="chroles" data-n="${esc(c.name)}" data-k="${c.kind}" aria-label="Rol">🔑</button>`:''}${s2.channels.length>1?`<button class="ib" data-fa="chdel" data-n="${esc(c.name)}" data-k="${c.kind}" aria-label="Sil">🗑</button>`:''}</div>`;
  const roleRow=r=>`<div class="frow"><div class="fi"><b style="color:${esc(r.color)}">${esc(r.name)}</b><small>${r.admin?'Yönetici yetkisi':'Üye'}</small></div><button class="ib" data-fa="roledel" data-r="${esc(r.id)}" aria-label="Sil">🗑</button></div>`;
  const memRow=mm=>{const cur=(s2.roles.find(r=>(mm.roles||[]).includes(r.id))||{}).id||'';
-  return `<div class="frow">${fav(mm,1)}<div class="fi"><b>${esc(mm.name)}</b><small>${mm.owner?'Sahip':(cur?esc((s2.roles.find(r=>r.id===cur)||{}).name||''):'Üye')}</small></div>${(!mm.owner&&s2.roles.length)?`<select data-fa="roleassign" data-u="${esc(mm.id)}" data-old="${esc(cur)}" style="background:var(--input);color:#fff;border:0;border-radius:8px;padding:6px"><option value="">Rol yok</option>${s2.roles.map(r=>`<option value="${esc(r.id)}" ${cur===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}</select>`:''}</div>`};
+  return `<div class="frow">${fav(mm,1)}<div class="fi"><b>${esc(mm.name)}</b><small><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${mm.on?'#23a559':'#747f8d'};margin-right:5px"></span>${mm.on?'Çevrimiçi':'Çevrimdışı'} · ${mm.owner?'Sahip':(cur?esc((s2.roles.find(r=>r.id===cur)||{}).name||''):'Üye')}</small></div>${(!mm.owner&&s2.roles.length)?`<select data-fa="roleassign" data-u="${esc(mm.id)}" data-old="${esc(cur)}" style="background:var(--input);color:#fff;border:0;border-radius:8px;padding:6px"><option value="">Rol yok</option>${s2.roles.map(r=>`<option value="${esc(r.id)}" ${cur===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}</select>`:''}</div>`};
  fDlg(`<div class="fcard" style="max-height:80vh;overflow-y:auto">
   <h3>${esc(s2.name)} — Yönetim</h3>
   <div class="fsec">DAVET</div>
@@ -1805,6 +2002,14 @@ function guildMsg(m){
   MYSV=m.list||[];rail();if(srv.startsWith('sv:'))chans();if(MGMT&&MYSV.some(x=>x.id===MGMT.id))mgmtRender();
  }else if(m.t==='svres'){
   fT(m.msg||(m.ok?'Tamam':'Bir sorun oluştu'));
+  if(m.action==='leave'){
+   if(m.ok){
+    MYSV=(MYSV||[]).filter(x=>x.id!==m.id);
+    if(srv==='sv:'+m.id){srv='home';ch='';FVIEW=true;all();drawer(false)}
+    MGMT=null;MGMTMEM=null;closeF();rail();
+   }else if(MGMT){sendWS({t:'svmembers',id:MGMT.id})}
+   return;
+  }
   if(m.ok&&m.id){
    setTimeout(()=>{const s2=MYSV.find(x=>x.id===m.id);if(s2){srv='sv:'+s2.id;ch=(s2.channels.find(c=>c.kind==='text')||{}).name||'';all();drawer(false)}},250);
   }
@@ -1812,8 +2017,7 @@ function guildMsg(m){
   if(!m.ok){fT(m.msg||'Davet oluşturulamadı');return}
   MGMTCODE=m.code;mgmtRender();fCopy(m.code,'Davet kodu kopyalandı: '+m.code);
  }else if(m.t==='svmembers'){
-  if(MGMT&&String(m.id)===String(MGMT.id)){MGMTMEM=m.list||[];mgmtRender()}
-  if(srv==='sv:'+m.id){SVMEM=m.list||[];members()}
+  MGMTMEM=m.list||[];mgmtRender();
  }
 }
 /* --- özellikler: mesaj işlemleri, emoji, profil, PWA --- */
@@ -1846,11 +2050,10 @@ try{
   if(b&&PICK){const f=PICK;PICK=null;p.classList.remove('on');f(b.dataset.e);return}
   if(!e.target.closest('#epick')&&!e.target.closest('#emo')&&!e.target.closest('[data-k="react"]'))p.classList.remove('on');
  });
- const profOpen=()=>{$('prof').innerHTML='<div class="pc3"><h3>Profil</h3><label>Takma ad<input id="nick" maxlength="32"></label><div class="emsec" id="emsec"></div><div class="pr"><button class="vjoin sm" id="nsave" style="background:#5865f2">Kaydet</button><button class="vc s" id="nx" aria-label="Kapat">✕</button></div></div>';$('nick').value=ME.name;$('prof').classList.add('on');EMS=null;sendWS({t:'emailstatus'})};
+ const profOpen=()=>{$('prof').innerHTML='<div class="pc3"><h3>Profil</h3><label>Takma ad<input id="nick" maxlength="32"></label><div class="pr"><button class="vjoin sm" id="nsave" style="background:#5865f2">Kaydet</button><button class="vc s" id="nx" aria-label="Kapat">✕</button></div></div>';$('nick').value=ME.name;$('prof').classList.add('on')};
  document.querySelector('.up .who').onclick=profOpen;$('myav').onclick=profOpen;
  document.addEventListener('click',e=>{
   const p=$('prof');if(!p.classList.contains('on'))return;
-  if(e.target.closest('#emadd')){const v=($('emin')||{value:''}).value.trim();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){fT('Geçerli bir e-posta yaz');return}sendWS({t:'addemail',email:v});return}
   if(e.target.closest('#nsave')){const v=$('nick').value.trim();if(v)sendWS({t:'nick',name:v});p.classList.remove('on');return}
   if(e.target.closest('#nx')||!e.target.closest('#prof .pc3')){if(!e.target.closest('.up'))p.classList.remove('on')}
  });

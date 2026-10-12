@@ -91,7 +91,7 @@ export default {
   async fetch(req, env) {
     const u = new URL(req.url);
     if (u.pathname === '/ws') return env.HUB.get(env.HUB.idFromName('main')).fetch(req);
-    if (req.method === 'POST' && ['/auth/login', '/auth/register', '/auth/check'].includes(u.pathname)) {
+    if (req.method === 'POST' && ['/auth/login', '/auth/register', '/auth/check', '/auth/verify-email', '/auth/resend-verification', '/auth/forgot-password', '/auth/reset-password'].includes(u.pathname)) {
       const bad = (msg, s) => new Response(JSON.stringify({ ok: false, msg }), { status: s, headers: { 'Content-Type': 'application/json' } });
       if (Number(req.headers.get('content-length') || 0) > 2048) return bad('İstek çok büyük', 413);
       let b; try { b = await req.json(); } catch { return bad('Geçersiz istek', 400); }
@@ -129,7 +129,7 @@ export class Hub {
       this.gcache.delete(id);
       return new Response('ok');
     }
-    if (req.method === 'POST' && ['/internal/login', '/internal/register', '/internal/check'].includes(url.pathname)) return this.authHttp(url.pathname, await req.json());
+    if (req.method === 'POST' && ['/internal/login', '/internal/register', '/internal/check', '/internal/verify-email', '/internal/resend-verification', '/internal/forgot-password', '/internal/reset-password'].includes(url.pathname)) return this.authHttp(url.pathname, await req.json());
     if (req.headers.get('Upgrade') !== 'websocket') return new Response('WebSocket bekleniyor', { status: 426 });
     const [client, server] = Object.values(new WebSocketPair());
     this.s.acceptWebSocket(server);
@@ -406,10 +406,72 @@ export class Hub {
       if (!/^[a-z0-9_.]{3,20}$/.test(lower)) return R({ ok: true, free: false, bad: true });
       return R({ ok: true, free: !(await st.get('u:' + lower)) });
     }
+    if (path === '/internal/verify-email') {
+      if (!hit('ve:' + ip, 10, 600000)) return R({ ok: false, msg: 'Çok fazla deneme. Birkaç dakika sonra tekrar dene.' }, 429);
+      const code = String(b.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const pending = await st.get('pending:' + lower);
+      if (!pending || pending.expires < Date.now()) { if (pending) await st.delete('pending:' + lower); return R({ ok: false, msg: 'Kodun süresi dolmuş. Kayıt işlemini yeniden başlat.' }, 400); }
+      if (pending.attempts >= 6) { await st.delete('pending:' + lower); return R({ ok: false, msg: 'Çok fazla yanlış kod girildi. Lütfen yeniden kayıt ol.' }, 429); }
+      if (!safeEq(code, pending.code)) { pending.attempts++; await st.put('pending:' + lower, pending); return R({ ok: false, msg: 'Doğrulama kodu yanlış.' }, 400); }
+      if (await st.get('u:' + lower)) { await st.delete('pending:' + lower); return R({ ok: false, msg: 'Bu kullanıcı adı zaten alınmış.' }, 409); }
+      const account = { id: pending.id, name: pending.name, salt: pending.salt, hash: pending.hash, ts: Date.now(), email: pending.email, emailVerified: true };
+      await st.put('u:' + lower, account);
+      await st.put('email:' + pending.email.toLowerCase(), { id: account.id, username: lower });
+      await st.delete('pending:' + lower);
+      return R({ ok: true, token: await sign(secret, { id: account.id, name: account.name, picture: '', admin: ADMIN_UNAMES.has(lower) }), name: account.name });
+    }
+    if (path === '/internal/forgot-password') {
+      if (!hit('fp:' + ip, 3, 600000)) return R({ ok: false, msg: 'Çok fazla deneme. Birkaç dakika sonra tekrar dene.' }, 429);
+      const email = String(b.email || '').trim().toLowerCase();
+      if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return R({ ok: false, msg: 'Geçerli bir e-posta adresi yaz.' }, 400);
+      const apiKey = String(this.env.RESEND_API_KEY || ''), from = String(this.env.RESEND_FROM || '');
+      if (!apiKey || !from) return R({ ok: false, msg: 'E-posta servisi ayarlanmamış.' }, 503);
+      const mapping = await st.get('email:' + email);
+      if (mapping) {
+        const code = rcode(8), lowerName = String(mapping.username || '').toLowerCase();
+        await st.put('pwreset:' + lowerName, { code, expires: Date.now() + 10 * 60 * 1000, attempts: 0 });
+        const sent = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: [email], subject: 'VOXA şifre yenileme kodun', text: 'Şifreni yenilemek için VOXA kodun: ' + code + '\n\nKod 10 dakika geçerlidir ve tek kullanımlıktır. Bu isteği sen yapmadıysan e-postayı yok say.' }) }).catch(() => null);
+        if (!sent || !sent.ok) return R({ ok: false, msg: 'E-posta gönderilemedi. Resend gönderici ayarlarını kontrol et.' }, 502);
+      }
+      return R({ ok: true, msg: 'Bu e-posta kayıtlıysa şifre yenileme kodu gönderildi. Gelen kutusu ve spam klasörünü kontrol et.' });
+    }
+    if (path === '/internal/reset-password') {
+      if (!hit('rp:' + ip, 6, 600000)) return R({ ok: false, msg: 'Çok fazla deneme. Birkaç dakika bekle.' }, 429);
+      const email = String(b.email || '').trim().toLowerCase();
+      const code = String(b.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const newPw = String(b.password || '');
+      if (newPw.length < 8 || newPw.length > 100) return R({ ok: false, msg: 'Yeni şifre 8-100 karakter olmalı.' }, 400);
+      const mapping = await st.get('email:' + email);
+      if (!mapping) return R({ ok: false, msg: 'Kod geçersiz veya süresi dolmuş.' }, 400);
+      const lowerName = String(mapping.username || '').toLowerCase();
+      const reset = await st.get('pwreset:' + lowerName);
+      if (!reset || reset.expires < Date.now() || reset.attempts >= 6) { if (reset) await st.delete('pwreset:' + lowerName); return R({ ok: false, msg: 'Kod geçersiz veya süresi dolmuş. Yeni kod iste.' }, 400); }
+      if (!safeEq(code, reset.code)) { reset.attempts++; await st.put('pwreset:' + lowerName, reset); return R({ ok: false, msg: 'Kod yanlış.' }, 400); }
+      const acc = await st.get('u:' + lowerName);
+      if (!acc) return R({ ok: false, msg: 'Hesap bulunamadı.' }, 400);
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      acc.salt = b64u(salt); acc.hash = await pbkdf2(newPw, salt);
+      await st.put('u:' + lowerName, acc); await st.delete('pwreset:' + lowerName);
+      return R({ ok: true, msg: 'Şifren yenilendi. Yeni şifrenle giriş yapabilirsin.' });
+    }
+    if (path === '/internal/resend-verification') {
+      if (!hit('re:' + ip, 3, 600000)) return R({ ok: false, msg: 'Çok sık kod istedin. Birkaç dakika sonra tekrar dene.' }, 429);
+      const pending = await st.get('pending:' + lower);
+      if (!pending || pending.expires < Date.now()) return R({ ok: false, msg: 'Bekleyen kayıt bulunamadı veya süresi doldu. Yeniden kayıt ol.' }, 400);
+      const apiKey = String(this.env.RESEND_API_KEY || '');
+      const from = String(this.env.RESEND_FROM || '');
+      if (!apiKey || !from) return R({ ok: false, msg: 'E-posta servisi henüz yapılandırılmamış. Yönetici RESEND_API_KEY ve RESEND_FROM ayarlarını yapmalı.' }, 503);
+      const code = rcode(6); pending.code = code; pending.expires = Date.now() + 10 * 60 * 1000; pending.attempts = 0; pending.lastSent = Date.now(); await st.put('pending:' + lower, pending);
+      const sent = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: [pending.email], subject: 'VOXA e-posta doğrulama kodun', text: 'VOXA kayıt doğrulama kodun: ' + code + '\n\nKod 10 dakika geçerlidir. Bu işlemi sen başlatmadıysan bu e-postayı yok say.' }) }).catch(() => null);
+      if (!sent || !sent.ok) return R({ ok: false, msg: 'E-posta gönderilemedi. Gönderici adresini ve Resend ayarlarını kontrol et.' }, 502);
+      return R({ ok: true, msg: 'Yeni doğrulama kodu gönderildi.' });
+    }
     const pw = String(b.password || '');
     if (path === '/internal/register') {
       if (!hit('rg:' + ip, 5, 3600000)) return R({ ok: false, msg: 'Bu bağlantıdan çok fazla kayıt denendi, daha sonra tekrar dene' }, 429);
       if (!/^[A-Za-z0-9_.]{3,20}$/.test(uname)) return R({ ok: false, field: 'username', msg: 'Kullanıcı adı 3-20 karakter olmalı (harf, rakam, _ ve .)' });
+      const email = String(b.email || '').trim().toLowerCase();
+      if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return R({ ok: false, field: 'email', msg: 'Geçerli bir e-posta adresi yaz.' });
       if (pw.length < 8 || pw.length > 100) return R({ ok: false, field: 'password', msg: 'Şifre 8-100 karakter olmalı' });
       if (pw.toLowerCase().includes(lower)) return R({ ok: false, field: 'password', msg: 'Şifre kullanıcı adını içermemeli' });
       // Ana yönetici hesabının ilk kaydını herkesin kapmasını engelle.
@@ -422,11 +484,19 @@ export class Hub {
         }
       }
       if (await st.get('u:' + lower)) return R({ ok: false, field: 'username', msg: 'Bu kullanıcı adı alınmış' });
+      if (await st.get('email:' + email)) return R({ ok: false, field: 'email', msg: 'Bu e-posta başka bir hesaba bağlı.' });
+      const apiKey = String(this.env.RESEND_API_KEY || '');
+      const from = String(this.env.RESEND_FROM || '');
+      if (!apiKey || !from) return R({ ok: false, msg: 'E-posta doğrulama sistemi henüz yapılandırılmamış. Yönetici RESEND_API_KEY ve RESEND_FROM ayarlarını yapmalı.' }, 503);
       const salt = crypto.getRandomValues(new Uint8Array(16));
       const hash = await pbkdf2(pw, salt);
       const id = 'l' + rcode(10).toLowerCase();
-      await st.put('u:' + lower, { id, name: uname, salt: b64u(salt), hash, ts: Date.now() });
-      return R({ ok: true, token: await sign(secret, { id, name: uname, picture: '', admin: ADMIN_UNAMES.has(lower) }), name: uname });
+      const code = rcode(6);
+      const pending = { id, name: uname, email, salt: b64u(salt), hash, code, expires: Date.now() + 10 * 60 * 1000, attempts: 0, lastSent: Date.now() };
+      const sent = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: [email], subject: 'VOXA e-posta doğrulama kodun', text: 'VOXA hesabını doğrulamak için kodun: ' + code + '\n\nKod 10 dakika geçerlidir. Bu işlemi sen başlatmadıysan bu e-postayı yok say.' }) }).catch(() => null);
+      if (!sent || !sent.ok) return R({ ok: false, msg: 'Doğrulama e-postası gönderilemedi. E-posta adresini ve Resend gönderici ayarlarını kontrol et.' }, 502);
+      await st.put('pending:' + lower, pending);
+      return R({ ok: true, verificationRequired: true, name: uname, msg: 'Doğrulama kodu e-posta adresine gönderildi.' });
     }
     if (path === '/internal/login') {
       if (!hit('li:' + ip, 20, 600000)) return R({ ok: false, msg: 'Çok fazla deneme, birkaç dakika sonra tekrar dene' }, 429);
