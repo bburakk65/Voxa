@@ -278,6 +278,8 @@ html,body{font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif
 .up .who,.up .av{cursor:pointer}
 </style>
 <style id="emailcss">
+#verbar{position:fixed;top:0;left:0;right:0;z-index:150;display:flex;gap:10px;align-items:center;justify-content:space-between;background:#5a1a1d;color:#ffd9da;font-size:12.5px;line-height:1.4;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 8px;box-shadow:0 4px 18px rgba(0,0,0,.5)}
+#verbar b{color:#fff}#verbar button{background:none;border:0;color:#fff;font-size:16px;padding:2px 6px;cursor:pointer}
 .alink{display:block;width:100%;background:none;border:0;color:#8f9bff;font-size:13px;font-weight:600;text-align:right;padding:2px 2px 10px;cursor:pointer}
 .alink:hover{text-decoration:underline}.alink[hidden]{display:none}
 .apanel{text-align:left;animation:pageIn .25s var(--ease)}.apanel[hidden]{display:none}
@@ -454,6 +456,9 @@ body.dmopen #dmcall{display:grid}
 #login .chips{margin-top:20px}
 #login .chips span{background:transparent;border-color:rgba(255,255,255,.08);color:#8d8f97}
 #login [hidden]{display:none!important}
+#login .abtn.alt{background:#16171b;color:#fff;border:1px solid rgba(255,255,255,.14)}
+#login .abtn.alt:hover{background:#1d1e24;box-shadow:0 0 0 3px rgba(255,255,255,.08)}
+#login .abtn.alt .spin{border-color:rgba(255,255,255,.25);border-top-color:#fff}
 #login.panelmode .card>h1,#login.panelmode .card>h1+p{display:none}
 #login.regmode .card>h1+p{display:none}
 #login.regmode .card{padding-top:clamp(16px,4vh,40px)}
@@ -499,6 +504,17 @@ body.dmopen #dmcall{display:grid}
    <div id="armsg" class="aerr" role="alert" aria-live="polite"></div>
    <button class="abtn" id="argo" type="button"><span class="ab-t">Şifreyi Değiştir</span><i class="spin"></i></button>
    <button type="button" class="alink" id="arback" style="text-align:center;margin-top:8px">← Girişe dön</button>
+  </div>
+  <div id="arc" class="apanel" hidden>
+   <h2 class="aph">Yönetici kurtarma</h2>
+   <p class="apd">Cloudflare'de belirlediğin kurtarma kodunu yaz. Şifresi unutulan bir hesabın şifresini sıfırlayabilir ya da var olan bir hesabı yardımcı admin yapabilirsin.</p>
+   <label class="af"><span>Kurtarma kodu</span><input id="arcode" type="password" autocomplete="off" maxlength="200"></label>
+   <label class="af"><span>Hesabın kullanıcı adı</span><input id="aruser" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="20"></label>
+   <label class="af"><span>Yeni şifre (sadece şifre sıfırlarken)</span><input id="arnew" type="password" autocomplete="new-password" maxlength="100"></label>
+   <div id="armsg2" class="aerr" role="alert" aria-live="polite"></div>
+   <button class="abtn" id="arreset" type="button"><span class="ab-t">Şifreyi sıfırla ve gir</span><i class="spin"></i></button>
+   <button class="abtn alt" id="arpromo" type="button" style="margin-top:10px"><span class="ab-t">Yardımcı admin yap</span><i class="spin"></i></button>
+   <button type="button" class="alink" id="arcback" style="text-align:center;margin-top:8px">← Girişe dön</button>
   </div>
   <p class="note">Devam ederek <a href="/sartlar.html">Şartlar</a> ve <a href="/gizlilik.html">Gizlilik Politikası</a>'nı kabul edersin.</p>
   <div class="chips"><span>💬 Canlı sohbet</span><span>🎙 Sesli odalar</span><span>⚡ Ücretsiz</span></div>
@@ -676,7 +692,7 @@ function connect(){
  ws.onopen=()=>ws.send(JSON.stringify({t:'auth',token:TOKEN}));
  ws.onmessage=e=>{
   const m=JSON.parse(e.data);
-  if(m.t==='ready'){if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;ME.mainAdmin=!!m.me.mainAdmin;profUI()}HIST=m.hist||{};ONL=m.online||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
+  if(m.t==='ready'){checkVer(m.ver);if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;ME.mainAdmin=!!m.me.mainAdmin;profUI()}HIST=m.hist||{};ONL=m.online||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
   else if(m.t==='online'){ONL=m.online||[];if(srv.startsWith('sv:'))SVMEMFOR='';members()}
   else if(m.t==='msg'){
    const L=(HIST[m.ch]=HIST[m.ch]||[]);const prev=L[L.length-1];L.push(m.msg);delete TY[m.msg.u];typ();
@@ -705,7 +721,7 @@ function connect(){
 }
 
 /* --- arayüz olayları --- */
-$('rail').onclick=e=>{const b=e.target.closest('.srv');if(!b)return;if(b.dataset.add){openServerAdd();return}if(b.dataset.admin){openAdmin();return}srv=b.dataset.s;if(srv==='home'){ch='';FVIEW=true}else ch=chOf(srv).text[0]||'';all()};
+$('rail').onclick=e=>{const b=e.target.closest('.srv');if(!b)return;if(b.dataset.add){openServerAdd();return}if(b.dataset.admin){drawer(false);openAdmin();return}srv=b.dataset.s;if(srv==='home'){ch='';FVIEW=true}else ch=chOf(srv).text[0]||'';all()};
 $('out').onclick=logout;
 $('form').onsubmit=e=>{
  e.preventDefault();const v=$('inp').value.trim();
@@ -725,8 +741,7 @@ addEventListener('touchend',e=>{
 });
 
 addEventListener('load',()=>{
- const hr=location.hash.match(/(?:^|[#&])(reset|verify)=([\w-]{20,60})/);
- if(hr){history.replaceState(null,'',location.pathname);if(hr[1]==='reset'){showReset(hr[2]);return}doVerify(hr[2])}
+ if(authHash())return;
  const fh=location.hash.match(/(?:^|[#&])f=([A-Za-z0-9]{4,12})/);
  if(fh){try{localStorage.setItem('voxa_pf',fh[1].toUpperCase())}catch(e){}if(!/vt=/.test(location.hash))history.replaceState(null,'',location.pathname)}
  const hv=location.hash.match(/vt=([\w.\-]+)/);
@@ -1570,7 +1585,8 @@ function auPanel(p){
  const main=p==='main';
  $('login').classList.toggle('panelmode',!main);
  document.querySelector('#login .atabs').hidden=!main;$('aform').hidden=!main;
- $('afp').hidden=p!=='forgot';$('arp').hidden=p!=='reset';
+ $('afp').hidden=p!=='forgot';$('arp').hidden=p!=='reset';$('arc').hidden=p!=='recover';
+ $('armsg2').textContent='';$('armsg2').classList.remove('good');
  $('afmsg').textContent='';$('armsg').textContent='';$('afmsg').classList.remove('good');
  if(p==='forgot')setTimeout(()=>$('afe').focus(),50);
 }
@@ -1603,6 +1619,34 @@ async function auReset(){
  setTimeout(()=>{enter(jwt(r.token),r.token);setTimeout(()=>fT('Şifren değiştirildi'),1200)},700);
 }
 function showReset(tok){AU.rt=tok;auPanel('reset')}
+function authHash(){
+ const hr=location.hash.match(/(?:^|[#&])(reset|verify)=([\w-]{20,60})/);
+ if(hr){history.replaceState(null,'',location.pathname);if(hr[1]==='reset'){showReset(hr[2]);return true}doVerify(hr[2]);return false}
+ if(/(?:^|[#&])recover(?:$|&)/.test(location.hash)){history.replaceState(null,'',location.pathname);auPanel('recover');return true}
+ return false;
+}
+addEventListener('hashchange',authHash);
+async function auRecover(action){
+ if(AU.busy)return;
+ const code=$('arcode').value,user=$('aruser').value.trim(),np=$('arnew').value,m=$('armsg2'),btn=$(action==='reset'?'arreset':'arpromo');
+ m.classList.remove('good');m.textContent='';
+ if(!code){m.textContent='Kurtarma kodunu yaz';return}
+ if(!user){m.textContent='Hesabın kullanıcı adını yaz';return}
+ if(action==='reset'&&np.length<8){m.textContent='Yeni şifre en az 8 karakter olmalı';return}
+ AU.busy=true;btn.disabled=true;btn.classList.add('load');
+ let r;
+ try{r=await (await fetch('/auth/recover',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,username:user,action,password:action==='reset'?np:undefined})})).json()}
+ catch(e){AU.busy=false;btn.disabled=false;btn.classList.remove('load');m.textContent='Bağlantı hatası, internetini kontrol edip tekrar dene';return}
+ AU.busy=false;btn.disabled=false;btn.classList.remove('load');
+ if(!r||!r.ok){m.textContent=(r&&r.msg)||'Bir sorun çıktı, tekrar dene';return}
+ $('arcode').value='';$('arnew').value='';
+ if(action==='reset'&&r.token){
+  try{localStorage.setItem('voxa_user',JSON.stringify({token:r.token}))}catch(e){}
+  setTimeout(()=>{enter(jwt(r.token),r.token);setTimeout(()=>fT('Şifre değişti, giriş yapıldı'),1200)},400);
+  return;
+ }
+ m.classList.add('good');m.textContent=r.msg||'Tamam';
+}
 async function doVerify(tok){
  try{
   const r=await (await fetch('/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok})})).json();
@@ -1653,6 +1697,9 @@ $('aforgot').addEventListener('click',()=>auPanel('forgot'));
  $('afgo').addEventListener('click',auForgot);
  $('afe').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();auForgot()}});
  $('argo').addEventListener('click',auReset);
+ $('arcback').addEventListener('click',()=>auPanel('main'));
+ $('arreset').addEventListener('click',()=>auRecover('reset'));
+ $('arpromo').addEventListener('click',()=>auRecover('promote'));
  $('arp2').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();auReset()}});
  $('au').addEventListener('input',()=>{
   const s=$('au_s');s.textContent='';s.className='afs';clearTimeout(AU.ck);
@@ -1670,13 +1717,23 @@ $('aforgot').addEventListener('click',()=>auPanel('forgot'));
 
 
 /* ===== GİZLİ YÖNETİM PANELİ ===== */
+const BUILD='v26.10.12-c';
+function checkVer(v){
+ let el=document.getElementById('verbar');
+ if(v===BUILD){if(el)el.remove();return}
+ if(!el){el=document.createElement('div');el.id='verbar';document.body.append(el)}
+ el.innerHTML='<span>⚠ Dosyalar uyumsuz: sayfa <b>'+BUILD+'</b>, sunucu <b>'+(v?esc(String(v)):'eski')+'</b>. GitHub\'a <b>index.html</b> ve <b>worker.js</b> dosyalarının İKİSİNİ de yükle.</span><button aria-label="Kapat">✕</button>';
+ el.querySelector('button').onclick=()=>el.remove();
+}
 let EMS=null,ADEMAIL=null,ADEMT=null,ADEMTO='';
 function emRender(){
  const el=$('emsec');if(!el||!EMS||!EMS.supported){if(el)el.innerHTML='';return}
- const form=(label)=>`<small>${label}</small><label>E-posta<input id="emin" type="email" maxlength="200" autocapitalize="none" spellcheck="false" placeholder="ornek@posta.com"></label><button class="vjoin sm" id="emadd" style="background:#5865f2;margin-top:6px">Doğrulama Bağlantısı Gönder</button>`;
- if(EMS.verified)el.innerHTML=`<small class="emok">✅ ${esc(EMS.email)} — doğrulandı</small>`;
- else if(EMS.email)el.innerHTML=`<small>⏳ ${esc(EMS.email)} — henüz doğrulanmadı</small>`+form('E-postanı yanlış yazdıysan yenisini gir, ya da bağlantıyı yeniden gönder:');
- else el.innerHTML=form('E-posta ekle: şifreni unutursan hesabını bununla kurtarabilirsin.');
+ const roleTx=({main:'Ana yönetici',admin:'Admin',member:'Üye'})[EMS.role]||'Üye';
+ const info=`<small>Giriş adı: <b>${esc(EMS.uname||'—')}</b> · Yetki: <b>${roleTx}</b> · Sürüm ${esc(BUILD)}</small>`;
+ const form=(label)=>`<small>${label}</small><label>E-posta<input id="emin" type="email" maxlength="200" autocapitalize="none" spellcheck="false" placeholder="ornek@posta.com"></label><button class="vjoin sm" id="emadd" style="background:#5865f2;margin:8px 0 16px">Doğrulama Bağlantısı Gönder</button>`;
+ if(EMS.verified)el.innerHTML=info+`<small class="emok">✅ ${esc(EMS.email)} — doğrulandı</small>`;
+ else if(EMS.email)el.innerHTML=info+`<small>⏳ ${esc(EMS.email)} — henüz doğrulanmadı</small>`+form('E-postanı yanlış yazdıysan yenisini gir, ya da bağlantıyı yeniden gönder:');
+ else el.innerHTML=info+form('E-posta ekle: şifreni unutursan hesabını bununla kurtarabilirsin.');
 }
 let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADPROMOQ='',MUTE_UN='',ADMVIEW='pick',ADMCH='',ADMCHL='',ADMQ='',ADMQT=null,ADMSGS=null,ADREPORTS=null,SVMEM=null,SVMEMFOR='';
 function openAdmin(){

@@ -91,7 +91,7 @@ export default {
   async fetch(req, env) {
     const u = new URL(req.url);
     if (u.pathname === '/ws') return env.HUB.get(env.HUB.idFromName('main')).fetch(req);
-    if (req.method === 'POST' && ['/auth/login', '/auth/register', '/auth/check', '/auth/forgot', '/auth/reset', '/auth/verify'].includes(u.pathname)) {
+    if (req.method === 'POST' && ['/auth/login', '/auth/register', '/auth/check', '/auth/forgot', '/auth/reset', '/auth/verify', '/auth/recover'].includes(u.pathname)) {
       const bad = (msg, s) => new Response(JSON.stringify({ ok: false, msg }), { status: s, headers: { 'Content-Type': 'application/json' } });
       if (Number(req.headers.get('content-length') || 0) > 2048) return bad('İstek çok büyük', 413);
       let b; try { b = await req.json(); } catch { return bad('Geçersiz istek', 400); }
@@ -129,6 +129,7 @@ async function sendEmail(env, to, subject, html) {
     return { ok: true, status: r.status };
   } catch { return { ok: false, msg: 'E-posta servisine ulaşılamadı', status: 0, detail: 'ağ hatası' }; }
 }
+const BUILD = 'v26.10.12-c';
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const rcode = (n = 6) => [...crypto.getRandomValues(new Uint8Array(n))].map(x => ALPHA[x % ALPHA.length]).join('');
 const normCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
@@ -149,7 +150,7 @@ export class Hub {
       this.gcache.delete(id);
       return new Response('ok');
     }
-    if (req.method === 'POST' && ['/internal/login', '/internal/register', '/internal/check', '/internal/forgot', '/internal/reset', '/internal/verify'].includes(url.pathname)) return this.authHttp(url.pathname, await req.json());
+    if (req.method === 'POST' && ['/internal/login', '/internal/register', '/internal/check', '/internal/forgot', '/internal/reset', '/internal/verify', '/internal/recover'].includes(url.pathname)) return this.authHttp(url.pathname, await req.json());
     if (req.headers.get('Upgrade') !== 'websocket') return new Response('WebSocket bekleniyor', { status: 426 });
     if (url.protocol.startsWith('http') && url.hostname !== 'hub') { const o = url.origin; if ((await this.s.storage.get('origin')) !== o) await this.s.storage.put('origin', o); }
     const [client, server] = Object.values(new WebSocketPair());
@@ -175,7 +176,7 @@ export class Hub {
         const hist = {};
         for (const k of Object.keys(hist0)) { if (await this.canSee(u.id, k)) hist[k] = hist0[k]; }
         const guilds = (await this.s.storage.get('g:' + u.id)) || [];
-        ws.send(JSON.stringify({ t: 'ready', hist, online: this.users(), guilds, servers: await this.guildsOf(u.id), me: { name, admin, mainAdmin }, social: await this.social(u.id) }));
+        ws.send(JSON.stringify({ t: 'ready', ver: BUILD, hist, online: this.users(), guilds, servers: await this.guildsOf(u.id), me: { name, admin, mainAdmin }, social: await this.social(u.id) }));
         this.bc({ t: 'online', online: this.users() });
         await this.vstate();
         await this.presence(u.id);
@@ -243,7 +244,8 @@ export class Hub {
       const acc = un ? await this.s.storage.get('u:' + un) : null;
       const em = acc && acc.email ? acc.email : '';
       const masked = em ? em.replace(/^(.).*(@.*)$/, (_, a, d) => a + '***' + d) : '';
-      ws.send(JSON.stringify({ t: 'emailstatus', supported: !!acc, email: masked, verified: !!(acc && acc.emailVerified) }));
+      const fl = await this.adminFlags(me.id);
+      ws.send(JSON.stringify({ t: 'emailstatus', supported: !!acc, email: masked, verified: !!(acc && acc.emailVerified), uname: un || '', role: fl.mainAdmin ? 'main' : (fl.admin ? 'admin' : 'member'), ver: BUILD }));
     }
     if (m.t === 'addemail') {
       const reply = (ok, msg) => ws.send(JSON.stringify({ t: 'addemail', ok, msg }));
@@ -502,6 +504,40 @@ export class Hub {
       await st.put('u:' + rec.un, acc);
       await st.delete('prt:' + hash); await st.delete('prtfor:' + rec.un); await st.delete('lf:' + rec.un);
       return R({ ok: true, token: await sign(secret, { id: acc.id, name: acc.name, picture: '', admin: ADMIN_UNAMES.has(rec.un) }), name: acc.name });
+    }
+    if (path === '/internal/recover') {
+      const rcode = String(this.env.ADMIN_RECOVERY_CODE || '');
+      if (!rcode) return R({ ok: false, msg: 'Kurtarma kapalı: Cloudflare\'de ADMIN_RECOVERY_CODE tanımlı değil' });
+      if (rcode.length < 12) return R({ ok: false, msg: 'Kurtarma kodu en az 12 karakter olmalı, Cloudflare\'deki kodu uzat' });
+      if (!hit('rc:' + ip, 6, 3600000) || !hit('rcg', 60, 3600000)) return R({ ok: false, msg: 'Çok fazla deneme, bir saat sonra tekrar dene' }, 429);
+      const who = { id: 'recovery', name: 'Kurtarma kodu' };
+      const given = await sha256hex(String(b.code || '')), real = await sha256hex(rcode);
+      if (!safeEq(given, real)) {
+        await this.logAdmin('recover', who, { uname: lower.slice(0, 20) }, false, 'yanlış kod');
+        return R({ ok: false, msg: 'Kod yanlış' });
+      }
+      const action = b.action === 'promote' ? 'promote' : 'reset';
+      if (!lower) return R({ ok: false, msg: 'Kullanıcı adını yaz' });
+      const acc = await st.get('u:' + lower);
+      if (!acc) return R({ ok: false, msg: 'Bu adla bir hesap yok. Önce o adla kayıt ol, sonra tekrar dene' });
+      if (action === 'promote') {
+        if (ADMIN_UNAMES.has(lower)) return R({ ok: false, msg: 'Bu zaten ana yönetici' });
+        const ids = await this.g('admins');
+        if (ids.includes(acc.id)) return R({ ok: false, msg: 'Bu hesap zaten admin' });
+        ids.push(acc.id); await st.put('admins', ids);
+        await this.logAdmin('recover', who, { id: acc.id, name: acc.name, uname: lower }, true, 'yardımcı admin yapıldı');
+        await this.updateAdminFlags(acc.id);
+        return R({ ok: true, msg: acc.name + ' artık yardımcı admin. O hesapla giriş yapabilirsin.' });
+      }
+      if (pw.length < 8 || pw.length > 100) return R({ ok: false, msg: 'Yeni şifre en az 8 karakter olmalı' });
+      if (pw.toLowerCase().includes(lower)) return R({ ok: false, msg: 'Şifre kullanıcı adını içermemeli' });
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      acc.hash = await pbkdf2(pw, salt); acc.salt = b64u(salt);
+      await st.put('u:' + lower, acc);
+      await st.delete('lf:' + lower);
+      const old = await st.get('prtfor:' + lower); if (old) { await st.delete('prt:' + old); await st.delete('prtfor:' + lower); }
+      await this.logAdmin('recover', who, { id: acc.id, name: acc.name, uname: lower }, true, 'şifre sıfırlandı');
+      return R({ ok: true, token: await sign(secret, { id: acc.id, name: acc.name, picture: '', admin: ADMIN_UNAMES.has(lower) }), name: acc.name, msg: 'Şifre değişti' });
     }
     if (path === '/internal/verify') {
       const token = String(b.token || '');
