@@ -1,8 +1,17 @@
-VOXA SON DOSYALAR - ARKADAS DURUM FILTRESI
+VOXA - UYUMLU DOSYA PAKETİ
+Sürüm: v26.10.12-f
 
-Bu paket, kullanicinin en son yukledigi index-4.html ve worker.js dosyalarini temel alir.
-index.html dosyasina Arkadaslarim bolumunde Tumu / Cevrimici / Cevrimdisi filtreleri eklenmistir.
-worker.js mevcut son yuklenen dosyadan korunmustur; sunucu presence altyapisi yeniden yazilmamistir.
+Bu pakette index.html ve worker.js aynı sürüm işaretini kullanır.
 
-ONEMLI: Canli siteye yuklenmedi. Yayina almadan once mevcut projenin yedegini alin ve test edin.
-Bu degisiklik sadece arkadas listesi filtrelerini ekler; yeni heartbeat/zaman asimi sistemi eklemez.
+Yükleme:
+1. GitHub deposunda kök dizindeki index.html dosyasını bu paketteki index.html ile değiştir.
+2. Kök dizindeki worker.js dosyasını bu paketteki worker.js ile değiştir.
+3. İki dosyayı aynı commit içinde yükle.
+4. Cloudflare Worker kodunu da aynı paketteki worker.js içeriğiyle güncelle ve deploy et.
+5. Siteyi yenile. Uyarı sürerse eski HTML önbelleği olabilir; sert yenileme yap ve Worker deployment'ının tamamlandığını kontrol et.
+
+ÖNEMLİ:
+- Worker, hazır bağlantı yanıtına ver: v26.10.12-f ekler; sayfadaki sürüm kontrolü bununla eşleşir.
+- Arkadaş listesinde Tümü / Çevrimiçi / Çevrimdışı filtreleri vardır.
+- Bu ZIP canlı siteye otomatik yükleme yapmaz.
+- Gerçek kullanıcı verileri ve KV/storage ayarları değiştirilmez.

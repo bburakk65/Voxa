@@ -175,7 +175,7 @@ export class Hub {
         const hist = {};
         for (const k of Object.keys(hist0)) { if (await this.canSee(u.id, k)) hist[k] = hist0[k]; }
         const guilds = (await this.s.storage.get('g:' + u.id)) || [];
-        ws.send(JSON.stringify({ t: 'ready', hist, online: this.users(), guilds, servers: await this.guildsOf(u.id), me: { name, admin, mainAdmin }, social: await this.social(u.id) }));
+        ws.send(JSON.stringify({ t: 'ready', ver: 'v26.10.12-f', hist, online: this.users(), guilds, servers: await this.guildsOf(u.id), me: { name, admin, mainAdmin }, social: await this.social(u.id) }));
         this.bc({ t: 'online', online: this.users() });
         await this.vstate();
         await this.presence(u.id);
