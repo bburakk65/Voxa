@@ -1,6 +1,8 @@
-VOXA e-posta doğrulama güncellemesi (Voxa-main (4).zip temel alınmıştır)
+VOXA SON DOSYALAR - ARKADAS DURUM FILTRESI
 
-Bu paket canlıya yüklenmiş değildir. Önce yedek alıp ayrı bir test Worker/Pages ortamında deneyin.
-Cloudflare Worker secrets/variables: RESEND_API_KEY (secret), RESEND_FROM (Resend içinde doğrulanmış gönderici adresi). Mevcut DISCORD_SECRET ve diğer ayarlar korunmalı.
-Resend tarafında gönderici alan adı/adresi doğrulanmamışsa e-postalar hedeflere ulaşmayabilir. workers.dev adresi tek başına doğrulanmış gönderici alan adı değildir.
-Yeni kayıtlar e-posta koduyla doğrulanır; daha önce oluşturulmuş hesapların kayıtları değiştirilmez. Bu paket yalnızca kayıt e-postası doğrulamasını ekler; şifre sıfırlama akışı bu pakete dahil değildir.
+Bu paket, kullanicinin en son yukledigi index-4.html ve worker.js dosyalarini temel alir.
+index.html dosyasina Arkadaslarim bolumunde Tumu / Cevrimici / Cevrimdisi filtreleri eklenmistir.
+worker.js mevcut son yuklenen dosyadan korunmustur; sunucu presence altyapisi yeniden yazilmamistir.
+
+ONEMLI: Canli siteye yuklenmedi. Yayina almadan once mevcut projenin yedegini alin ve test edin.
+Bu degisiklik sadece arkadas listesi filtrelerini ekler; yeni heartbeat/zaman asimi sistemi eklemez.

@@ -91,11 +91,12 @@ export default {
   async fetch(req, env) {
     const u = new URL(req.url);
     if (u.pathname === '/ws') return env.HUB.get(env.HUB.idFromName('main')).fetch(req);
-    if (req.method === 'POST' && ['/auth/login', '/auth/register', '/auth/check'].includes(u.pathname)) {
+    if (req.method === 'POST' && ['/auth/login', '/auth/register', '/auth/check', '/auth/forgot', '/auth/reset', '/auth/verify'].includes(u.pathname)) {
       const bad = (msg, s) => new Response(JSON.stringify({ ok: false, msg }), { status: s, headers: { 'Content-Type': 'application/json' } });
       if (Number(req.headers.get('content-length') || 0) > 2048) return bad('İstek çok büyük', 413);
       let b; try { b = await req.json(); } catch { return bad('Geçersiz istek', 400); }
       b.ip = req.headers.get('CF-Connecting-IP') || '';
+      b.origin = u.origin;
       return env.HUB.get(env.HUB.idFromName('main')).fetch('https://hub/internal/' + u.pathname.slice(6), { method: 'POST', body: JSON.stringify(b) });
     }
     if (env.ENABLE_DISCORD === '1') {
@@ -106,6 +107,28 @@ export default {
   }
 };
 
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+async function sha256hex(s) {
+  const d = await crypto.subtle.digest('SHA-256', enc.encode(s));
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+const secToken = () => b64u(crypto.getRandomValues(new Uint8Array(24)));
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+async function sendEmail(env, to, subject, html) {
+  if (!env.RESEND_API_KEY) return { ok: false, msg: 'E-posta servisi yapılandırılmamış' };
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: env.FROM_EMAIL || 'Voxa <onboarding@resend.dev>', to: [to], subject, html })
+    });
+    if (!r.ok) {
+      let detail = ''; try { detail = (await r.text()).slice(0, 300); } catch {}
+      return { ok: false, msg: 'E-posta gönderilemedi (' + r.status + ')', status: r.status, detail };
+    }
+    return { ok: true, status: r.status };
+  } catch { return { ok: false, msg: 'E-posta servisine ulaşılamadı', status: 0, detail: 'ağ hatası' }; }
+}
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const rcode = (n = 6) => [...crypto.getRandomValues(new Uint8Array(n))].map(x => ALPHA[x % ALPHA.length]).join('');
 const normCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
@@ -117,7 +140,7 @@ async function pbkdf2(pw, salt) {
 }
 
 export class Hub {
-  constructor(state, env) { this.s = state; this.env = env; this.gcache = new Map(); this.msgDeleteQueue = Promise.resolve(); }
+  constructor(state, env) { this.s = state; this.env = env; this.gcache = new Map(); }
   async fetch(req) {
     const url = new URL(req.url);
     if (url.pathname === '/internal/guilds' && req.method === 'POST') {
@@ -126,20 +149,15 @@ export class Hub {
       this.gcache.delete(id);
       return new Response('ok');
     }
-    if (req.method === 'POST' && ['/internal/login', '/internal/register', '/internal/check'].includes(url.pathname)) return this.authHttp(url.pathname, await req.json());
+    if (req.method === 'POST' && ['/internal/login', '/internal/register', '/internal/check', '/internal/forgot', '/internal/reset', '/internal/verify'].includes(url.pathname)) return this.authHttp(url.pathname, await req.json());
     if (req.headers.get('Upgrade') !== 'websocket') return new Response('WebSocket bekleniyor', { status: 426 });
+    if (url.protocol.startsWith('http') && url.hostname !== 'hub') { const o = url.origin; if ((await this.s.storage.get('origin')) !== o) await this.s.storage.put('origin', o); }
     const [client, server] = Object.values(new WebSocketPair());
     this.s.acceptWebSocket(server);
     return new Response(null, { status: 101, webSocket: client });
   }
   async webSocketMessage(ws, raw) {
-    // Beklenmedik büyük/yanlış formatlı WS paketlerinin CPU ve belleği tüketmesini engelle.
-    if (typeof raw !== 'string' || raw.length > 500000) {
-      try { ws.send(JSON.stringify({ t: 'error', msg: 'İstek çok büyük veya geçersiz' })); } catch {}
-      return;
-    }
     let m; try { m = JSON.parse(raw); } catch { return; }
-    if (!m || typeof m !== 'object' || Array.isArray(m) || typeof m.t !== 'string') return;
     if (m.t === 'auth') {
       try {
         const secret = this.env.DISCORD_SECRET;
@@ -176,10 +194,6 @@ export class Hub {
       const text = String(m.text || '').trim().slice(0, 2000);
       const ch = String(m.ch || '').slice(0, 60);
       if (!text || !ch) return;
-      if (!(await this.rateHit('msg:' + me.id, 25, 10000))) {
-        ws.send(JSON.stringify({ t: 'merr', ch, msg: 'Çok hızlı mesaj gönderiyorsun. Birkaç saniye bekle.' }));
-        return;
-      }
       const muteUntil = await this.s.storage.get('mute:' + me.id);
       if (muteUntil && muteUntil > Date.now()) { ws.send(JSON.stringify({ t: 'merr', ch, msg: 'Susturuldun, ' + Math.ceil((muteUntil - Date.now()) / 60000) + ' dk sonra tekrar yazabilirsin' })); return; }
       if (!(await this.canSee(me.id, ch))) {
@@ -202,19 +216,16 @@ export class Hub {
     }
     if (m.t === 'edit') {
       const ch = String(m.ch || '').slice(0, 60);
-      const mid = String(m.mid || '').slice(0, 80);
       const text = String(m.text || '').trim().slice(0, 2000);
-      if (!ch || !mid || !text || !(await this.canSee(me.id, ch))) return;
-      if (!(await this.rateHit('edit:' + me.id, 30, 10000))) return;
+      if (!text) return;
       const all = (await this.s.storage.get('msgs')) || {};
-      const x = (Array.isArray(all[ch]) ? all[ch] : []).find(y => y && y.mid === mid && y.id === me.id && !y.au);
-      if (x) { x.t = text; x.e = true; await this.s.storage.put('msgs', all); await this.bcCh(ch, { t: 'edit', ch, mid, text }); }
+      const x = (all[ch] || []).find(y => y.mid === m.mid && y.id === me.id && !y.au);
+      if (x) { x.t = text; x.e = true; await this.s.storage.put('msgs', all); await this.bcCh(ch, { t: 'edit', ch, mid: m.mid, text }); }
     }
     if (m.t === 'react') {
       const ch = String(m.ch || '').slice(0, 60);
       const em = String(m.emoji || '').slice(0, 8);
       if (!em || !(await this.canSee(me.id, ch))) return;
-      if (!(await this.rateHit('react:' + me.id, 60, 10000))) return;
       const all = (await this.s.storage.get('msgs')) || {};
       const x = (all[ch] || []).find(y => y.mid === m.mid);
       if (!x) return;
@@ -226,6 +237,28 @@ export class Hub {
       if (Object.keys(x.rx).length > 20) return;
       await this.s.storage.put('msgs', all);
       await this.bcCh(ch, { t: 'react', ch, mid: m.mid, rx: x.rx });
+    }
+    if (m.t === 'emailstatus') {
+      const un = await this.unameOf(me.id);
+      const acc = un ? await this.s.storage.get('u:' + un) : null;
+      const em = acc && acc.email ? acc.email : '';
+      const masked = em ? em.replace(/^(.).*(@.*)$/, (_, a, d) => a + '***' + d) : '';
+      ws.send(JSON.stringify({ t: 'emailstatus', supported: !!acc, email: masked, verified: !!(acc && acc.emailVerified) }));
+    }
+    if (m.t === 'addemail') {
+      const reply = (ok, msg) => ws.send(JSON.stringify({ t: 'addemail', ok, msg }));
+      const un = await this.unameOf(me.id);
+      if (!un) return reply(false, 'Bu hesap türünde e-posta eklenemez');
+      if (!(await this.rateHit('ae:' + me.id, 5, 3600000))) return reply(false, 'Çok fazla deneme, biraz bekle');
+      const email = String(m.email || '').trim().toLowerCase();
+      if (!EMAIL_RE.test(email) || email.length > 200) return reply(false, 'Geçerli bir e-posta yaz');
+      const owner = await this.s.storage.get('email:' + email);
+      if (owner && owner !== un) return reply(false, 'Bu e-posta zaten kullanılıyor');
+      const acc = await this.s.storage.get('u:' + un);
+      if (acc.emailVerified && acc.email === email) return reply(false, 'Bu e-posta zaten doğrulanmış');
+      if (!acc.emailVerified) { acc.email = email; await this.s.storage.put('u:' + un, acc); }
+      const r = await this.sendVerifyEmail(un, acc.name, email, '');
+      reply(r.ok, r.ok ? 'Doğrulama bağlantısı e-postana gönderildi' : r.msg);
     }
     if (m.t === 'nick') {
       const name = String(m.name || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 32);
@@ -242,37 +275,32 @@ export class Hub {
     }
     if (m.t === 'del') {
       const ch = String(m.ch || '').slice(0, 60);
-      const mid = String(m.mid || '').slice(0, 80);
-      if (!ch || !mid || !(await this.canSee(me.id, ch))) return;
       const all = (await this.s.storage.get('msgs')) || {};
-      const l = Array.isArray(all[ch]) ? all[ch] : [];
-      const i = l.findIndex(x => x && x.mid === mid && x.id === me.id);
-      if (i >= 0) { const rm = l.splice(i, 1)[0]; if (rm && rm.au) await this.s.storage.delete('a:' + rm.mid); await this.s.storage.put('msgs', all); await this.bcCh(ch, { t: 'del', ch, mid }); }
+      const l = all[ch] || [];
+      const i = l.findIndex(x => x.mid === m.mid && x.id === me.id);
+      if (i >= 0) { const rm = l.splice(i, 1)[0]; if (rm && rm.au) await this.s.storage.delete('a:' + rm.mid); await this.s.storage.put('msgs', all); await this.bcCh(ch, { t: 'del', ch, mid: m.mid }); }
     }
     if (typeof m.t === 'string' && m.t.charAt(0) === 'f') { await this.onFriend(ws, me, m); return; }
     if (typeof m.t === 'string' && m.t.slice(0, 2) === 'sv') { await this.onGuild(ws, me, m); return; }
     if (typeof m.t === 'string' && m.t.slice(0, 2) === 'ad') { await this.onAdmin(ws, me, m); return; }
     if (m.t === 'vjoin') {
       const room = String(m.room || '').slice(0, 60);
-      if (!room || !(await this.isVoiceRoom(me.id, room))) return;
+      if (!room || !(await this.canSee(me.id, room))) return;
       const muteUntilJ = await this.s.storage.get('mute:' + me.id);
       if (muteUntilJ && muteUntilJ > Date.now()) { ws.send(JSON.stringify({ t: 'merr', ch: room, msg: 'Susturuldun, sesli odaya giremezsin' })); return; }
-      // Her WebSocket oturumuna ayrı bir kimlik ver; aynı hesap farklı sekmelerde
-      // açık kalabilir ve ses sinyalleri yanlış sekmeye yönlendirilmez.
-      delete me.vss;
-      me.vr = room; me.vsid = crypto.randomUUID(); me.vm = !!m.muted; me.vd = !!m.deaf; ws.serializeAttachment(me);
-      const peerMap = new Map();
+      me.vr = room; me.vm = !!m.muted; me.vd = !!m.deaf; ws.serializeAttachment(me);
+      const peers = [];
       for (const x of this.s.getWebSockets()) {
         if (x === ws || x.readyState !== 1) continue;
         const a = x.deserializeAttachment();
-        if (a && a.vr === room && a.vsid && a.id !== me.id) peerMap.set(a.vsid, { id: a.id, sid: a.vsid, name: a.name, pic: a.pic || '' });
+        if (a && a.vr === room && a.id !== me.id) peers.push({ id: a.id, name: a.name });
       }
-      ws.send(JSON.stringify({ t: 'vpeers', room, sid: me.vsid, peers: [...peerMap.values()] }));
+      ws.send(JSON.stringify({ t: 'vpeers', room, peers }));
       await this.vstate();
       await this.presence(me.id);
     }
     if (m.t === 'vleave') {
-      delete me.vr; delete me.vsid; delete me.vm; delete me.vd; delete me.vss; ws.serializeAttachment(me);
+      delete me.vr; delete me.vm; delete me.vd; ws.serializeAttachment(me);
       await this.vstate();
       await this.presence(me.id);
     }
@@ -288,14 +316,18 @@ export class Hub {
     if (m.t === 'vstream_stop') {
       if (me.vr) { delete me.vss; ws.serializeAttachment(me); await this.vstate(); }
     }
+    if (m.t === 'vstream_cam_start') {
+      if (me.vr) { me.vcam = true; ws.serializeAttachment(me); await this.vstate(); }
+    }
+    if (m.t === 'vstream_cam_stop') {
+      if (me.vr) { delete me.vcam; ws.serializeAttachment(me); await this.vstate(); }
+    }
     if (m.t === 'vsig') {
-      if (!me.vr || !me.vsid || typeof m.to !== 'string' || !m.to || !m.data || JSON.stringify(m.data).length > 20000) return;
-      if (!(await this.rateHit('vsig:' + me.id, 60, 10000))) return;
-      // Hedef kullanıcı adı değil, hedef WebSocket'in tekil ses oturumu kimliğidir.
+      if (!me.vr || !m.data || JSON.stringify(m.data).length > 20000) return;
       for (const x of this.s.getWebSockets()) {
         if (x.readyState !== 1) continue;
         const a = x.deserializeAttachment();
-        if (a && a.vsid === m.to && a.vr === me.vr) { try { x.send(JSON.stringify({ t: 'vsig', from: me.vsid, data: m.data })); } catch {} break; }
+        if (a && a.id === m.to && a.vr === me.vr) { try { x.send(JSON.stringify({ t: 'vsig', from: me.id, data: m.data })); } catch {} }
       }
     }
     if (m.t === 'vmsg') {
@@ -303,7 +335,6 @@ export class Hub {
       const data = String(m.data || '');
       const err = msg => ws.send(JSON.stringify({ t: 'merr', ch, msg }));
       if (!ch || !data) return;
-      if (!(await this.rateHit('vmsg:' + me.id, 8, 60000))) return err('Çok fazla sesli mesaj gönderdin, biraz bekle');
       const muteUntilV = await this.s.storage.get('mute:' + me.id);
       if (muteUntilV && muteUntilV > Date.now()) return err('Susturuldun, sesli mesaj gönderemezsin');
       if (data.length > 400000 || !/^[A-Za-z0-9+/=]+$/.test(data)) return err('Sesli mesaj çok uzun ya da bozuk');
@@ -351,7 +382,6 @@ export class Hub {
     }
     if (m.t === 'typing') {
       const ch = String(m.ch || '').slice(0, 60);
-      if (!(await this.rateHit('typing:' + me.id, 12, 5000))) return;
       if (await this.canSee(me.id, ch)) {
         for (const x of this.s.getWebSockets()) {
           if (x === ws) continue;
@@ -366,7 +396,7 @@ export class Hub {
     for (const w of this.s.getWebSockets()) {
       if (w.readyState !== 1) continue;
       const a = w.deserializeAttachment();
-      if (a && a.vr) (rooms[a.vr] = rooms[a.vr] || []).push({ id: a.id, sid: a.vsid || a.id, name: a.name, m: !!a.vm, d: !!a.vd, ss: !!a.vss, p: a.pic || '' });
+      if (a && a.vr) (rooms[a.vr] = rooms[a.vr] || []).push({ id: a.id, name: a.name, m: !!a.vm, d: !!a.vd, ss: !!a.vss, cam: !!a.vcam, p: a.pic || '' });
     }
     for (const w of this.s.getWebSockets()) {
       if (w.readyState !== 1) continue;
@@ -400,40 +430,111 @@ export class Hub {
     if (path === '/internal/register') {
       if (!hit('rg:' + ip, 5, 3600000)) return R({ ok: false, msg: 'Bu bağlantıdan çok fazla kayıt denendi, daha sonra tekrar dene' }, 429);
       if (!/^[A-Za-z0-9_.]{3,20}$/.test(uname)) return R({ ok: false, field: 'username', msg: 'Kullanıcı adı 3-20 karakter olmalı (harf, rakam, _ ve .)' });
-      if (pw.length < 8 || pw.length > 100) return R({ ok: false, field: 'password', msg: 'Şifre 8-100 karakter olmalı' });
+      if (pw.length < 8 || pw.length > 100) return R({ ok: false, field: 'password', msg: 'Şifre en az 8 karakter olmalı' });
       if (pw.toLowerCase().includes(lower)) return R({ ok: false, field: 'password', msg: 'Şifre kullanıcı adını içermemeli' });
-      // Ana yönetici hesabının ilk kaydını herkesin kapmasını engelle.
-      // İlk kurulum için Cloudflare Worker'da ADMIN_SETUP_KEY secret'ı tanımlanmalıdır.
-      if (ADMIN_UNAMES.has(lower)) {
-        const expectedSetupKey = String(this.env.ADMIN_SETUP_KEY || '');
-        const suppliedSetupKey = String(b.adminSetupKey || '');
-        if (!expectedSetupKey || !safeEq(suppliedSetupKey, expectedSetupKey)) {
-          return R({ ok: false, field: 'username', msg: 'Bu yönetici adı yalnızca kurulum anahtarıyla ilk kez oluşturulabilir. Cloudflare ADMIN_SETUP_KEY ayarını kontrol et.' });
-        }
-      }
       if (await st.get('u:' + lower)) return R({ ok: false, field: 'username', msg: 'Bu kullanıcı adı alınmış' });
+      const email = String(b.email || '').trim().toLowerCase();
+      if (email) {
+        if (!EMAIL_RE.test(email) || email.length > 200) return R({ ok: false, field: 'email', msg: 'Geçerli bir e-posta yaz' });
+        if (await st.get('email:' + email)) return R({ ok: false, field: 'email', msg: 'Bu e-posta zaten kullanılıyor' });
+      }
       const salt = crypto.getRandomValues(new Uint8Array(16));
       const hash = await pbkdf2(pw, salt);
       const id = 'l' + rcode(10).toLowerCase();
-      await st.put('u:' + lower, { id, name: uname, salt: b64u(salt), hash, ts: Date.now() });
-      return R({ ok: true, token: await sign(secret, { id, name: uname, picture: '', admin: ADMIN_UNAMES.has(lower) }), name: uname });
+      await st.put('u:' + lower, { id, name: uname, salt: b64u(salt), hash, ts: Date.now(), email: email || '', emailVerified: false });
+      let emailMsg = '';
+      if (email) {
+        const r = await this.sendVerifyEmail(lower, uname, email, String(b.origin || ''));
+        if (!r.ok) emailMsg = ' (doğrulama e-postası gönderilemedi: ' + r.msg + ')';
+      }
+      return R({ ok: true, token: await sign(secret, { id, name: uname, picture: '', admin: ADMIN_UNAMES.has(lower) }), name: uname, emailMsg });
     }
     if (path === '/internal/login') {
       if (!hit('li:' + ip, 20, 600000)) return R({ ok: false, msg: 'Çok fazla deneme, birkaç dakika sonra tekrar dene' }, 429);
-      const fl = (await st.get('lf:' + lower)) || { n: 0, until: 0 };
+      let loginKey = lower;
+      if (lower.includes('@')) { const byEmail = await st.get('email:' + lower); if (byEmail) loginKey = byEmail; }
+      const fl = (await st.get('lf:' + loginKey)) || { n: 0, until: 0 };
       if (fl.until > Date.now()) return R({ ok: false, msg: 'Çok fazla hatalı deneme. 10 dakika sonra tekrar dene.' }, 429);
-      const acc = /^[a-z0-9_.]{3,20}$/.test(lower) ? await st.get('u:' + lower) : null;
+      const acc = /^[a-z0-9_.]{3,20}$/.test(loginKey) ? await st.get('u:' + loginKey) : null;
       const h = await pbkdf2(pw.slice(0, 100), acc ? b64(acc.salt) : new Uint8Array(16));
       if (!acc || !safeEq(h, acc.hash)) {
-        if (acc) { fl.n++; if (fl.n >= 5) { fl.until = Date.now() + 600000; fl.n = 0; } await st.put('lf:' + lower, fl); }
+        if (acc) { fl.n++; if (fl.n >= 5) { fl.until = Date.now() + 600000; fl.n = 0; } await st.put('lf:' + loginKey, fl); }
         return R({ ok: false, msg: 'Kullanıcı adı ya da şifre hatalı' });
       }
-      if (fl.n || fl.until) await st.delete('lf:' + lower);
+      if (fl.n || fl.until) await st.delete('lf:' + loginKey);
       const ban = await st.get('ban:' + acc.id);
       if (ban) return R({ ok: false, msg: 'Bu hesap yasaklandı' + (ban.reason ? ': ' + ban.reason : '') });
-      return R({ ok: true, token: await sign(secret, { id: acc.id, name: acc.name, picture: '', admin: ADMIN_UNAMES.has(lower) }), name: acc.name });
+      return R({ ok: true, token: await sign(secret, { id: acc.id, name: acc.name, picture: '', admin: ADMIN_UNAMES.has(loginKey) }), name: acc.name });
+    }
+    if (path === '/internal/forgot') {
+      if (!this.env.RESEND_API_KEY) return R({ ok: false, unavailable: true, msg: 'Şifre sıfırlama şu anda kullanılamıyor (e-posta servisi henüz kurulmadı)' });
+      if (!hit('fg:' + ip, 8, 900000)) return R({ ok: true, msg: 'Bu e-posta kayıtlıysa, sıfırlama bağlantısı gönderildi.' });
+      const email = String(b.email || '').trim().toLowerCase();
+      const generic = { ok: true, msg: 'Bu e-posta kayıtlıysa, sıfırlama bağlantısı gönderildi.' };
+      if (!email || !EMAIL_RE.test(email)) return R(generic);
+      const un = await st.get('email:' + email);
+      if (!un) return R(generic);
+      const acc = await st.get('u:' + un);
+      if (!acc || !acc.emailVerified) return R(generic);
+      if (!hit('fgu:' + un, 5, 3600000)) return R(generic);
+      const old = await st.get('prtfor:' + un);
+      if (old) await st.delete('prt:' + old);
+      const token = secToken(), hash = await sha256hex(token), exp = Date.now() + 900000;
+      await st.put('prt:' + hash, { un, exp });
+      await st.put('prtfor:' + un, hash);
+      const link = (b.origin || '') + '/#reset=' + token;
+      await this.sendMail(email, 'Voxa şifre sıfırlama', '<p>Merhaba ' + esc(acc.name) + ',</p><p>Şifreni sıfırlamak için <a href="' + link + '">buraya tıkla</a>. Bağlantı 15 dakika geçerli ve tek kullanımlıktır.</p><p>Bunu sen istemediysen bu e-postayı yok sayabilirsin.</p>');
+      return R(generic);
+    }
+    if (path === '/internal/reset') {
+      if (!hit('rs:' + ip, 20, 600000)) return R({ ok: false, msg: 'Çok fazla deneme, biraz bekle' });
+      const token = String(b.token || ''), npw = String(b.password || '');
+      if (!token) return R({ ok: false, msg: 'Geçersiz bağlantı' });
+      if (npw.length < 8 || npw.length > 100) return R({ ok: false, msg: 'Şifre en az 8 karakter olmalı' });
+      const hash = await sha256hex(token);
+      const rec = await st.get('prt:' + hash);
+      if (!rec || rec.exp < Date.now()) return R({ ok: false, msg: 'Bağlantının süresi dolmuş ya da geçersiz, yeniden iste' });
+      const acc = await st.get('u:' + rec.un);
+      if (!acc) return R({ ok: false, msg: 'Hesap bulunamadı' });
+      if (npw.toLowerCase().includes(rec.un)) return R({ ok: false, msg: 'Şifre kullanıcı adını içermemeli' });
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      acc.hash = await pbkdf2(npw, salt); acc.salt = b64u(salt);
+      await st.put('u:' + rec.un, acc);
+      await st.delete('prt:' + hash); await st.delete('prtfor:' + rec.un); await st.delete('lf:' + rec.un);
+      return R({ ok: true, token: await sign(secret, { id: acc.id, name: acc.name, picture: '', admin: ADMIN_UNAMES.has(rec.un) }), name: acc.name });
+    }
+    if (path === '/internal/verify') {
+      const token = String(b.token || '');
+      const hash = await sha256hex(token);
+      const rec = await st.get('evt:' + hash);
+      if (!rec || rec.exp < Date.now()) return R({ ok: false, msg: 'Doğrulama bağlantısının süresi dolmuş ya da geçersiz' });
+      const acc = await st.get('u:' + rec.un);
+      if (!acc) return R({ ok: false, msg: 'Hesap bulunamadı' });
+      if (await st.get('email:' + rec.email)) return R({ ok: false, msg: 'Bu e-posta başka bir hesapta kullanılıyor' });
+      acc.email = rec.email; acc.emailVerified = true;
+      await st.put('u:' + rec.un, acc);
+      await st.put('email:' + rec.email, rec.un);
+      await st.delete('evt:' + hash);
+      return R({ ok: true, name: acc.name });
     }
     return R({ ok: false }, 404);
+  }
+  async unameOf(uid) {
+    const rows = await this.s.storage.list({ prefix: 'u:', limit: 2000 });
+    for (const [k, a] of rows) if (a.id === uid) return k.slice(2);
+    return null;
+  }
+  async sendMail(to, subject, html) {
+    const r = await sendEmail(this.env, to, subject, html);
+    const masked = String(to).replace(/^(.).*(@.*)$/, (_, a, d) => a + '***' + d);
+    await this.s.storage.put('maillast', { ts: Date.now(), ok: !!r.ok, status: r.status || 0, detail: r.ok ? '' : (r.detail || r.msg || ''), to: masked, subject });
+    return r;
+  }
+  async sendVerifyEmail(uname, displayName, email, origin) {
+    const token = secToken(), hash = await sha256hex(token), exp = Date.now() + 86400000;
+    await this.s.storage.put('evt:' + hash, { un: uname, email, exp });
+    const link = (origin || (await this.s.storage.get('origin')) || '') + '/#verify=' + token;
+    return this.sendMail(email, 'Voxa e-posta doğrulama', '<p>Merhaba ' + esc(displayName) + ',</p><p>E-postanı doğrulamak için <a href="' + link + '">buraya tıkla</a>. Bağlantı 24 saat geçerli.</p>');
   }
 
   /* ===== ARKADAŞ SİSTEMİ ===== */
@@ -750,23 +851,7 @@ export class Hub {
   async logAdmin(action, by, target, ok, msg) {
     const log = await this.g('adlog');
     log.push({ ts: Date.now(), action, by: by ? { id: by.id, name: by.name } : null, target: target || null, ok: !!ok, msg: msg || '' });
-    const recent = log.slice(-200);
-    await this.s.storage.put('adlog', recent);
-    // Yönetim panelini açık tutan tüm adminlere işlem geçmişi ve sayaçları anında gönder.
-    const users = await this.s.storage.list({ prefix: 'u:', limit: 2000 });
-    const servers = await this.s.storage.list({ prefix: 'sv:', limit: 2000 });
-    const msgs = (await this.s.storage.get('msgs')) || {};
-    let messages = 0;
-    for (const k of Object.keys(msgs)) messages += Array.isArray(msgs[k]) ? msgs[k].length : 0;
-    const stats = { t: 'adstats', users: users.size, servers: servers.size, online: this.onlineSet().size, messages };
-    for (const w of this.s.getWebSockets()) {
-      const a = w.deserializeAttachment();
-      if (!a || !a.admin) continue;
-      try {
-        w.send(JSON.stringify(stats));
-        w.send(JSON.stringify({ t: 'adlogs', list: recent.slice().reverse() }));
-      } catch {}
-    }
+    await this.s.storage.put('adlog', log.slice(-200));
   }
   async onAdmin(ws, me, m) {
     const t = m.t, st = this.s.storage;
@@ -776,14 +861,13 @@ export class Hub {
       const users = await st.list({ prefix: 'u:', limit: 2000 });
       const servers = await st.list({ prefix: 'sv:', limit: 2000 });
       const msgs = (await st.get('msgs')) || {};
-      let messages = 0; for (const k of Object.keys(msgs)) messages += Array.isArray(msgs[k]) ? msgs[k].length : 0;
+      let messages = 0; for (const k in msgs) messages += (msgs[k] || []).length;
       reply('adstats', { users: users.size, servers: servers.size, online: this.onlineSet().size, messages });
     }
     else if (t === 'adusers') {
       const q = String(m.q || '').toLowerCase().trim();
       const rows = await st.list({ prefix: 'u:', limit: 2000 });
       const on = this.onlineSet();
-      const promotedAdmins = new Set(await this.g('admins'));
       const list = [];
       for (const [k, acc] of rows) {
         if (q && !String(acc.name).toLowerCase().includes(q)) continue;
@@ -791,7 +875,7 @@ export class Hub {
         const muteUntil = await st.get('mute:' + acc.id);
         const banRec = await st.get('ban:' + acc.id);
         list.push({
-          id: acc.id, name: acc.name, uname, ts: acc.ts || 0, on: on.has(acc.id), admin: ADMIN_UNAMES.has(uname) || promotedAdmins.has(acc.id),
+          id: acc.id, name: acc.name, uname, ts: acc.ts || 0, on: on.has(acc.id), admin: ADMIN_UNAMES.has(uname),
           muted: !!(muteUntil && muteUntil > Date.now()) ? muteUntil : 0,
           banned: !!banRec
         });
@@ -844,11 +928,6 @@ export class Hub {
       await this.logAdmin('unban', me, { id: acc.id, name: acc.name, uname }, true, '');
       reply('adunban', { ok: true, uname });
     }
-    else if (t === 'admsgchannels') {
-      const all = (await st.get('msgs')) || {};
-      const channels = Object.keys(all).filter(ch => !ch.startsWith('dm:') && Array.isArray(all[ch]) && all[ch].length > 0);
-      reply('admsgchannels', { channels });
-    }
     else if (t === 'admsgs') {
       const ch = String(m.ch || '').slice(0, 80);
       if (!ch) return;
@@ -859,60 +938,22 @@ export class Hub {
       if (q) list = list.filter(x => String(x.u).toLowerCase().includes(q) || String(x.t || '').toLowerCase().includes(q));
       reply('admsgs', { ok: true, ch, list: list.slice(-300), total: (all[ch] || []).length });
     }
-    else if (t === 'admsgclearall') {
-      if (!me.admin) return reply('admsgclearall', { ok: false, msg: 'Bu işlem için yönetici yetkisi gerekli' });
-      // Serialize bulk clear with single-message deletions to avoid stale read/modify/write races.
-      const runClear = async () => {
-        const all = (await st.get('msgs')) || {};
-        let removedCount = 0;
-        for (const key of Object.keys(all)) {
-          const list = Array.isArray(all[key]) ? all[key] : [];
-          removedCount += list.length;
-          for (const item of list) if (item && item.au && item.mid) await st.delete('a:' + item.mid);
-          await this.bcCh(key, { t: 'clear', ch: key });
-        }
-        // Remove every channel key, including empty arrays, then report the authoritative total.
-        await st.put('msgs', {});
-        reply('admsgclearall', { ok: true, messages: 0, removed: removedCount });
-        await this.logAdmin('msgclearall', me, { ch: 'all' }, true, removedCount + ' mesaj temizlendi');
-      };
-      const task = this.msgDeleteQueue.then(runClear, runClear);
-      this.msgDeleteQueue = task.catch(() => {});
-      await task;
-    }
     else if (t === 'admsgdel') {
-      // Serialize admin deletions: rapid consecutive clicks must not overwrite each other's storage updates.
-      const runDelete = async () => {
-        const ch = String(m.ch || '').slice(0, 80);
-        const mid = String(m.mid || '').slice(0, 80);
-        const fail = msg => reply('admsgdel', { ok: false, msg, mid, ch });
-        if (!me.admin) return fail('Bu işlem için yönetici yetkisi gerekli');
-        if (!ch || !mid) return fail('Kanal veya mesaj bilgisi eksik');
-        if (ch.startsWith('dm:')) return fail('Özel mesajlar buradan silinemez');
-        const all = (await st.get('msgs')) || {};
-        const list = Array.isArray(all[ch]) ? all[ch] : [];
-        const i = list.findIndex(x => x && String(x.mid) === mid);
-        if (i < 0) {
-          let messages = 0;
-          for (const key of Object.keys(all)) if (Array.isArray(all[key])) messages += all[key].length;
-          return reply('admsgdel', { ok: false, msg: 'Mesaj bulunamadı; liste ve sayaç yenilendi', mid, ch, messages });
-        }
-        const removed = list[i];
-        const remaining = list.filter(x => x && String(x.mid) !== mid);
-        if (remaining.length) all[ch] = remaining;
-        else delete all[ch]; // Empty channels must not remain in the stored message map.
-        if (removed.au) await st.delete('a:' + removed.mid);
-        await st.put('msgs', all);
-        await this.bcCh(ch, { t: 'del', ch, mid });
-        let totalMessages = 0;
-        for (const key of Object.keys(all)) if (Array.isArray(all[key])) totalMessages += all[key].length;
-        // Reply with the persisted total before logging; the client can update the counter immediately.
-        reply('admsgdel', { ok: true, mid, ch, total: remaining.length, messages: totalMessages, channelEmpty: remaining.length === 0 });
-        await this.logAdmin('msgdel', me, { mid, ch, sender: removed.u }, true, String(m.reason || '').slice(0, 120));
-      };
-      const task = this.msgDeleteQueue.then(runDelete, runDelete);
-      this.msgDeleteQueue = task.catch(() => {});
-      await task;
+      const ch = String(m.ch || '').slice(0, 80);
+      const mid = String(m.mid || '');
+      const fail = msg => reply('admsgdel', { ok: false, msg, mid });
+      if (!ch || !mid) return;
+      if (ch.startsWith('dm:')) return fail('Özel mesajlar buradan silinemez');
+      const all = (await st.get('msgs')) || {};
+      const list = all[ch] || [];
+      const i = list.findIndex(x => x.mid === mid);
+      if (i < 0) return fail('Mesaj bulunamadı');
+      const removed = list.splice(i, 1)[0];
+      if (removed.au) await st.delete('a:' + removed.mid);
+      await st.put('msgs', all);
+      await this.bcCh(ch, { t: 'del', ch, mid });
+      await this.logAdmin('msgdel', me, { mid, ch, sender: removed.u }, true, String(m.reason || '').slice(0, 120));
+      reply('admsgdel', { ok: true, mid, ch });
     }
     else if (t === 'adreports') {
       const list = (await this.g('msgreports')).slice(-200).reverse();
@@ -954,8 +995,9 @@ export class Hub {
       if (code) await st.delete('ci:' + code);
       await st.delete('c:' + uid); await st.delete('n:' + uid); await st.delete('p:' + uid);
       await st.delete('mute:' + uid); await st.delete('ban:' + uid);
+      if (acc.email && (await st.get('email:' + acc.email)) === uname) await st.delete('email:' + acc.email);
+      { const prt = await st.get('prtfor:' + uname); if (prt) { await st.delete('prt:' + prt); await st.delete('prtfor:' + uname); } }
       await st.delete('u:' + uname);
-      await this.logAdmin('userdel', me, { id: uid, name: acc.name, uname }, true, '');
       reply('aduserdel', { ok: true, uname });
     }
     else if (t === 'adsvlist') {
@@ -971,7 +1013,6 @@ export class Hub {
       const sv = await st.get('sv:' + String(m.id));
       if (!sv) return;
       await this.deleteGuild(sv);
-      await this.logAdmin('svdel', me, { id: m.id, name: sv.name }, true, '');
       reply('adsvdel', { ok: true, id: m.id });
     }
     else if (t === 'adsvopen') {
@@ -987,10 +1028,6 @@ export class Hub {
         }
       });
     }
-    else if (t === 'adlogs') {
-      const list = (await this.g('adlog')).slice(-200).reverse();
-      reply('adlogs', { list });
-    }
     else if (t === 'adadmins') {
       if (!me.mainAdmin) return;
       const mainAcc = await st.get('u:voxaadmin');
@@ -1002,6 +1039,47 @@ export class Hub {
         main: mainAcc ? { id: mainAcc.id, name: mainAcc.name, uname: 'voxaadmin' } : null,
         list, log
       });
+    }
+    else if (t === 'ademail') {
+      if (!me.mainAdmin) return;
+      const from = this.env.FROM_EMAIL || 'Voxa <onboarding@resend.dev>';
+      reply('ademail', { configured: !!this.env.RESEND_API_KEY, from, sandbox: /resend\.dev/i.test(from), last: (await st.get('maillast')) || null });
+    }
+    else if (t === 'ademailtest') {
+      if (!me.mainAdmin) return;
+      const to = String(m.to || '').trim().toLowerCase();
+      const out = o => reply('ademailtest', o);
+      if (!EMAIL_RE.test(to)) return out({ ok: false, msg: 'Geçerli bir e-posta yaz' });
+      if (!this.env.RESEND_API_KEY) return out({ ok: false, msg: 'RESEND_API_KEY tanımlı değil: Cloudflare > Variables and Secrets bölümüne ekle' });
+      if (!(await this.rateHit('aet:' + me.id, 6, 600000))) return out({ ok: false, msg: 'Çok fazla deneme, biraz bekle' });
+      const r = await this.sendMail(to, 'Voxa test e-postası', '<p>Bu bir Voxa test e-postasıdır. Bunu görüyorsan e-posta servisi çalışıyor ✅</p>');
+      let why = '';
+      if (!r.ok) {
+        if (r.status === 403 && /own email|testing emails/i.test(r.detail || '')) why = 'Resend test adresi (onboarding@resend.dev) sadece Resend hesabını açtığın e-postaya gönderebilir. Başkalarına göndermek için Resend\'de bir alan adı doğrulayıp FROM_EMAIL ayarını o alan adıyla yapmalısın.';
+        else if (r.status === 401 || r.status === 403) why = 'Resend API anahtarı geçersiz ya da yetkisiz görünüyor. Anahtarı yeniden oluşturup RESEND_API_KEY olarak kaydet.';
+        else if (r.status === 422) why = 'Gönderen adresi (FROM_EMAIL) geçersiz ya da alan adı doğrulanmamış.';
+        else if (r.status === 429) why = 'Resend günlük/aylık ücretsiz sınırına ulaşılmış olabilir.';
+        else if (r.status === 0) why = 'Resend servisine ulaşılamadı.';
+      }
+      await this.logAdmin('emailtest', me, { to: to.replace(/^(.).*(@.*)$/, (_, a, d) => a + '***' + d) }, r.ok, r.ok ? '' : String(r.status));
+      out({ ok: !!r.ok, msg: r.ok ? 'Test e-postası gönderildi: gelen kutunu (ve spam klasörünü) kontrol et' : (r.msg || 'Gönderilemedi'), why, status: r.status || 0, detail: r.ok ? '' : String(r.detail || '').slice(0, 200) });
+    }
+    else if (t === 'adresetlink') {
+      if (!me.mainAdmin) return;
+      const uname = String(m.uname || '').toLowerCase().trim();
+      const fail = async msg => { reply('adresetlink', { ok: false, msg, uname }); await this.logAdmin('resetlink', me, { uname }, false, msg); };
+      if (!(await this.rateHit('arl:' + me.id, 20, 3600000))) return fail('Çok fazla işlem, biraz bekle');
+      if (ADMIN_UNAMES.has(uname)) return fail('Ana yönetici hesabı için bu yöntem kullanılamaz');
+      const acc = await st.get('u:' + uname);
+      if (!acc) return fail('Kullanıcı bulunamadı');
+      const old = await st.get('prtfor:' + uname);
+      if (old) await st.delete('prt:' + old);
+      const token = secToken(), hash = await sha256hex(token), exp = Date.now() + 900000;
+      await st.put('prt:' + hash, { un: uname, exp });
+      await st.put('prtfor:' + uname, hash);
+      const origin = (await st.get('origin')) || '';
+      await this.logAdmin('resetlink', me, { id: acc.id, name: acc.name, uname }, true, 'yönetici bağlantısı');
+      reply('adresetlink', { ok: true, uname, name: acc.name, link: origin + '/#reset=' + token, exp });
     }
     else if (t === 'adpromote') {
       const fail = msg => { reply('adpromote', { ok: false, msg }); return this.logAdmin('promote', me, { uname: String(m.uname || '') }, false, msg); };
@@ -1215,17 +1293,13 @@ export class Hub {
       return true;
     }
     if (ch.startsWith('dg:')) {
-      const rest = String(ch).slice(3), i = rest.indexOf('/');
-      const gid = i < 0 ? rest : rest.slice(0, i);
-      const channel = i < 0 ? '' : rest.slice(i + 1);
+      const gid = String(ch).slice(3).split('/')[0];
       let set = this.gcache.get(uid);
       if (!set) {
         set = new Set(((await this.s.storage.get('g:' + uid)) || []).map(x => x.id));
         this.gcache.set(uid, set);
       }
-      // Discord sunucularında arayüzün sunduğu kanallar dışındaki sahte oda
-      // adlarına mesaj yazılmasını veya ses odası açılmasını engelle.
-      return set.has(gid) && ['genel', 'sohbet', 'Sesli Oda'].includes(channel);
+      return set.has(gid);
     }
     if (ch.startsWith('sv:')) {
       const rest = ch.slice(3), i = rest.indexOf('/');
@@ -1245,30 +1319,7 @@ export class Hub {
       if (!c.roles || !c.roles.length) return true;
       return roles.some(rid => c.roles.includes(rid));
     }
-    // Varsayılan sunucularda da istemcinin uydurduğu kanal isimlerini kabul etme.
-    const i = ch.indexOf('/');
-    if (i < 1) return false;
-    const server = ch.slice(0, i), channel = ch.slice(i + 1);
-    const builtIn = {
-      tayfa: ['genel', 'oyun-sohbeti', 'müzik', 'Genel Ses', 'Oyun Sesi'],
-      oyun: ['duyurular', 'takım-ara', 'Takım 1', 'Takım 2']
-    };
-    if (Object.prototype.hasOwnProperty.call(builtIn, server)) return builtIn[server].includes(channel);
-    return false;
-  }
-  async isVoiceRoom(uid, room) {
-    room = String(room || '');
-    if (room.startsWith('dm:')) return /\/call$/.test(room) && await this.canSee(uid, room);
-    if (!(await this.canSee(uid, room))) return false;
-    const i = room.indexOf('/');
-    if (i < 1) return false;
-    const server = room.slice(0, i), channel = room.slice(i + 1);
-    if (server.startsWith('sv:')) {
-      const sv = await this.s.storage.get('sv:' + server.slice(3));
-      return !!(sv && sv.channels.some(c => c.kind === 'voice' && c.name === channel));
-    }
-    if (server.startsWith('dg:')) return channel === 'Sesli Oda';
-    return ({ tayfa: ['Genel Ses', 'Oyun Sesi'], oyun: ['Takım 1', 'Takım 2'] }[server] || []).includes(channel);
+    return true;
   }
   async bcCh(ch, o) {
     const s = JSON.stringify(o);
