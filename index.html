@@ -83,6 +83,10 @@ button:active{transform:scale(.94)}
 @keyframes slide{from{opacity:0;transform:translateY(6px)}}
 @keyframes talk{50%{box-shadow:0 0 0 4px rgba(35,165,89,.45)}}
 @media(max-width:900px){.mem{display:none}}
+#membtn{display:none}
+@media(max-width:900px){.mh #membtn{display:grid}}
+.msh{text-align:left;max-height:60vh;overflow-y:auto}.msh .cat{padding-top:14px}.msh .vu{padding-left:8px;color:var(--text)}.msh .vu.off{opacity:.5}
+.mem .vu.off{opacity:.5}
 @media(max-width:760px){
  .menu{display:grid}
  .rail,.side{position:fixed;top:0;bottom:0;z-index:20;transition:transform .25s ease}
@@ -542,7 +546,7 @@ body.dmopen #dmcall{display:grid}
   </div>
  </aside>
  <main class="main">
-  <div class="mh"><button class="ib menu" id="menu" aria-label="Menü">☰</button><span>#</span><div id="mtitle">genel</div></div>
+  <div class="mh"><button class="ib menu" id="menu" aria-label="Menü">☰</button><span>#</span><div id="mtitle">genel</div><button class="ib" id="membtn" aria-label="Üyeler" style="margin-left:auto">👥</button></div>
   <div class="body">
    <div class="chat">
     <div class="msgs" id="msgs"></div>
@@ -580,18 +584,39 @@ const SV=()=>[{id:'home',name:'Arkadaşlar',short:'👥'},...SERVERS,...GUILDS.m
 const chOf=id=>{if(id&&id.startsWith('sv:')){const s2=MYSV.find(x=>'sv:'+x.id===id);return s2?{text:s2.channels.filter(c=>c.kind==='text').map(c=>c.name),voice:s2.channels.filter(c=>c.kind==='voice').map(c=>c.name)}:{text:[],voice:[]}}return CH[id]||{text:['genel','sohbet'],voice:['Sesli Oda']}};
 function typ(){const n=Object.keys(TY).filter(k=>TY[k]>Date.now());$('typ').textContent=n.length?n.join(', ')+' yazıyor…':''}
 setInterval(typ,1000);
-function members(){
+function memHtml(){
+ const row=u=>`<div class="vu ${u.on?'':'off'}">${av(u.name,u.on?'dot':'dot offl')}${esc(u.name)}${admTag(u.admin)}${u.owner?' 👑':''}</div>`;
  if(srv.startsWith('sv:')){
   const gid=srv.slice(3);
   if(SVMEMFOR!==gid){SVMEM=null;SVMEMFOR=gid;sendWS({t:'svmembers',id:gid})}
-  if(!SVMEM){$('mem').innerHTML='<p class="hint" style="padding:14px">Yükleniyor…</p>';return}
+  if(!SVMEM)return '<p class="hint" style="padding:14px">Yükleniyor…</p>';
   const on=SVMEM.filter(u=>u.on),off=SVMEM.filter(u=>!u.on);
-  const row=u=>`<div class="vu">${av(u.name,u.on?'dot':'dot offl')}${esc(u.name)}${admTag(u.admin)}${u.owner?' 👑':''}</div>`;
-  $('mem').innerHTML=(on.length?`<div class="cat">ÇEVRİMİÇİ — ${on.length}</div>`+on.map(row).join(''):'')+
+  return (on.length?`<div class="cat">ÇEVRİMİÇİ — ${on.length}</div>`+on.map(row).join(''):'')+
    (off.length?`<div class="cat">ÇEVRİMDIŞI — ${off.length}</div>`+off.map(row).join(''):'')||'<p class="hint" style="padding:14px">Üye yok.</p>';
-  return;
  }
- $('mem').innerHTML=`<div class="cat">ÇEVRİMİÇİ — ${ONL.length}</div>`+ONL.map(u=>`<div class="vu">${av(u.name,'dot')}${esc(u.name)}${admTag(u.admin)}</div>`).join('');
+ return `<div class="cat">ÇEVRİMİÇİ — ${ONL.length}</div>`+ONL.map(u=>row({...u,on:true})).join('');
+}
+let MEMOPEN=false,__mrt=null;
+function members(){
+ $('mem').innerHTML=memHtml();
+ const bt=$('membtn');if(bt)bt.style.visibility=srv==='home'?'hidden':'visible';
+ if(MEMOPEN){const sh=$('memsheet');if(sh&&$('fdlg').classList.contains('on'))sh.innerHTML=memHtml();else MEMOPEN=false}
+}
+function openMembers(){
+ if(srv==='home')return;
+ MEMOPEN=true;
+ fDlg(`<div class="fcard"><h3>Üyeler</h3><div id="memsheet" class="msh">${memHtml()}</div><div class="row2" style="margin-top:12px"><button class="fbtn no" data-fa="close">Kapat</button></div></div>`);
+}
+function refreshMembers(){
+ clearTimeout(__mrt);
+ __mrt=setTimeout(()=>{
+  if(srv.startsWith('sv:'))sendWS({t:'svmembers',id:srv.slice(3)});
+  if(ME.admin&&$('adminFull').classList.contains('on')){
+   const typing=document.activeElement&&document.activeElement.id==='aduq';
+   if(ADTAB==='users'&&!typing)sendWS({t:'adusers',q:ADUQ});
+   if(ADTAB==='dash')sendWS({t:'adstats'});
+  }
+ },400);
 }
 let REPLY=null,EDIT=null,PICK=null,UNR={},AC=null,NOANIM=false;
 const EMO='😀 😂 🤣 😊 😍 😘 😎 🤔 😅 😭 😡 🥳 😴 🤯 🙄 😇 👍 👎 👏 🙌 🙏 💪 👀 🔥 ✨ 💯 ❤️ 💔 🎉 🎮 🎧 ⚽ 🍕 ☕ 🚀 ⭐ ✅ ❌ 😮 😢'.split(' ');
@@ -695,7 +720,7 @@ function connect(){
  ws.onmessage=e=>{
   const m=JSON.parse(e.data);
   if(m.t==='ready'){checkVer(m.ver);if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;ME.mainAdmin=!!m.me.mainAdmin;profUI()}HIST=m.hist||{};ONL=m.online||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
-  else if(m.t==='online'){ONL=m.online||[];if(srv.startsWith('sv:'))SVMEMFOR='';members()}
+  else if(m.t==='online'){ONL=m.online||[];members();refreshMembers()}
   else if(m.t==='msg'){
    const L=(HIST[m.ch]=HIST[m.ch]||[]);const prev=L[L.length-1];L.push(m.msg);delete TY[m.msg.u];typ();
    if(m.ch===key()){const b=$('msgs');const nb=b.scrollHeight-b.scrollTop-b.clientHeight<120||m.msg.id===ME.id;addMsg(b,m.msg,prev);if(nb)b.scrollTop=1e9}
@@ -723,6 +748,7 @@ function connect(){
 }
 
 /* --- arayüz olayları --- */
+$('membtn').onclick=openMembers;
 $('rail').onclick=e=>{const b=e.target.closest('.srv');if(!b)return;if(b.dataset.add){openServerAdd();return}if(b.dataset.admin){drawer(false);openAdmin();return}srv=b.dataset.s;if(srv==='home'){ch='';FVIEW=true}else ch=chOf(srv).text[0]||'';all()};
 $('out').onclick=logout;
 $('form').onsubmit=e=>{
@@ -1322,7 +1348,7 @@ function pendingFriend(){
  if(c){try{localStorage.removeItem('voxa_pf')}catch(e){}sendWS({t:'fadd',code:c})}
 }
 function openDM(id){closeF();srv='home';ch=dmKey(id);FVIEW=false;all();drawer(false)}
-function closeF(){PROF=null;$('fsheet').classList.remove('on');$('fdlg').classList.remove('on')}
+function closeF(){MEMOPEN=false;PROF=null;$('fsheet').classList.remove('on');$('fdlg').classList.remove('on')}
 function fMenu(id){
  const p=findP(id);if(!p)return;
  $('fsheet').innerHTML=`<div class="fcard"><div class="fhead">${fav(p,1)}<div><b>${esc(dn(p))}</b><br><small style="color:var(--muted)">Voxa ID: ${esc(p.code||'')}</small></div></div>
@@ -1719,7 +1745,7 @@ $('aforgot').addEventListener('click',()=>auPanel('forgot'));
 
 
 /* ===== GİZLİ YÖNETİM PANELİ ===== */
-const BUILD='v26.10.12-d';
+const BUILD='v26.10.12-e';
 function checkVer(v){
  let el=document.getElementById('verbar');
  if(v===BUILD){if(el)el.remove();return}
@@ -1929,7 +1955,7 @@ function guildMsg(m){
   MGMTCODE=m.code;mgmtRender();fCopy(m.code,'Davet kodu kopyalandı: '+m.code);
  }else if(m.t==='svmembers'){
   if(MGMT&&String(m.id)===String(MGMT.id)){MGMTMEM=m.list||[];mgmtRender()}
-  if(srv==='sv:'+m.id){SVMEM=m.list||[];members()}
+  if(srv==='sv:'+m.id){SVMEM=m.list||[];SVMEMFOR=String(m.id);members()}
  }
 }
 /* --- özellikler: mesaj işlemleri, emoji, profil, PWA --- */

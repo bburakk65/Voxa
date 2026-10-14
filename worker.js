@@ -129,7 +129,7 @@ async function sendEmail(env, to, subject, html) {
     return { ok: true, status: r.status };
   } catch { return { ok: false, msg: 'E-posta servisine ulaşılamadı', status: 0, detail: 'ağ hatası' }; }
 }
-const BUILD = 'v26.10.12-d';
+const BUILD = 'v26.10.12-e';
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const rcode = (n = 6) => [...crypto.getRandomValues(new Uint8Array(n))].map(x => ALPHA[x % ALPHA.length]).join('');
 const normCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
