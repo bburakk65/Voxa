@@ -357,7 +357,12 @@ body.home .mem,body.home .mh>span{display:none}
 .row2{display:flex;gap:10px}.row2 button{flex:1}
 .pbig{display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:16px;text-align:center}
 .pbig .av{width:88px;height:88px;font-size:36px}.pbig b{font-size:20px}.pbig small{color:var(--muted)}
+.av.dot{position:relative;overflow:visible}
+.av.dot::after{content:"";position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;border-radius:50%;background:#23a55a;border:2px solid var(--panel,#1e1f22);box-sizing:border-box;z-index:2}
 .av.dot.offl::after{background:#80848e}
+.frow .fi small .live{display:inline-flex;align-items:center;gap:4px}
+.frow .fi small .live::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#23a55a;flex:none}
+
 .live{color:#3ddc84;font-weight:600}
 .m p:empty{display:none}
 .vm{display:flex;align-items:center;gap:10px;background:var(--input);border-radius:14px;padding:8px 12px;max-width:300px;margin-top:2px}
@@ -1392,6 +1397,7 @@ function fAction(el){
  const a=el.dataset.fa;
  const id=el.dataset.id||((el.closest('[data-id]')||{dataset:{}}).dataset.id);
  if(a==='close'){closeF();return}
+ if(a==='adpresence'){ADUPRES=el.dataset.k||'all';adminRender();return}
  if(a==='dm')openDM(id);
  else if(a==='menu')fMenu(id);
  else if(a==='prof'){const p=findP(id);if(p){profShow(p);sendWS({t:'fprof',id})}}
@@ -1766,7 +1772,7 @@ function emRender(){
  else if(EMS.email)el.innerHTML=info+`<small>⏳ ${esc(EMS.email)} — henüz doğrulanmadı</small>`+form('E-postanı yanlış yazdıysan yenisini gir, ya da bağlantıyı yeniden gönder:');
  else el.innerHTML=info+form('E-posta ekle: şifreni unutursan hesabını bununla kurtarabilirsin.');
 }
-let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADPROMOQ='',MUTE_UN='',ADMVIEW='pick',ADMCH='',ADMCHL='',ADMQ='',ADMQT=null,ADMSGS=null,ADREPORTS=null,SVMEM=null,SVMEMFOR='';
+let ADSTATS=null,ADSVLIST=null,ADTAB='dash',ADUSERS=null,ADUQ='',ADUPRES='all',ADUT=null,ADOPENMODE='join',ADADMINS=null,ADPROMOQ='',MUTE_UN='',ADMVIEW='pick',ADMCH='',ADMCHL='',ADMQ='',ADMQT=null,ADMSGS=null,ADREPORTS=null,SVMEM=null,SVMEMFOR='';
 function openAdmin(){
  if(!ME.admin)return;
  ADSTATS=null;ADSVLIST=null;ADUSERS=null;ADTAB='dash';ADUQ='';
@@ -1794,8 +1800,10 @@ const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Y
   <div class="fsec" style="padding-left:16px">TÜM SUNUCULAR</div>
   <div style="padding:0 16px">${ADSVLIST?(ADSVLIST.length?ADSVLIST.map(svRow).join(''):'<p class="hint">Hiç sunucu yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
  }else if(ADTAB==='users'){
+  const adminUsers=(ADUSERS||[]).filter(u=>ADUPRES==='all'||(ADUPRES==='online'?!!u.on:!u.on));
   body=`<div class="fsearch" style="padding:4px 16px 10px"><input id="aduq" value="${esc(ADUQ)}" placeholder="Kullanıcı ara" autocomplete="off"></div>
-  <div style="padding:0 16px">${ADUSERS?(ADUSERS.length?ADUSERS.map(uRow).join(''):'<p class="hint">Sonuç yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
+  <div class="ftabs" role="group" aria-label="Yönetici kullanıcı durum filtresi" style="padding:0 16px 10px"><button type="button" class="ftab ${ADUPRES==='all'?'on':''}" data-fa="adpresence" data-k="all" aria-pressed="${ADUPRES==='all'}">Tümü</button><button type="button" class="ftab ${ADUPRES==='online'?'on':''}" data-fa="adpresence" data-k="online" aria-pressed="${ADUPRES==='online'}">🟢 Çevrimiçi</button><button type="button" class="ftab ${ADUPRES==='offline'?'on':''}" data-fa="adpresence" data-k="offline" aria-pressed="${ADUPRES==='offline'}">⚪ Çevrimdışı</button></div>
+  <div style="padding:0 16px">${ADUSERS?(adminUsers.length?adminUsers.map(uRow).join(''):'<p class="hint">Bu durumda kullanıcı bulunamadı.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>`;
 }else if(ADTAB==='msgs'){
   const chPill=(id,label,active)=>`<button class="ftab ${active?'on':''}" data-fa="admchpick" data-ch="${esc(id)}" data-l="${esc(label)}" style="margin:3px">#${esc(label)}</button>`;
   if(ADMVIEW==='reports'){
