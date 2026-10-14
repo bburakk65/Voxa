@@ -129,7 +129,7 @@ async function sendEmail(env, to, subject, html) {
     return { ok: true, status: r.status };
   } catch { return { ok: false, msg: 'E-posta servisine ulaşılamadı', status: 0, detail: 'ağ hatası' }; }
 }
-const BUILD = 'v26.10.12-c';
+const BUILD = 'v26.10.12-d';
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const rcode = (n = 6) => [...crypto.getRandomValues(new Uint8Array(n))].map(x => ALPHA[x % ALPHA.length]).join('');
 const normCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
@@ -516,12 +516,30 @@ export class Hub {
         await this.logAdmin('recover', who, { uname: lower.slice(0, 20) }, false, 'yanlış kod');
         return R({ ok: false, msg: 'Kod yanlış' });
       }
-      const action = b.action === 'promote' ? 'promote' : 'reset';
+      const action = ['promote', 'main', 'revoke'].includes(b.action) ? b.action : 'reset';
       if (!lower) return R({ ok: false, msg: 'Kullanıcı adını yaz' });
       const acc = await st.get('u:' + lower);
       if (!acc) return R({ ok: false, msg: 'Bu adla bir hesap yok. Önce o adla kayıt ol, sonra tekrar dene' });
+      const mainSet = await this.mainIds();
+      if (action === 'main') {
+        if (mainSet.has(acc.id)) return R({ ok: false, msg: 'Bu hesap zaten ana yönetici' });
+        const mids = await this.g('mainadmins'); mids.push(acc.id); await st.put('mainadmins', mids);
+        const aids = await this.g('admins'); if (aids.includes(acc.id)) await st.put('admins', aids.filter(x => x !== acc.id));
+        await this.logAdmin('recover', who, { id: acc.id, name: acc.name, uname: lower }, true, 'ANA yönetici yapıldı');
+        await this.updateAdminFlags(acc.id);
+        return R({ ok: true, msg: acc.name + ' artık ANA yönetici (en yüksek yetki). O hesapla giriş yapabilirsin.' });
+      }
+      if (action === 'revoke') {
+        if (ADMIN_UNAMES.has(lower)) return R({ ok: false, msg: 'Bu hesap koddaki sabit ana yönetici, buradan kaldırılamaz' });
+        const mids = await this.g('mainadmins'), aids = await this.g('admins');
+        if (!mids.includes(acc.id) && !aids.includes(acc.id)) return R({ ok: false, msg: 'Bu hesapta admin yetkisi yok' });
+        await st.put('mainadmins', mids.filter(x => x !== acc.id)); await st.put('admins', aids.filter(x => x !== acc.id));
+        await this.logAdmin('recover', who, { id: acc.id, name: acc.name, uname: lower }, true, 'tüm admin yetkisi kaldırıldı');
+        await this.updateAdminFlags(acc.id);
+        return R({ ok: true, msg: acc.name + ' artık normal üye' });
+      }
       if (action === 'promote') {
-        if (ADMIN_UNAMES.has(lower)) return R({ ok: false, msg: 'Bu zaten ana yönetici' });
+        if (mainSet.has(acc.id)) return R({ ok: false, msg: 'Bu zaten ana yönetici' });
         const ids = await this.g('admins');
         if (ids.includes(acc.id)) return R({ ok: false, msg: 'Bu hesap zaten admin' });
         ids.push(acc.id); await st.put('admins', ids);
@@ -860,9 +878,13 @@ export class Hub {
     await this.vstate();
     for (const mm of members) await this.pushGuildsTo(mm.id);
   }
+  async mainIds() {
+    const set = new Set(await this.g('mainadmins'));
+    for (const n of ADMIN_UNAMES) { const a = await this.s.storage.get('u:' + n); if (a) set.add(a.id); }
+    return set;
+  }
   async adminFlags(uid) {
-    const mainAcc = await this.s.storage.get('u:voxaadmin');
-    const mainAdmin = !!(mainAcc && mainAcc.id === uid);
+    const mainAdmin = (await this.mainIds()).has(uid);
     const promoted = (await this.g('admins')).includes(uid);
     return { admin: mainAdmin || promoted, mainAdmin };
   }
@@ -904,6 +926,7 @@ export class Hub {
       const q = String(m.q || '').toLowerCase().trim();
       const rows = await st.list({ prefix: 'u:', limit: 2000 });
       const on = this.onlineSet();
+      const mains = await this.mainIds();
       const list = [];
       for (const [k, acc] of rows) {
         if (q && !String(acc.name).toLowerCase().includes(q)) continue;
@@ -911,7 +934,7 @@ export class Hub {
         const muteUntil = await st.get('mute:' + acc.id);
         const banRec = await st.get('ban:' + acc.id);
         list.push({
-          id: acc.id, name: acc.name, uname, ts: acc.ts || 0, on: on.has(acc.id), admin: ADMIN_UNAMES.has(uname),
+          id: acc.id, name: acc.name, uname, ts: acc.ts || 0, on: on.has(acc.id), admin: mains.has(acc.id),
           muted: !!(muteUntil && muteUntil > Date.now()) ? muteUntil : 0,
           banned: !!banRec
         });
@@ -924,7 +947,7 @@ export class Hub {
       const fail = async msg => { reply('admute', { ok: false, msg, uname }); await this.logAdmin('mute', me, { uname }, false, msg); };
       const acc = await st.get('u:' + uname);
       if (!acc) return fail('Kullanıcı bulunamadı');
-      if (ADMIN_UNAMES.has(uname) || (await this.g('admins')).includes(acc.id)) return fail('Admin susturulamaz');
+      if ((await this.mainIds()).has(acc.id) || (await this.g('admins')).includes(acc.id)) return fail('Admin susturulamaz');
       const ms = Math.min(7 * 86400000, Math.max(60000, Math.round(Number(m.ms) || 0)));
       const until = Date.now() + ms;
       await st.put('mute:' + acc.id, until);
@@ -946,7 +969,7 @@ export class Hub {
       const fail = async msg => { reply('adban', { ok: false, msg, uname }); await this.logAdmin('ban', me, { uname }, false, msg); };
       const acc = await st.get('u:' + uname);
       if (!acc) return fail('Kullanıcı bulunamadı');
-      if (ADMIN_UNAMES.has(uname) || (await this.g('admins')).includes(acc.id)) return fail('Admin yasaklanamaz');
+      if ((await this.mainIds()).has(acc.id) || (await this.g('admins')).includes(acc.id)) return fail('Admin yasaklanamaz');
       const reason = String(m.reason || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 120);
       await st.put('ban:' + acc.id, { ts: Date.now(), by: me.id, byName: me.name, reason });
       await this.logAdmin('ban', me, { id: acc.id, name: acc.name, uname }, true, reason);
@@ -1009,6 +1032,7 @@ export class Hub {
       const acc = await st.get('u:' + uname);
       if (!acc) return fail('Kullanıcı bulunamadı');
       const uid = acc.id;
+      if ((await this.mainIds()).has(uid)) return fail('Admin hesabı silinemez');
       if ((await this.g('admins')).includes(uid)) return fail('Önce bu kullanıcının admin yetkisini kaldırmalısın');
       for (const w of this.s.getWebSockets()) {
         const a = w.deserializeAttachment();
@@ -1070,10 +1094,16 @@ export class Hub {
       const ids = await this.g('admins');
       const list = [];
       for (const id of ids) { const c = await this.card(id); if (c) list.push(c); }
+      const mains = [];
+      for (const id of await this.mainIds()) {
+        const un = await this.unameOf(id), c = await this.card(id);
+        if (c && un) mains.push({ id, name: c.name, uname: un, fixed: ADMIN_UNAMES.has(un) });
+      }
+      mains.sort((a, b) => (b.fixed ? 1 : 0) - (a.fixed ? 1 : 0));
       const log = (await this.g('adlog')).slice(-30).reverse();
       reply('adadmins', {
         main: mainAcc ? { id: mainAcc.id, name: mainAcc.name, uname: 'voxaadmin' } : null,
-        list, log
+        mains, list, log
       });
     }
     else if (t === 'ademail') {
@@ -1108,6 +1138,7 @@ export class Hub {
       if (ADMIN_UNAMES.has(uname)) return fail('Ana yönetici hesabı için bu yöntem kullanılamaz');
       const acc = await st.get('u:' + uname);
       if (!acc) return fail('Kullanıcı bulunamadı');
+      if ((await this.mainIds()).has(acc.id)) return fail('Ana yönetici hesabı için bu yöntem kullanılamaz');
       const old = await st.get('prtfor:' + uname);
       if (old) await st.delete('prt:' + old);
       const token = secToken(), hash = await sha256hex(token), exp = Date.now() + 900000;
@@ -1126,6 +1157,7 @@ export class Hub {
       if (ADMIN_UNAMES.has(uname)) return fail('Bu kullanıcı zaten ana yönetici');
       const acc = await st.get('u:' + uname);
       if (!acc) return fail('Kullanıcı bulunamadı');
+      if ((await this.mainIds()).has(acc.id)) return fail('Bu kullanıcı zaten ana yönetici');
       const ids = await this.g('admins');
       if (ids.includes(acc.id)) return fail('Bu kullanıcı zaten admin');
       ids.push(acc.id);

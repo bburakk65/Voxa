@@ -435,6 +435,8 @@ body.dmopen #dmcall{display:grid}
 #login .af span{font-size:14px;font-weight:600;color:#e7e7ea;letter-spacing:0;margin-bottom:8px}
 #login .af input{background:#0c0c0f;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:14px 15px;font-size:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
 #login .af input::placeholder{color:#5c5e66}
+#login .af select{display:block;width:100%;background:#0c0c0f;color:#fff;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:14px 15px;font-size:16px;appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,#9b9ca4 50%),linear-gradient(135deg,#9b9ca4 50%,transparent 50%);background-position:calc(100% - 20px) 50%,calc(100% - 14px) 50%;background-size:6px 6px,6px 6px;background-repeat:no-repeat}
+#login .af select:focus{outline:none;border-color:rgba(255,255,255,.55);box-shadow:0 0 0 3px rgba(255,255,255,.1)}
 #login .af input:focus{border-color:rgba(255,255,255,.55);box-shadow:0 0 0 3px rgba(255,255,255,.1)}
 #login .af input:-webkit-autofill{-webkit-text-fill-color:#fff;box-shadow:0 0 0 1000px #0c0c0f inset;caret-color:#fff}
 #login .af.bad input{border-color:#f23f43}
@@ -507,13 +509,13 @@ body.dmopen #dmcall{display:grid}
   </div>
   <div id="arc" class="apanel" hidden>
    <h2 class="aph">Yönetici kurtarma</h2>
-   <p class="apd">Cloudflare'de belirlediğin kurtarma kodunu yaz. Şifresi unutulan bir hesabın şifresini sıfırlayabilir ya da var olan bir hesabı yardımcı admin yapabilirsin.</p>
+   <p class="apd">Cloudflare'de belirlediğin kurtarma kodunu yaz. Şifresi unutulan bir hesabı sıfırlayabilir, var olan bir hesabı ana ya da yardımcı admin yapabilir veya yetkisini kaldırabilirsin.</p>
    <label class="af"><span>Kurtarma kodu</span><input id="arcode" type="password" autocomplete="off" maxlength="200"></label>
    <label class="af"><span>Hesabın kullanıcı adı</span><input id="aruser" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="20"></label>
-   <label class="af"><span>Yeni şifre (sadece şifre sıfırlarken)</span><input id="arnew" type="password" autocomplete="new-password" maxlength="100"></label>
+   <label class="af"><span>Ne yapılsın?</span><select id="aract"><option value="reset">Şifreyi sıfırla ve gir</option><option value="main">ANA yönetici yap (en yüksek yetki)</option><option value="promote">Yardımcı admin yap</option><option value="revoke">Tüm admin yetkisini kaldır</option></select></label>
+   <label class="af" id="arnewl"><span>Yeni şifre</span><input id="arnew" type="password" autocomplete="new-password" maxlength="100"></label>
    <div id="armsg2" class="aerr" role="alert" aria-live="polite"></div>
-   <button class="abtn" id="arreset" type="button"><span class="ab-t">Şifreyi sıfırla ve gir</span><i class="spin"></i></button>
-   <button class="abtn alt" id="arpromo" type="button" style="margin-top:10px"><span class="ab-t">Yardımcı admin yap</span><i class="spin"></i></button>
+   <button class="abtn" id="arrun" type="button"><span class="ab-t">Uygula</span><i class="spin"></i></button>
    <button type="button" class="alink" id="arcback" style="text-align:center;margin-top:8px">← Girişe dön</button>
   </div>
   <p class="note">Devam ederek <a href="/sartlar.html">Şartlar</a> ve <a href="/gizlilik.html">Gizlilik Politikası</a>'nı kabul edersin.</p>
@@ -1628,7 +1630,7 @@ function authHash(){
 addEventListener('hashchange',authHash);
 async function auRecover(action){
  if(AU.busy)return;
- const code=$('arcode').value,user=$('aruser').value.trim(),np=$('arnew').value,m=$('armsg2'),btn=$(action==='reset'?'arreset':'arpromo');
+ const code=$('arcode').value,user=$('aruser').value.trim(),np=$('arnew').value,m=$('armsg2'),btn=$('arrun');
  m.classList.remove('good');m.textContent='';
  if(!code){m.textContent='Kurtarma kodunu yaz';return}
  if(!user){m.textContent='Hesabın kullanıcı adını yaz';return}
@@ -1698,8 +1700,8 @@ $('aforgot').addEventListener('click',()=>auPanel('forgot'));
  $('afe').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();auForgot()}});
  $('argo').addEventListener('click',auReset);
  $('arcback').addEventListener('click',()=>auPanel('main'));
- $('arreset').addEventListener('click',()=>auRecover('reset'));
- $('arpromo').addEventListener('click',()=>auRecover('promote'));
+ $('arrun').addEventListener('click',()=>auRecover($('aract').value));
+ $('aract').addEventListener('change',()=>{$('arnewl').hidden=$('aract').value!=='reset'});
  $('arp2').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();auReset()}});
  $('au').addEventListener('input',()=>{
   const s=$('au_s');s.textContent='';s.className='afs';clearTimeout(AU.ck);
@@ -1717,7 +1719,7 @@ $('aforgot').addEventListener('click',()=>auPanel('forgot'));
 
 
 /* ===== GİZLİ YÖNETİM PANELİ ===== */
-const BUILD='v26.10.12-c';
+const BUILD='v26.10.12-d';
 function checkVer(v){
  let el=document.getElementById('verbar');
  if(v===BUILD){if(el)el.remove();return}
@@ -1787,7 +1789,7 @@ const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Y
  }else if(ADTAB==='admins'&&ME.mainAdmin){
   body=`<div class="fsearch" style="padding:4px 16px 2px"><input id="adpromoq" value="${esc(ADPROMOQ)}" placeholder="Admin yapmak için kullanıcı adı yaz" autocomplete="off"><button class="fbtn" style="margin-top:8px;width:100%" data-fa="adpromogo">Admin Yap</button></div>
   <div class="fsec" style="padding-left:16px">ANA YÖNETİCİ</div>
-  <div style="padding:0 16px">${ADADMINS&&ADADMINS.main?`<div class="frow">${av(ADADMINS.main.name,'dot')}<div class="fi"><b>${esc(ADADMINS.main.name)}${admTag(true)}</b><small>Kaldırılamaz</small></div></div>`:'<p class="hint">Yükleniyor…</p>'}</div>
+  <div style="padding:0 16px">${ADADMINS?((ADADMINS.mains&&ADADMINS.mains.length?ADADMINS.mains:(ADADMINS.main?[{...ADADMINS.main,fixed:true}]:[])).map(m2=>`<div class="frow">${av(m2.name,'dot')}<div class="fi"><b>${esc(m2.name)}${admTag(true)}</b><small>${m2.fixed?'Kaldırılamaz (kodda sabit)':'Kurtarma koduyla kaldırılır'}</small></div></div>`).join('')||'<p class="hint">Yok</p>'):'<p class="hint">Yükleniyor…</p>'}</div>
   <div class="fsec" style="padding-left:16px">YETKİLENDİRİLMİŞ ADMİNLER</div>
   <div style="padding:0 16px">${ADADMINS?(ADADMINS.list.length?ADADMINS.list.map(adminRow).join(''):'<p class="hint">Henüz yetkilendirilmiş admin yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>
   <div class="fsec" style="padding-left:16px">E-POSTA SERVİSİ</div>
