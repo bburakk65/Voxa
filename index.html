@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="voxa-build" content="v26.10.12-f">
 <meta name="theme-color" content="#1e1f22">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icon-192.png">
@@ -84,10 +83,6 @@ button:active{transform:scale(.94)}
 @keyframes slide{from{opacity:0;transform:translateY(6px)}}
 @keyframes talk{50%{box-shadow:0 0 0 4px rgba(35,165,89,.45)}}
 @media(max-width:900px){.mem{display:none}}
-#membtn{display:none}
-@media(max-width:900px){.mh #membtn{display:grid}}
-.msh{text-align:left;max-height:60vh;overflow-y:auto}.msh .cat{padding-top:14px}.msh .vu{padding-left:8px;color:var(--text)}.msh .vu.off{opacity:.5}
-.mem .vu.off{opacity:.5}
 @media(max-width:760px){
  .menu{display:grid}
  .rail,.side{position:fixed;top:0;bottom:0;z-index:20;transition:transform .25s ease}
@@ -440,8 +435,6 @@ body.dmopen #dmcall{display:grid}
 #login .af span{font-size:14px;font-weight:600;color:#e7e7ea;letter-spacing:0;margin-bottom:8px}
 #login .af input{background:#0c0c0f;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:14px 15px;font-size:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
 #login .af input::placeholder{color:#5c5e66}
-#login .af select{display:block;width:100%;background:#0c0c0f;color:#fff;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:14px 15px;font-size:16px;appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,#9b9ca4 50%),linear-gradient(135deg,#9b9ca4 50%,transparent 50%);background-position:calc(100% - 20px) 50%,calc(100% - 14px) 50%;background-size:6px 6px,6px 6px;background-repeat:no-repeat}
-#login .af select:focus{outline:none;border-color:rgba(255,255,255,.55);box-shadow:0 0 0 3px rgba(255,255,255,.1)}
 #login .af input:focus{border-color:rgba(255,255,255,.55);box-shadow:0 0 0 3px rgba(255,255,255,.1)}
 #login .af input:-webkit-autofill{-webkit-text-fill-color:#fff;box-shadow:0 0 0 1000px #0c0c0f inset;caret-color:#fff}
 #login .af.bad input{border-color:#f23f43}
@@ -514,13 +507,13 @@ body.dmopen #dmcall{display:grid}
   </div>
   <div id="arc" class="apanel" hidden>
    <h2 class="aph">Yönetici kurtarma</h2>
-   <p class="apd">Cloudflare'de belirlediğin kurtarma kodunu yaz. Şifresi unutulan bir hesabı sıfırlayabilir, var olan bir hesabı ana ya da yardımcı admin yapabilir veya yetkisini kaldırabilirsin.</p>
+   <p class="apd">Cloudflare'de belirlediğin kurtarma kodunu yaz. Şifresi unutulan bir hesabın şifresini sıfırlayabilir ya da var olan bir hesabı yardımcı admin yapabilirsin.</p>
    <label class="af"><span>Kurtarma kodu</span><input id="arcode" type="password" autocomplete="off" maxlength="200"></label>
    <label class="af"><span>Hesabın kullanıcı adı</span><input id="aruser" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="20"></label>
-   <label class="af"><span>Ne yapılsın?</span><select id="aract"><option value="reset">Şifreyi sıfırla ve gir</option><option value="main">ANA yönetici yap (en yüksek yetki)</option><option value="promote">Yardımcı admin yap</option><option value="revoke">Tüm admin yetkisini kaldır</option></select></label>
-   <label class="af" id="arnewl"><span>Yeni şifre</span><input id="arnew" type="password" autocomplete="new-password" maxlength="100"></label>
+   <label class="af"><span>Yeni şifre (sadece şifre sıfırlarken)</span><input id="arnew" type="password" autocomplete="new-password" maxlength="100"></label>
    <div id="armsg2" class="aerr" role="alert" aria-live="polite"></div>
-   <button class="abtn" id="arrun" type="button"><span class="ab-t">Uygula</span><i class="spin"></i></button>
+   <button class="abtn" id="arreset" type="button"><span class="ab-t">Şifreyi sıfırla ve gir</span><i class="spin"></i></button>
+   <button class="abtn alt" id="arpromo" type="button" style="margin-top:10px"><span class="ab-t">Yardımcı admin yap</span><i class="spin"></i></button>
    <button type="button" class="alink" id="arcback" style="text-align:center;margin-top:8px">← Girişe dön</button>
   </div>
   <p class="note">Devam ederek <a href="/sartlar.html">Şartlar</a> ve <a href="/gizlilik.html">Gizlilik Politikası</a>'nı kabul edersin.</p>
@@ -547,7 +540,7 @@ body.dmopen #dmcall{display:grid}
   </div>
  </aside>
  <main class="main">
-  <div class="mh"><button class="ib menu" id="menu" aria-label="Menü">☰</button><span>#</span><div id="mtitle">genel</div><button class="ib" id="membtn" aria-label="Üyeler" style="margin-left:auto">👥</button></div>
+  <div class="mh"><button class="ib menu" id="menu" aria-label="Menü">☰</button><span>#</span><div id="mtitle">genel</div></div>
   <div class="body">
    <div class="chat">
     <div class="msgs" id="msgs"></div>
@@ -585,39 +578,18 @@ const SV=()=>[{id:'home',name:'Arkadaşlar',short:'👥'},...SERVERS,...GUILDS.m
 const chOf=id=>{if(id&&id.startsWith('sv:')){const s2=MYSV.find(x=>'sv:'+x.id===id);return s2?{text:s2.channels.filter(c=>c.kind==='text').map(c=>c.name),voice:s2.channels.filter(c=>c.kind==='voice').map(c=>c.name)}:{text:[],voice:[]}}return CH[id]||{text:['genel','sohbet'],voice:['Sesli Oda']}};
 function typ(){const n=Object.keys(TY).filter(k=>TY[k]>Date.now());$('typ').textContent=n.length?n.join(', ')+' yazıyor…':''}
 setInterval(typ,1000);
-function memHtml(){
- const row=u=>`<div class="vu ${u.on?'':'off'}">${av(u.name,u.on?'dot':'dot offl')}${esc(u.name)}${admTag(u.admin)}${u.owner?' 👑':''}</div>`;
+function members(){
  if(srv.startsWith('sv:')){
   const gid=srv.slice(3);
   if(SVMEMFOR!==gid){SVMEM=null;SVMEMFOR=gid;sendWS({t:'svmembers',id:gid})}
-  if(!SVMEM)return '<p class="hint" style="padding:14px">Yükleniyor…</p>';
+  if(!SVMEM){$('mem').innerHTML='<p class="hint" style="padding:14px">Yükleniyor…</p>';return}
   const on=SVMEM.filter(u=>u.on),off=SVMEM.filter(u=>!u.on);
-  return (on.length?`<div class="cat">ÇEVRİMİÇİ — ${on.length}</div>`+on.map(row).join(''):'')+
+  const row=u=>`<div class="vu">${av(u.name,u.on?'dot':'dot offl')}${esc(u.name)}${admTag(u.admin)}${u.owner?' 👑':''}</div>`;
+  $('mem').innerHTML=(on.length?`<div class="cat">ÇEVRİMİÇİ — ${on.length}</div>`+on.map(row).join(''):'')+
    (off.length?`<div class="cat">ÇEVRİMDIŞI — ${off.length}</div>`+off.map(row).join(''):'')||'<p class="hint" style="padding:14px">Üye yok.</p>';
+  return;
  }
- return `<div class="cat">ÇEVRİMİÇİ — ${ONL.length}</div>`+ONL.map(u=>row({...u,on:true})).join('');
-}
-let MEMOPEN=false,__mrt=null;
-function members(){
- $('mem').innerHTML=memHtml();
- const bt=$('membtn');if(bt)bt.style.visibility=srv==='home'?'hidden':'visible';
- if(MEMOPEN){const sh=$('memsheet');if(sh&&$('fdlg').classList.contains('on'))sh.innerHTML=memHtml();else MEMOPEN=false}
-}
-function openMembers(){
- if(srv==='home')return;
- MEMOPEN=true;
- fDlg(`<div class="fcard"><h3>Üyeler</h3><div id="memsheet" class="msh">${memHtml()}</div><div class="row2" style="margin-top:12px"><button class="fbtn no" data-fa="close">Kapat</button></div></div>`);
-}
-function refreshMembers(){
- clearTimeout(__mrt);
- __mrt=setTimeout(()=>{
-  if(srv.startsWith('sv:'))sendWS({t:'svmembers',id:srv.slice(3)});
-  if(ME.admin&&$('adminFull').classList.contains('on')){
-   const typing=document.activeElement&&document.activeElement.id==='aduq';
-   if(ADTAB==='users'&&!typing)sendWS({t:'adusers',q:ADUQ});
-   if(ADTAB==='dash')sendWS({t:'adstats'});
-  }
- },400);
+ $('mem').innerHTML=`<div class="cat">ÇEVRİMİÇİ — ${ONL.length}</div>`+ONL.map(u=>`<div class="vu">${av(u.name,'dot')}${esc(u.name)}${admTag(u.admin)}</div>`).join('');
 }
 let REPLY=null,EDIT=null,PICK=null,UNR={},AC=null,NOANIM=false;
 const EMO='😀 😂 🤣 😊 😍 😘 😎 🤔 😅 😭 😡 🥳 😴 🤯 🙄 😇 👍 👎 👏 🙌 🙏 💪 👀 🔥 ✨ 💯 ❤️ 💔 🎉 🎮 🎧 ⚽ 🍕 ☕ 🚀 ⭐ ✅ ❌ 😮 😢'.split(' ');
@@ -721,7 +693,7 @@ function connect(){
  ws.onmessage=e=>{
   const m=JSON.parse(e.data);
   if(m.t==='ready'){checkVer(m.ver);if(m.me){ME.name=m.me.name;ME.admin=!!m.me.admin;ME.mainAdmin=!!m.me.mainAdmin;profUI()}HIST=m.hist||{};ONL=m.online||[];GUILDS=m.guilds||[];MYSV=m.servers||[];if(m.social)SOC=m.social;rail();msgs();members();chans();pendingFriend()}
-  else if(m.t==='online'){ONL=m.online||[];members();refreshMembers()}
+  else if(m.t==='online'){ONL=m.online||[];if(srv.startsWith('sv:'))SVMEMFOR='';members()}
   else if(m.t==='msg'){
    const L=(HIST[m.ch]=HIST[m.ch]||[]);const prev=L[L.length-1];L.push(m.msg);delete TY[m.msg.u];typ();
    if(m.ch===key()){const b=$('msgs');const nb=b.scrollHeight-b.scrollTop-b.clientHeight<120||m.msg.id===ME.id;addMsg(b,m.msg,prev);if(nb)b.scrollTop=1e9}
@@ -749,7 +721,6 @@ function connect(){
 }
 
 /* --- arayüz olayları --- */
-$('membtn').onclick=openMembers;
 $('rail').onclick=e=>{const b=e.target.closest('.srv');if(!b)return;if(b.dataset.add){openServerAdd();return}if(b.dataset.admin){drawer(false);openAdmin();return}srv=b.dataset.s;if(srv==='home'){ch='';FVIEW=true}else ch=chOf(srv).text[0]||'';all()};
 $('out').onclick=logout;
 $('form').onsubmit=e=>{
@@ -1349,7 +1320,7 @@ function pendingFriend(){
  if(c){try{localStorage.removeItem('voxa_pf')}catch(e){}sendWS({t:'fadd',code:c})}
 }
 function openDM(id){closeF();srv='home';ch=dmKey(id);FVIEW=false;all();drawer(false)}
-function closeF(){MEMOPEN=false;PROF=null;$('fsheet').classList.remove('on');$('fdlg').classList.remove('on')}
+function closeF(){PROF=null;$('fsheet').classList.remove('on');$('fdlg').classList.remove('on')}
 function fMenu(id){
  const p=findP(id);if(!p)return;
  $('fsheet').innerHTML=`<div class="fcard"><div class="fhead">${fav(p,1)}<div><b>${esc(dn(p))}</b><br><small style="color:var(--muted)">Voxa ID: ${esc(p.code||'')}</small></div></div>
@@ -1657,7 +1628,7 @@ function authHash(){
 addEventListener('hashchange',authHash);
 async function auRecover(action){
  if(AU.busy)return;
- const code=$('arcode').value,user=$('aruser').value.trim(),np=$('arnew').value,m=$('armsg2'),btn=$('arrun');
+ const code=$('arcode').value,user=$('aruser').value.trim(),np=$('arnew').value,m=$('armsg2'),btn=$(action==='reset'?'arreset':'arpromo');
  m.classList.remove('good');m.textContent='';
  if(!code){m.textContent='Kurtarma kodunu yaz';return}
  if(!user){m.textContent='Hesabın kullanıcı adını yaz';return}
@@ -1727,8 +1698,8 @@ $('aforgot').addEventListener('click',()=>auPanel('forgot'));
  $('afe').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();auForgot()}});
  $('argo').addEventListener('click',auReset);
  $('arcback').addEventListener('click',()=>auPanel('main'));
- $('arrun').addEventListener('click',()=>auRecover($('aract').value));
- $('aract').addEventListener('change',()=>{$('arnewl').hidden=$('aract').value!=='reset'});
+ $('arreset').addEventListener('click',()=>auRecover('reset'));
+ $('arpromo').addEventListener('click',()=>auRecover('promote'));
  $('arp2').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();auReset()}});
  $('au').addEventListener('input',()=>{
   const s=$('au_s');s.textContent='';s.className='afs';clearTimeout(AU.ck);
@@ -1746,7 +1717,7 @@ $('aforgot').addEventListener('click',()=>auPanel('forgot'));
 
 
 /* ===== GİZLİ YÖNETİM PANELİ ===== */
-const BUILD='v26.10.12-f';
+const BUILD='v26.10.12-c';
 function checkVer(v){
  let el=document.getElementById('verbar');
  if(v===BUILD){if(el)el.remove();return}
@@ -1816,7 +1787,7 @@ const modStatus=u2=>u2.banned?'<span style="color:#f23f43;font-weight:700">⛔ Y
  }else if(ADTAB==='admins'&&ME.mainAdmin){
   body=`<div class="fsearch" style="padding:4px 16px 2px"><input id="adpromoq" value="${esc(ADPROMOQ)}" placeholder="Admin yapmak için kullanıcı adı yaz" autocomplete="off"><button class="fbtn" style="margin-top:8px;width:100%" data-fa="adpromogo">Admin Yap</button></div>
   <div class="fsec" style="padding-left:16px">ANA YÖNETİCİ</div>
-  <div style="padding:0 16px">${ADADMINS?((ADADMINS.mains&&ADADMINS.mains.length?ADADMINS.mains:(ADADMINS.main?[{...ADADMINS.main,fixed:true}]:[])).map(m2=>`<div class="frow">${av(m2.name,'dot')}<div class="fi"><b>${esc(m2.name)}${admTag(true)}</b><small>${m2.fixed?'Kaldırılamaz (kodda sabit)':'Kurtarma koduyla kaldırılır'}</small></div></div>`).join('')||'<p class="hint">Yok</p>'):'<p class="hint">Yükleniyor…</p>'}</div>
+  <div style="padding:0 16px">${ADADMINS&&ADADMINS.main?`<div class="frow">${av(ADADMINS.main.name,'dot')}<div class="fi"><b>${esc(ADADMINS.main.name)}${admTag(true)}</b><small>Kaldırılamaz</small></div></div>`:'<p class="hint">Yükleniyor…</p>'}</div>
   <div class="fsec" style="padding-left:16px">YETKİLENDİRİLMİŞ ADMİNLER</div>
   <div style="padding:0 16px">${ADADMINS?(ADADMINS.list.length?ADADMINS.list.map(adminRow).join(''):'<p class="hint">Henüz yetkilendirilmiş admin yok.</p>'):'<p class="hint">Yükleniyor…</p>'}</div>
   <div class="fsec" style="padding-left:16px">E-POSTA SERVİSİ</div>
@@ -1956,7 +1927,7 @@ function guildMsg(m){
   MGMTCODE=m.code;mgmtRender();fCopy(m.code,'Davet kodu kopyalandı: '+m.code);
  }else if(m.t==='svmembers'){
   if(MGMT&&String(m.id)===String(MGMT.id)){MGMTMEM=m.list||[];mgmtRender()}
-  if(srv==='sv:'+m.id){SVMEM=m.list||[];SVMEMFOR=String(m.id);members()}
+  if(srv==='sv:'+m.id){SVMEM=m.list||[];members()}
  }
 }
 /* --- özellikler: mesaj işlemleri, emoji, profil, PWA --- */
