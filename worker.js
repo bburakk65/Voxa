@@ -91,6 +91,7 @@ export default {
   async fetch(req, env) {
     const u = new URL(req.url);
     if (u.pathname === '/ws') return env.HUB.get(env.HUB.idFromName('main')).fetch(req);
+    if (req.method === 'GET' && u.pathname === '/version') return new Response(JSON.stringify({ app: 'voxa', worker: BUILD }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
     if (req.method === 'POST' && ['/auth/login', '/auth/register', '/auth/check', '/auth/forgot', '/auth/reset', '/auth/verify', '/auth/recover'].includes(u.pathname)) {
       const bad = (msg, s) => new Response(JSON.stringify({ ok: false, msg }), { status: s, headers: { 'Content-Type': 'application/json' } });
       if (Number(req.headers.get('content-length') || 0) > 2048) return bad('İstek çok büyük', 413);
@@ -129,7 +130,7 @@ async function sendEmail(env, to, subject, html) {
     return { ok: true, status: r.status };
   } catch { return { ok: false, msg: 'E-posta servisine ulaşılamadı', status: 0, detail: 'ağ hatası' }; }
 }
-const BUILD = 'v26.10.12-e';
+const BUILD = 'v26.10.12-f';
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const rcode = (n = 6) => [...crypto.getRandomValues(new Uint8Array(n))].map(x => ALPHA[x % ALPHA.length]).join('');
 const normCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
