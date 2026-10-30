@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Voxa</string>
+    <string name="shortcut_updates">Güncellemeleri denetle</string>
+    <string name="update_title">Güncellemeler</string>
+    <string name="offline_title">Bağlantı yok</string>
+    <string name="offline_text">Voxa\'ya ulaşılamıyor. İnternet bağlantını kontrol et; bağlantı gelince otomatik yeniden denenecek.</string>
+    <string name="retry">Yeniden dene</string>
+</resources>

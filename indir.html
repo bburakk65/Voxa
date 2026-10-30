@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1e1f22">
+<title>Voxa — İndir</title>
+<style>
+:root{--bg:#050506;--card:#101114;--line:rgba(255,255,255,.09);--tx:#f2f3f5;--mu:#949ba4;--ac:#f4f4f5}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--tx);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:max(24px,env(safe-area-inset-top)) 18px 48px}
+h1{font-size:28px;margin:18px 0 6px;letter-spacing:-.5px}h2{font-size:17px;margin:28px 0 10px}
+p.sub{color:var(--mu);margin:0 0 18px;line-height:1.5}
+.ver{display:flex;flex-wrap:wrap;gap:8px;align-items:center;color:var(--mu);font-size:13px;margin:6px 0 4px}
+.ver b{color:var(--tx)}
+.grid{display:grid;gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.card.me{border-color:rgba(255,255,255,.4)}
+.card h3{margin:0 0 4px;font-size:16px}.card p{margin:0 0 12px;color:var(--mu);font-size:13.5px;line-height:1.45}
+.btn{display:inline-block;background:var(--ac);color:#08080a;text-decoration:none;font-weight:700;padding:11px 16px;border-radius:12px;font-size:14px;margin:0 8px 8px 0}
+.btn.off{background:#25262b;color:#6d6f78;pointer-events:none}
+.hash{display:block;color:#6d6f78;font-size:11.5px;word-break:break-all;margin-top:2px}
+details{margin-top:6px}summary{cursor:pointer;color:var(--mu);font-size:13px}
+details p,details li{color:var(--mu);font-size:13px;line-height:1.55}
+pre.notes{white-space:pre-wrap;color:var(--mu);font:13px/1.5 inherit;margin:0}
+.warn{color:#f0b132}.msg{color:var(--mu);margin:18px 0}
+a{color:#a6a7ae}
+</style>
+</head>
+<body>
+<main>
+  <h1>Voxa'yı indir</h1>
+  <p class="sub">Arkadaşlarınla yaz, konuş, takıl. Her cihaz için doğru dosya aşağıda. Yalnızca gerçekten yayımlanmış dosyalar için indirme düğmesi çıkar.</p>
+  <div class="ver" id="ver">Sürüm bilgisi yükleniyor…</div>
+  <div class="msg" id="msg"></div>
+
+  <div class="grid" id="grid">
+    <section class="card" data-p="android">
+      <h3>📱 Android</h3><p>Telefon ve tabletler için kurulabilir uygulama (APK). Android 8.0 ve üstü.</p>
+      <div class="dl"></div>
+      <details><summary>Nasıl kurarım?</summary><ol>
+        <li>APK'yı indir ve bildirimden ya da Dosyalar'dan aç.</li>
+        <li>Android "Bu kaynaktan yüklemeye izin ver" derse izni aç ve geri dön.</li>
+        <li>"Yükle"ye bas. Sonraki sürümleri uygulamanın içinden güncelleyebilirsin (uygulamayı aç → simgeye uzun bas → Güncellemeleri denetle).</li></ol>
+        <p>Not: Telefon ekran paylaşımını (Android'in kısıtı) ve uygulama arka plandayken sürekli sesli odayı desteklemeyebilir.</p></details>
+    </section>
+    <section class="card" data-p="windows">
+      <h3>🪟 Windows</h3><p>Windows 10 ve üstü için kurulum dosyası.</p><div class="dl"></div>
+      <details><summary>Nasıl kurarım?</summary><p>Dosyayı çalıştır. "Windows korudu / bilinmeyen yayıncı" uyarısı çıkarsa <b>Ek bilgi → Yine de çalıştır</b> de (uygulama henüz ücretli bir yayıncı imzası taşımıyor).</p></details>
+    </section>
+    <section class="card" data-p="mac">
+      <h3>🍎 macOS</h3><p>Intel ve Apple Silicon (M1/M2/M3…) için ayrı dosyalar.</p><div class="dl"></div>
+      <details><summary>Nasıl kurarım?</summary><p>DMG'yi aç, Voxa'yı Uygulamalar'a sürükle. İlk açılışta "doğrulanamadı" derse Voxa'ya sağ tıkla → <b>Aç</b>. Hâlâ açılmazsa Terminal'de: <code>xattr -cr /Applications/Voxa.app</code>. Bu sürüm Apple imzası taşımıyor.</p></details>
+    </section>
+    <section class="card" data-p="linux">
+      <h3>🐧 Linux</h3><p>AppImage (çoğu dağıtımda çalışır).</p><div class="dl"></div>
+      <details><summary>Nasıl kurarım?</summary><p>Dosyaya sağ tık → Özellikler → "Program olarak çalıştırılabilir" yap, sonra çift tıkla. Açılmazsa terminalden <code>./Voxa-...AppImage --no-sandbox</code> dene. Bazı sistemlerde <code>libfuse2</code> gerekir.</p></details>
+    </section>
+    <section class="card" data-p="web">
+      <h3>🌐 Web (iPhone, iPad ve tüm tarayıcılar)</h3>
+      <p>Kurulum gerektirmez. iPhone/iPad için ayrı bir uygulama yok; Voxa'yı ana ekrana ekleyerek uygulama gibi kullanabilirsin.</p>
+      <a class="btn" href="/">Voxa'yı aç</a>
+      <details><summary>iPhone / iPad'e nasıl eklerim?</summary><p>Safari'de Voxa'yı aç → <b>Paylaş</b> düğmesi → <b>Ana Ekrana Ekle</b>. Bilgisayarda Chrome/Edge: adres çubuğundaki <b>Yükle</b> simgesi.</p></details>
+    </section>
+  </div>
+
+  <h2>Bu sürümün notları</h2>
+  <div class="card"><pre class="notes" id="notes">—</pre></div>
+  <p class="sub" style="margin-top:22px">Dosya doğrulama: her dosyanın SHA-256 özeti yukarıda ve sürümdeki <code>SHA256SUMS.txt</code> dosyasında yazar.</p>
+</main>
+<script>
+(function(){
+  var REPO='bburakk65/Voxa', PREFIX='https://github.com/'+REPO+'/releases/download/';
+  var ua=navigator.userAgent||'';
+  var mine=/Android/i.test(ua)?'android':/Windows/i.test(ua)?'windows':/Macintosh|Mac OS/i.test(ua)&&!/iPhone|iPad/i.test(ua)?'mac':/iPhone|iPad|iPod/i.test(ua)?'web':/Linux/i.test(ua)?'linux':'';
+  var el=function(id){return document.getElementById(id)};
+  var card=document.querySelector('[data-p="'+mine+'"]'); if(card) card.classList.add('me');
+  function mb(n){return (n/1048576).toFixed(1)+' MB'}
+  function addBtn(p,a,label){
+    var box=document.querySelector('[data-p="'+p+'"] .dl');
+    if(!box||!a.browser_download_url||a.browser_download_url.indexOf(PREFIX)!==0) return;
+    var l=document.createElement('a'); l.className='btn'; l.href=a.browser_download_url; l.rel='noopener';
+    l.textContent=label+' ('+mb(a.size)+')'; box.appendChild(l);
+    if(typeof a.digest==='string'&&a.digest.indexOf('sha256:')===0){
+      var h=document.createElement('span'); h.className='hash'; h.textContent='SHA-256: '+a.digest.slice(7); box.appendChild(h);
+    }
+  }
+  function none(p){
+    var box=document.querySelector('[data-p="'+p+'"] .dl'); if(!box||box.children.length) return;
+    var b=document.createElement('span'); b.className='btn off'; b.textContent='Henüz yayımlanmadı'; box.appendChild(b);
+  }
+  fetch('https://api.github.com/repos/'+REPO+'/releases/latest',{headers:{Accept:'application/vnd.github+json'}})
+  .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+  .then(function(rel){
+    var d=rel.published_at?new Date(rel.published_at).toLocaleDateString('tr-TR'):'';
+    el('ver').innerHTML=''; var b=document.createElement('b'); b.textContent=rel.tag_name||''; el('ver').appendChild(b);
+    el('ver').appendChild(document.createTextNode(d?' · Yayın tarihi: '+d:''));
+    el('notes').textContent=(rel.body||'Not yok.').slice(0,3500);
+    (rel.assets||[]).forEach(function(a){
+      var n=a.name||'';
+      if(/^Voxa-v[0-9.]+\.apk$/.test(n)) addBtn('android',a,'APK indir');
+      else if(/^Voxa-v[0-9.]+-Windows-Kurulum\.exe$/.test(n)) addBtn('windows',a,'Windows için indir');
+      else if(/^Voxa-v[0-9.]+-macOS-arm64\.dmg$/.test(n)) addBtn('mac',a,'Apple Silicon (M1/M2/M3)');
+      else if(/^Voxa-v[0-9.]+-macOS-x64\.dmg$/.test(n)) addBtn('mac',a,'Intel Mac');
+      else if(/^Voxa-v[0-9.]+-Linux\.AppImage$/.test(n)) addBtn('linux',a,'AppImage indir');
+    });
+    ['android','windows','mac','linux'].forEach(none);
+  })
+  .catch(function(){
+    el('ver').textContent='Sürüm bilgisi alınamadı';
+    el('msg').innerHTML='<span class="warn">Henüz yayımlanmış bir sürüm yok ya da GitHub\'a şu an ulaşılamıyor.</span> İlk sürüm yayımlanınca dosyalar burada görünür. Bu arada Voxa\'yı web olarak kullanabilirsin.';
+    ['android','windows','mac','linux'].forEach(none);
+  });
+})();
+</script>
+</body>
+</html>

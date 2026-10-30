@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><title>Voxa</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+html,body{height:100%;margin:0;background:#1e1f22;color:#f2f3f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{min-height:100%;display:grid;place-content:center;text-align:center;padding:24px}
+h1{font-size:24px;margin:0 0 10px}p{color:#949ba4;max-width:420px;line-height:1.5;margin:0 auto 22px}
+button{background:#f4f4f5;color:#08080a;border:0;border-radius:12px;padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer}
+small{display:block;margin-top:18px;color:#6d6f78}
+</style></head><body><main>
+<h1>Bağlantı yok</h1>
+<p>Voxa'ya ulaşılamıyor. İnternet bağlantını kontrol et ve yeniden dene.</p>
+<button id="r">Yeniden dene</button><small id="m"></small>
+</main>
+<script>
+var m=new URLSearchParams(location.search).get('m');if(m)document.getElementById('m').textContent=m;
+document.getElementById('r').onclick=function(){location.href='https://voxa.voxaweb.workers.dev/';};
+window.addEventListener('online',function(){location.href='https://voxa.voxaweb.workers.dev/';});
+</script></body></html>

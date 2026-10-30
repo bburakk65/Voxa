@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="voxa_bg">#1E1F22</color>
+    <color name="voxa_card">#2B2D31</color>
+    <color name="voxa_text">#F2F3F5</color>
+    <color name="voxa_muted">#949BA4</color>
+    <color name="voxa_accent">#5865F2</color>
+</resources>

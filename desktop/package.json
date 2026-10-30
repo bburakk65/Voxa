@@ -1,0 +1,85 @@
+{
+  "name": "voxa-desktop",
+  "productName": "Voxa",
+  "version": "1.0.0",
+  "description": "Voxa: arkadaşlarınla yaz, konuş, takıl.",
+  "author": {
+    "name": "Voxa",
+    "email": "voxa@users.noreply.github.com"
+  },
+  "homepage": "https://voxa.voxaweb.workers.dev/",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^31.7.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.voxa.desktop",
+    "productName": "Voxa",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "offline.html",
+      "package.json",
+      "build/icon.png"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "Voxa-v${version}-Windows-Kurulum.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "differentialPackage": false
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Network",
+      "artifactName": "Voxa-v${version}-Linux.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.social-networking",
+      "identity": null,
+      "artifactName": "Voxa-v${version}-macOS-${arch}.${ext}"
+    },
+    "dmg": {
+      "writeUpdateInfo": false
+    }
+  }
+}

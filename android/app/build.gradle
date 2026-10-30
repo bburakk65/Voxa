@@ -1,0 +1,60 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Sürüm bilgisi GitHub Actions'tan gelir (VOXA_VERSION_NAME / VOXA_VERSION_CODE)
+def vName = System.getenv('VOXA_VERSION_NAME') ?: '1.0.0'
+def vCode = (System.getenv('VOXA_VERSION_CODE') ?: '1') as int
+def ksFile = System.getenv('VOXA_KS_FILE')
+
+android {
+    namespace 'com.voxa.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.voxa.app'
+        minSdk 26
+        targetSdk 34
+        versionCode vCode
+        versionName vName
+        buildConfigField 'String', 'SITE_URL', '"https://voxa.voxaweb.workers.dev/"'
+        buildConfigField 'String', 'UPDATE_REPO', '"bburakk65/Voxa"'
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    signingConfigs {
+        release {
+            if (ksFile) {
+                storeFile file(ksFile)
+                storePassword System.getenv('KS_PASS')
+                keyAlias 'voxa'
+                keyPassword System.getenv('KS_PASS')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (ksFile) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}
