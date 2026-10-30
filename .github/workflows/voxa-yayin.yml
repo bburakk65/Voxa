@@ -1,0 +1,331 @@
+name: Voxa Yayın
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'desktop/**'
+      - 'voxa-paket.zip'
+      - '.github/workflows/voxa-yayin.yml'
+  workflow_dispatch:
+    inputs:
+      kanal:
+        description: 'kararli = herkese güncelleme olarak sunulur, test = sadece denemek için'
+        type: choice
+        options: [kararli, test]
+        default: kararli
+      ref:
+        description: 'Boş bırak. (Geri dönüş için eski bir commit adresi yazılabilir)'
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: voxa-yayin
+  cancel-in-progress: false
+
+jobs:
+  hazirla:
+    name: Hazırlık ve sürüm numarası
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+      version: ${{ steps.ver.outputs.version }}
+      code: ${{ steps.ver.outputs.code }}
+      kanal: ${{ steps.ver.outputs.kanal }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: ZIP paketi varsa aç ve depoya kaydet
+        if: ${{ !inputs.ref }}
+        run: |
+          if [ -f voxa-paket.zip ]; then
+            unzip -o -q voxa-paket.zip -x '.github/*' '__MACOSX/*'
+            rm -f voxa-paket.zip
+            git config user.name "voxa-bot"
+            git config user.email "voxa-bot@users.noreply.github.com"
+            git add -A
+            git commit -m "Voxa paketi açıldı (android, masaüstü, indirme sayfası)" || true
+            git push origin HEAD:main
+          fi
+
+      - name: Son kodun adresini kaydet
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Sürüm numarasını hesapla
+        id: ver
+        env:
+          KANAL_GIRDI: ${{ inputs.kanal }}
+        run: |
+          MM=$(grep -E '^VERSION_MAJOR_MINOR=' android/version.properties | cut -d= -f2 | tr -d '\r ' || true)
+          [ -n "$MM" ] || MM=1.0
+          VERSION="$MM.${GITHUB_RUN_NUMBER}"
+          KANAL="${KANAL_GIRDI:-kararli}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "code=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "kanal=$KANAL" >> "$GITHUB_OUTPUT"
+          echo "### Sürüm: v$VERSION (kod ${GITHUB_RUN_NUMBER}) — $KANAL" >> "$GITHUB_STEP_SUMMARY"
+
+  android:
+    name: Android APK
+    needs: hazirla
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      VOXA_VERSION_NAME: ${{ needs.hazirla.outputs.version }}
+      VOXA_VERSION_CODE: ${{ needs.hazirla.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.hazirla.outputs.sha }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Android SDK hazırla
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" > /dev/null || true
+
+      - name: Birim testleri
+        run: gradle -p android testDebugUnitTest --no-daemon
+
+      - name: İmza anahtarını hazırla
+        env:
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KS_PASS:-}" ] || [ "${#KS_PASS}" -lt 16 ]; then
+            echo "::error title=KEYSTORE_PASSWORD eksik::Depo Settings > Secrets and variables > Actions > New repository secret. Ad: KEYSTORE_PASSWORD, değer: en az 16 karakterlik uzun bir şifre."
+            exit 1
+          fi
+          WORK="$RUNNER_TEMP/ks"; mkdir -p "$WORK"; cd "$WORK"
+          REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads "$REPO_URL" anahtar > /dev/null 2>&1; then
+            git clone --quiet --depth 1 --branch anahtar "$REPO_URL" kasa
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in kasa/voxa-keystore.enc -out voxa.p12 -pass env:KS_PASS \
+              || { echo "::error title=İmza anahtarı açılamadı::KEYSTORE_PASSWORD değeri ilk kurulumdaki ile aynı olmalı."; exit 1; }
+            echo "Mevcut imza anahtarı kullanıldı."
+          else
+            keytool -genkeypair -storetype PKCS12 -keystore voxa.p12 -alias voxa -keyalg RSA -keysize 4096 \
+              -validity 36500 -storepass "$KS_PASS" -keypass "$KS_PASS" -dname "CN=Voxa, O=Voxa, C=TR"
+            openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -in voxa.p12 -out voxa-keystore.enc -pass env:KS_PASS
+            mkdir kasa && cd kasa
+            git init -q -b anahtar
+            git config user.name "voxa-bot"; git config user.email "voxa-bot@users.noreply.github.com"
+            cp ../voxa-keystore.enc .
+            git add voxa-keystore.enc
+            git commit -q -m "Voxa imza anahtarı (AES-256 ile şifreli)"
+            git push -q "$REPO_URL" anahtar
+            cd ..
+            echo "Yeni imza anahtarı oluşturuldu ve şifreli olarak 'anahtar' dalına kaydedildi."
+          fi
+          echo "VOXA_KS_FILE=$WORK/voxa.p12" >> "$GITHUB_ENV"
+
+      - name: APK derle (imzalı)
+        env:
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: gradle -p android assembleRelease --no-daemon
+
+      - name: APK doğrula ve adlandır
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          test -s "$APK" || { echo "::error::APK oluşmadı"; exit 1; }
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --print-certs "$APK" | tee cert.txt
+          "$BT/aapt2" dump badging "$APK" | head -1 | tee badge.txt
+          grep -q "name='com.voxa.app'" badge.txt || { echo "::error::Paket kimliği beklenenden farklı"; exit 1; }
+          grep -q "versionCode='${VOXA_VERSION_CODE}'" badge.txt || { echo "::error::Sürüm kodu beklenenden farklı"; exit 1; }
+          OUT="Voxa-v${VOXA_VERSION_NAME}.apk"
+          cp "$APK" "$OUT"
+          sha256sum "$OUT" > "$OUT.sha256"
+          {
+            echo "### Android APK hazır: $OUT"
+            echo '```'; cat "$OUT.sha256"; grep -i 'SHA-256 digest' cert.txt | head -1 || true; echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voxa-android
+          path: |
+            Voxa-v*.apk
+            Voxa-v*.apk.sha256
+          if-no-files-found: error
+
+  masaustu:
+    name: Masaüstü (${{ matrix.ad }})
+    needs: hazirla
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, ad: windows, hedef: '--win' }
+          - { os: ubuntu-latest, ad: linux, hedef: '--linux' }
+          - { os: macos-latest, ad: macos, hedef: '--mac' }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.hazirla.outputs.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Bağımlılıkları kur
+        working-directory: desktop
+        env:
+          SURUM: ${{ needs.hazirla.outputs.version }}
+        run: |
+          npm version "$SURUM" --no-git-tag-version --allow-same-version
+          npm install --no-audit --no-fund
+
+      - name: Derle
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          HEDEF: ${{ matrix.hedef }}
+        run: npx electron-builder $HEDEF --publish never
+
+      - name: Dosyaları doğrula
+        working-directory: desktop/dist
+        run: |
+          ls -la
+          FILES=$(ls | grep -E '^Voxa-v.*\.(exe|AppImage|dmg)$' || true)
+          [ -n "$FILES" ] || { echo "::error::Kurulum dosyası oluşmadı"; exit 1; }
+          for f in $FILES; do
+            if command -v sha256sum > /dev/null; then sha256sum "$f" > "$f.sha256"; else shasum -a 256 "$f" > "$f.sha256"; fi
+          done
+          ls -la
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voxa-${{ matrix.ad }}
+          path: |
+            desktop/dist/Voxa-v*.exe
+            desktop/dist/Voxa-v*.AppImage
+            desktop/dist/Voxa-v*.dmg
+            desktop/dist/Voxa-v*.sha256
+          if-no-files-found: error
+
+  yayinla:
+    name: GitHub Releases'e yayınla
+    needs: [hazirla, android, masaustu]
+    if: ${{ always() && needs.android.result == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.hazirla.outputs.version }}
+      CODE: ${{ needs.hazirla.outputs.code }}
+      KANAL: ${{ needs.hazirla.outputs.kanal }}
+      SHA: ${{ needs.hazirla.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.hazirla.outputs.sha }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: paket
+          pattern: 'voxa-*'
+          merge-multiple: true
+
+      - name: Sürümü hazırla ve yayımla
+        run: |
+          set -euo pipefail
+          PREV=$(git tag --list 'v*' --sort=-v:refname | grep -v -- '-test$' | head -1 || true)
+          if [ -n "$PREV" ]; then RANGE="$PREV..HEAD"; else RANGE="HEAD"; fi
+          LOG=$(git log $RANGE --no-merges --pretty='- %s' | grep -v 'Voxa paketi açıldı' | head -25 || true)
+          cd paket
+          ls -la
+          test -f "Voxa-v${VERSION}.apk"
+          {
+            echo "## Voxa v${VERSION}"
+            echo
+            if [ -n "$LOG" ]; then echo "$LOG"; else echo "- İyileştirmeler ve hata düzeltmeleri"; fi
+            echo
+            echo "### Bu sürümdeki dosyalar"
+            for f in Voxa-v*.apk Voxa-v*.exe Voxa-v*.AppImage Voxa-v*.dmg; do [ -f "$f" ] && echo "- $f"; done
+            echo
+            echo "Kurulum rehberi ve tüm indirmeler: https://voxa.voxaweb.workers.dev/indir.html"
+          } > notes.md
+          cat Voxa-v*.sha256 > SHA256SUMS.txt
+          python3 - <<'PY'
+          import json, os, datetime
+          v = os.environ['VERSION']; code = int(os.environ['CODE'])
+          def sha(f):
+              p = f + '.sha256'
+              return open(p).read().split()[0] if os.path.exists(p) else None
+          cands = [('android', f'Voxa-v{v}.apk'), ('windows', f'Voxa-v{v}-Windows-Kurulum.exe'),
+                   ('linux', f'Voxa-v{v}-Linux.AppImage'), ('macosX64', f'Voxa-v{v}-macOS-x64.dmg'),
+                   ('macosArm64', f'Voxa-v{v}-macOS-arm64.dmg')]
+          files = {k: {'file': f, 'sha256': sha(f)} for k, f in cands if os.path.exists(f)}
+          info = {'app': 'Voxa', 'versionName': v, 'versionCode': code, 'apk': f'Voxa-v{v}.apk',
+                  'sha256': files['android']['sha256'], 'minSdk': 26, 'channel': os.environ['KANAL'],
+                  'notes': open('notes.md', encoding='utf-8').read()[:3500],
+                  'published': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'), 'files': files}
+          json.dump(info, open('version.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+          PY
+          TAG="v${VERSION}"; PRE=""
+          if [ "$KANAL" = "test" ]; then TAG="v${VERSION}-test"; PRE="--prerelease"; fi
+          if gh release view "$TAG" > /dev/null 2>&1; then echo "::error::$TAG zaten yayımlanmış"; exit 1; fi
+          gh release create "$TAG" Voxa-v* SHA256SUMS.txt version.json --title "Voxa v${VERSION}" --notes-file notes.md --target "$SHA" $PRE
+          echo "### Yayımlandı: $TAG ($KANAL)" >> "$GITHUB_STEP_SUMMARY"
+          ls Voxa-v* >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Uygulama içi güncelleme kaynağını kontrol et
+        if: ${{ env.KANAL == 'kararli' }}
+        continue-on-error: true
+        run: |
+          for i in 1 2 3 4; do
+            sleep 8
+            if curl -fsSL "https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/version.json" -o gelen.json; then
+              python3 - <<'PY'
+          import json, os, sys
+          d = json.load(open('gelen.json', encoding='utf-8'))
+          ok = d.get('app') == 'Voxa' and d.get('versionName') == os.environ['VERSION']
+          print('Güncelleme kaynağı yeni sürümü gösteriyor:', ok, d.get('versionName'))
+          sys.exit(0 if ok else 1)
+          PY
+              exit $?
+            fi
+          done
+          echo "Güncelleme kaynağına ulaşılamadı (depo herkese açık olmayabilir)"; exit 1
+
+  hata-bildir:
+    name: Hata raporu
+    needs: [hazirla, android, masaustu, yayinla]
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      R_ANDROID: ${{ needs.android.result }}
+      R_MASAUSTU: ${{ needs.masaustu.result }}
+      R_YAYIN: ${{ needs.yayinla.result }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Sorun kaydı aç
+        run: |
+          printf 'Voxa derlemesinde hata oluştu.\n\nAndroid: %s\nMasaüstü: %s\nYayın: %s\n\nDetay: %s\n' "$R_ANDROID" "$R_MASAUSTU" "$R_YAYIN" "$RUN_URL" > govde.txt
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "Voxa derleme hatası (çalıştırma #${GITHUB_RUN_NUMBER})" --body-file govde.txt || true
